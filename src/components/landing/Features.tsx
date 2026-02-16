@@ -1,41 +1,57 @@
-import { 
-  Bell, 
-  MessageSquare, 
-  FileCheck, 
+import {
+  Bell,
+  MessageSquare,
+  FileCheck,
   BookOpen,
   Zap,
   Building2,
-  ArrowRight
+  Shield,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 
 const features = [
   {
     icon: Bell,
-    title: "Violation Monitoring",
-    description: "Automatic alerts for new NYC violations from DOB, ECB, and FDNY. Get notified instantly when issues arise.",
+    title: "Multi-Agency Violation Monitoring",
+    description: "Real-time alerts from DOB, ECB, FDNY, HPD, DEP, DOT, DSNY, LPC & DOF. Violations are auto-classified by severity with aging deadlines.",
     color: "destructive",
-    highlight: "NYC-First",
+    highlight: "9 Agencies",
   },
   {
     icon: MessageSquare,
-    title: "SMS Work Threads",
-    description: "Manage all vendor communication via text. Every message is automatically saved to the property record.",
+    title: "SMS, WhatsApp & Telegram",
+    description: "Manage violations and vendors from any channel. AI-powered responses with full property context. Every message saved to the record.",
     color: "success",
-    highlight: "Primary Interface",
+    highlight: "Multi-Channel",
+  },
+  {
+    icon: Shield,
+    title: "Compliance Scoring",
+    description: "Letter-grade compliance scores per property. Track violation history, resolution rates, and local law requirements at a glance.",
+    color: "warning",
+    highlight: "A–F Grades",
   },
   {
     icon: FileCheck,
-    title: "COI Tracking",
-    description: "Never miss an expiring certificate. Automatic reminders ensure vendors stay compliant.",
-    color: "warning",
-    highlight: "Auto-Reminders",
+    title: "Permit & Application Tracking",
+    description: "Full BIS and DOB NOW integration. Track Initial, Subsequent & Post-Approval filings with decoded statuses and CO detection.",
+    color: "accent",
+    highlight: "BIS + DOB NOW",
   },
   {
     icon: BookOpen,
-    title: "Lease Q&A",
-    description: "Ask questions about your leases in plain English. Get cited answers with exact page references.",
-    color: "accent",
+    title: "Lease Q&A with AI",
+    description: "Upload leases and ask questions in plain English. Get cited answers with exact page references from your actual documents.",
+    color: "primary",
     highlight: "AI-Powered",
+  },
+  {
+    icon: BarChart3,
+    title: "Due Diligence Reports",
+    description: "Generate comprehensive property reports pulling violations, applications, and building data. Export as PDF for transactions.",
+    color: "muted-foreground",
+    highlight: "One-Click PDF",
   },
 ];
 
@@ -47,44 +63,40 @@ const Features = () => {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-4">
             <Zap className="w-4 h-4" />
-            Core Features
+            Platform Features
           </div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Everything you need to stay compliant
+            The operating system for NYC property compliance
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Purpose-built for NYC property owners. Simple enough to use via text, powerful enough to replace your spreadsheets.
+            Purpose-built for landlords, property managers, and expeditors who need to stay ahead of violations across multiple agencies.
           </p>
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {features.map((feature, index) => (
             <div
               key={index}
               className="group relative p-6 rounded-xl border border-border bg-card hover:shadow-card-hover transition-all duration-300"
             >
-              {/* Highlight badge */}
               <div className="absolute top-4 right-4">
                 <span className="px-2 py-1 rounded text-xs font-medium bg-secondary text-muted-foreground">
                   {feature.highlight}
                 </span>
               </div>
 
-              {/* Icon */}
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-${feature.color}/10`}>
                 <feature.icon className={`w-6 h-6 text-${feature.color}`} />
               </div>
 
-              {/* Content */}
               <h3 className="font-display text-xl font-semibold text-foreground mb-2">
                 {feature.title}
               </h3>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed text-sm">
                 {feature.description}
               </p>
 
-              {/* Hover arrow */}
               <div className="mt-4 flex items-center gap-2 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn more
                 <ArrowRight className="w-4 h-4" />
@@ -93,13 +105,13 @@ const Features = () => {
           ))}
         </div>
 
-        {/* Bottom CTA */}
+        {/* Bottom note */}
         <div className="mt-16 text-center">
           <div className="inline-flex items-center gap-4 p-4 rounded-xl border border-border bg-card">
             <Building2 className="w-8 h-8 text-primary" />
             <div className="text-left">
-              <p className="font-medium text-foreground">Non-NYC properties?</p>
-              <p className="text-sm text-muted-foreground">Basic vendor & work order management still available.</p>
+              <p className="font-medium text-foreground">Multi-property portfolios</p>
+              <p className="text-sm text-muted-foreground">Group properties, track violations across your entire portfolio, and generate roll-up reports.</p>
             </div>
           </div>
         </div>
