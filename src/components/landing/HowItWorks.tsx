@@ -1,44 +1,44 @@
-import { MessageSquare, ClipboardList, Users, CheckCircle } from "lucide-react";
+import { Bell, ClipboardList, Users, CheckCircle } from "lucide-react";
 
 const steps = [
   {
     number: "01",
-    icon: MessageSquare,
-    title: "Get alerted instantly",
-    description: "New violations trigger immediate SMS notifications with all the details you need to act.",
+    icon: Bell,
+    title: "Violations detected automatically",
+    description: "Property Guard syncs with 9 NYC agencies every day. New violations trigger instant alerts via SMS, WhatsApp, or Telegram.",
     sms: {
       type: "incoming",
-      message: "⚠️ New FDNY violation at 123 Main St. Due Oct 12. Reply \"summary\" or \"status\".",
+      message: "⚠️ New FDNY violation at 708 E Tremont. Sprinkler inspection overdue. Due Mar 1. Reply \"details\" for more.",
     },
   },
   {
     number: "02",
     icon: ClipboardList,
     title: "Work order auto-created",
-    description: "A work order is automatically generated and linked to the violation for tracking.",
+    description: "A work order is generated and linked to the violation. Severity, aging, and deadlines are calculated automatically.",
     sms: {
       type: "system",
-      message: "Work Order #1234 created: Resolve FDNY Violation #ECB-123456",
+      message: "📋 Work Order #1234 created: Resolve FDNY Violation. Priority: High. Compliance score impact: -12 pts.",
     },
   },
   {
     number: "03",
     icon: Users,
-    title: "Coordinate via SMS",
-    description: "Text your vendors directly. All messages are saved to the property record automatically.",
+    title: "Dispatch vendors from any channel",
+    description: "Text your vendors via SMS or WhatsApp. The AI assistant can answer their questions with full property context.",
     sms: {
       type: "outgoing",
-      message: "Hi Mike, we have a sprinkler inspection needed at 123 Main. Available this week?",
+      message: "Hi Mike, sprinkler inspection needed at 708 E Tremont. FDNY violation, due Mar 1. Available this week?",
     },
   },
   {
     number: "04",
     icon: CheckCircle,
-    title: "Track to completion",
-    description: "Monitor progress, collect documentation, and close out violations with full audit trails.",
+    title: "Resolve & close with audit trail",
+    description: "Upload certificates, track progress, and close violations. Your compliance score updates in real time.",
     sms: {
       type: "success",
-      message: "✅ Violation resolved. Certificate uploaded. Work order #1234 closed.",
+      message: "✅ Violation resolved. Certificate uploaded. Work Order #1234 closed. Compliance score: A → A+.",
     },
   },
 ];
@@ -47,38 +47,30 @@ const HowItWorks = () => {
   return (
     <section id="how-it-works" className="py-24 bg-secondary/30">
       <div className="container mx-auto px-6">
-        {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card text-foreground text-sm font-medium mb-4 border border-border">
             <span className="w-2 h-2 rounded-full bg-success" />
-            Simple Workflow
+            How It Works
           </div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            From violation to resolution
+            From violation to resolution in 4 steps
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            See how Threshold automates your compliance workflow with SMS-first communication.
+            No login required for day-to-day management. Handle everything from your phone via text.
           </p>
         </div>
 
-        {/* Steps */}
         <div className="max-w-4xl mx-auto">
           {steps.map((step, index) => (
-            <div 
-              key={index}
-              className="relative flex gap-6 pb-12 last:pb-0"
-            >
-              {/* Timeline line */}
+            <div key={index} className="relative flex gap-6 pb-12 last:pb-0">
               {index < steps.length - 1 && (
                 <div className="absolute left-6 top-12 w-px h-[calc(100%-3rem)] bg-border" />
               )}
 
-              {/* Step number */}
               <div className="relative z-10 w-12 h-12 rounded-full bg-primary flex items-center justify-center shrink-0">
                 <span className="text-sm font-bold text-primary-foreground">{step.number}</span>
               </div>
 
-              {/* Content */}
               <div className="flex-1 pt-1">
                 <div className="flex items-center gap-3 mb-2">
                   <step.icon className="w-5 h-5 text-accent" />
@@ -90,7 +82,6 @@ const HowItWorks = () => {
                   {step.description}
                 </p>
 
-                {/* SMS Preview */}
                 <div className={`
                   inline-block max-w-md p-3 rounded-2xl text-sm
                   ${step.sms.type === 'incoming' ? 'bg-card border border-border rounded-tl-none' : ''}
