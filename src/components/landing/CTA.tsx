@@ -23,13 +23,13 @@ const CTA = () => {
           </div>
 
           <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-foreground mb-6">
-            Stop chasing violations.
+            Your properties monitored.
             <br />
-            <span className="text-gradient">Let them come to you.</span>
+            <span className="text-gradient">Your vendors one text away.</span>
           </h2>
 
           <p className="text-lg text-primary-foreground/70 mb-10 max-w-xl mx-auto">
-            See how Property Guard automates compliance for NYC property owners, managers, and expeditors.
+            Join property owners and expeditors who manage compliance from their phone — not a dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -37,15 +37,17 @@ const CTA = () => {
               Schedule a Demo
               <ArrowRight className="w-5 h-5" />
             </Button>
-            <Button variant="heroDark" size="xl">
-              View Features
-            </Button>
+            <a href="#features">
+              <Button variant="heroDark" size="xl">
+                View Features
+              </Button>
+            </a>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-primary-foreground/60">
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              SMS, WhatsApp & Telegram
+              WhatsApp, SMS & Telegram
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
@@ -53,7 +55,7 @@ const CTA = () => {
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              AI-powered property intelligence
+              AI-powered lease & property intelligence
             </span>
           </div>
         </div>
