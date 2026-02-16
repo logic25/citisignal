@@ -21,8 +21,8 @@ const Navbar = () => {
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               How It Works
             </a>
-            <a href="#roadmap" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Roadmap
+            <a href="#vendor-dispatch" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Vendor Dispatch
             </a>
           </div>
 
