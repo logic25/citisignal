@@ -18,13 +18,13 @@ const Hero = () => {
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 leading-tight animate-slide-up">
-            Violations found. Vendors dispatched.
+            NYC violation monitoring
             <br />
-            <span className="text-gradient">All from a text message.</span>
+            <span className="text-gradient">on autopilot.</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-primary-foreground/70 mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Property Guard monitors DOB, ECB, FDNY & HPD violations in real time, auto-creates work orders, and lets you manage everything via SMS, WhatsApp, or Telegram.
+            Property Guard syncs with 9 city agencies daily, auto-creates work orders, and lets you dispatch vendors via WhatsApp, SMS, or Telegram — no login needed.
           </p>
 
           {/* CTAs */}
@@ -43,8 +43,8 @@ const Hero = () => {
           {/* Channel pills */}
           <div className="flex flex-wrap items-center justify-center gap-3 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             {[
-              { icon: Phone, label: "SMS" },
               { icon: MessageSquare, label: "WhatsApp" },
+              { icon: Phone, label: "SMS" },
               { icon: Bell, label: "Telegram" },
               { icon: Shield, label: "9 NYC Agencies" },
             ].map((item, i) => (
