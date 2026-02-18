@@ -583,31 +583,25 @@ export const PropertyOverviewTab = ({
         </CardContent>
       </Card>
 
-      {/* Compliance Score + Local Law Grid */}
+      {/* Compliance Score + Local Law Grid — stacked to avoid dead space */}
       <div id="local-law-compliance" className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            {complianceData ? (
-              <ComplianceScoreCard
-                score={complianceData.score}
-                grade={complianceData.grade}
-                violationScore={complianceData.violation_score}
-                complianceScore={complianceData.compliance_score}
-                resolutionScore={complianceData.resolution_score}
-                violationDetails={complianceData.violation_details}
-                complianceDetails={complianceData.compliance_details}
-                resolutionDetails={complianceData.resolution_details}
-                calculatedAt={complianceData.calculated_at}
-                onRecalculate={recalculate}
-              />
-            ) : (
-              <div className="bg-card rounded-xl border border-border p-5 shadow-card animate-pulse h-64" />
-            )}
-          </div>
-          <div>
-            <LocalLawComplianceGrid property={property} />
-          </div>
-        </div>
+        {complianceData ? (
+          <ComplianceScoreCard
+            score={complianceData.score}
+            grade={complianceData.grade}
+            violationScore={complianceData.violation_score}
+            complianceScore={complianceData.compliance_score}
+            resolutionScore={complianceData.resolution_score}
+            violationDetails={complianceData.violation_details}
+            complianceDetails={complianceData.compliance_details}
+            resolutionDetails={complianceData.resolution_details}
+            calculatedAt={complianceData.calculated_at}
+            onRecalculate={recalculate}
+          />
+        ) : (
+          <div className="bg-card rounded-xl border border-border p-5 shadow-card animate-pulse h-64" />
+        )}
+        <LocalLawComplianceGrid property={property} />
       </div>
 
       {/* Property AI Widget */}
