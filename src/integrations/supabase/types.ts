@@ -1726,36 +1726,104 @@ export type Database = {
           },
         ]
       }
+      work_order_messages: {
+        Row: {
+          channel: string
+          created_at: string
+          extracted_amount: number | null
+          id: string
+          message: string
+          sender_name: string | null
+          sender_type: string
+          work_order_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          extracted_amount?: number | null
+          id?: string
+          message: string
+          sender_name?: string | null
+          sender_type?: string
+          work_order_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          extracted_amount?: number | null
+          id?: string
+          message?: string
+          sender_name?: string | null
+          sender_type?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_messages_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
+          approved_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
+          dispatched_at: string | null
+          due_date: string | null
           id: string
           linked_violation_id: string | null
+          notes: string | null
+          priority: string
           property_id: string
+          quoted_amount: number | null
           scope: string
           status: Database["public"]["Enums"]["work_order_status"]
           updated_at: string
           vendor_id: string | null
+          vendor_notified_via: string | null
         }
         Insert: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          dispatched_at?: string | null
+          due_date?: string | null
           id?: string
           linked_violation_id?: string | null
+          notes?: string | null
+          priority?: string
           property_id: string
+          quoted_amount?: number | null
           scope: string
           status?: Database["public"]["Enums"]["work_order_status"]
           updated_at?: string
           vendor_id?: string | null
+          vendor_notified_via?: string | null
         }
         Update: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          dispatched_at?: string | null
+          due_date?: string | null
           id?: string
           linked_violation_id?: string | null
+          notes?: string | null
+          priority?: string
           property_id?: string
+          quoted_amount?: number | null
           scope?: string
           status?: Database["public"]["Enums"]["work_order_status"]
           updated_at?: string
           vendor_id?: string | null
+          vendor_notified_via?: string | null
         }
         Relationships: [
           {
@@ -1814,7 +1882,14 @@ export type Database = {
       jurisdiction_type: "NYC" | "NON_NYC"
       notification_priority: "critical" | "high" | "normal" | "low"
       violation_status: "open" | "in_progress" | "closed"
-      work_order_status: "open" | "in_progress" | "awaiting_docs" | "completed"
+      work_order_status:
+        | "open"
+        | "dispatched"
+        | "quoted"
+        | "approved"
+        | "in_progress"
+        | "awaiting_docs"
+        | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1957,7 +2032,15 @@ export const Constants = {
       jurisdiction_type: ["NYC", "NON_NYC"],
       notification_priority: ["critical", "high", "normal", "low"],
       violation_status: ["open", "in_progress", "closed"],
-      work_order_status: ["open", "in_progress", "awaiting_docs", "completed"],
+      work_order_status: [
+        "open",
+        "dispatched",
+        "quoted",
+        "approved",
+        "in_progress",
+        "awaiting_docs",
+        "completed",
+      ],
     },
   },
 } as const
