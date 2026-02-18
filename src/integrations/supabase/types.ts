@@ -1562,39 +1562,133 @@ export type Database = {
         }
         Relationships: []
       }
-      vendors: {
+      vendor_reviews: {
         Row: {
-          coi_expiration_date: string | null
+          communication_rating: number | null
           created_at: string
           id: string
+          property_id: string | null
+          quality_rating: number | null
+          rating: number
+          review_text: string | null
+          timeliness_rating: number | null
+          title: string | null
+          updated_at: string
+          user_id: string
+          value_rating: number | null
+          vendor_id: string
+          work_order_id: string | null
+        }
+        Insert: {
+          communication_rating?: number | null
+          created_at?: string
+          id?: string
+          property_id?: string | null
+          quality_rating?: number | null
+          rating: number
+          review_text?: string | null
+          timeliness_rating?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          value_rating?: number | null
+          vendor_id: string
+          work_order_id?: string | null
+        }
+        Update: {
+          communication_rating?: number | null
+          created_at?: string
+          id?: string
+          property_id?: string | null
+          quality_rating?: number | null
+          rating?: number
+          review_text?: string | null
+          timeliness_rating?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          value_rating?: number | null
+          vendor_id?: string
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_reviews_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_reviews_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          address: string | null
+          avg_rating: number | null
+          coi_expiration_date: string | null
+          created_at: string
+          email: string | null
+          id: string
+          license_number: string | null
           name: string
+          notes: string | null
           phone_number: string | null
           status: string | null
           telegram_chat_id: number | null
+          total_reviews: number | null
+          total_spent: number | null
           trade_type: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          avg_rating?: number | null
           coi_expiration_date?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          license_number?: string | null
           name: string
+          notes?: string | null
           phone_number?: string | null
           status?: string | null
           telegram_chat_id?: number | null
+          total_reviews?: number | null
+          total_spent?: number | null
           trade_type?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          avg_rating?: number | null
           coi_expiration_date?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          license_number?: string | null
           name?: string
+          notes?: string | null
           phone_number?: string | null
           status?: string | null
           telegram_chat_id?: number | null
+          total_reviews?: number | null
+          total_spent?: number | null
           trade_type?: string | null
           updated_at?: string
           user_id?: string

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -91,6 +92,7 @@ const TRADE_TYPES = [
 
 const VendorsPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -466,11 +468,11 @@ const VendorsPage = () => {
                         </CollapsibleTrigger>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/dashboard/vendors/${vendor.id}`)}>
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                             <Users className="w-4 h-4 text-primary" />
                           </div>
-                          <span className="font-medium">{vendor.name}</span>
+                          <span className="font-medium hover:text-primary transition-colors">{vendor.name}</span>
                         </div>
                       </TableCell>
                       <TableCell>
