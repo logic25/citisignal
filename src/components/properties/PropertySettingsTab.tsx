@@ -20,8 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -53,10 +51,6 @@ import {
   Clock,
   AlertTriangle,
   Wrench,
-  Flame,
-  ArrowUpDown,
-  Droplets,
-  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,6 +72,16 @@ interface PropertySettingsTabProps {
   hasBoiler: boolean | null;
   hasElevator: boolean | null;
   hasSprinkler: boolean | null;
+  hasRetainingWall?: boolean | null;
+  hasParkingStructure?: boolean | null;
+  hasCoolingTower?: boolean | null;
+  hasWaterTank?: boolean | null;
+  hasFireAlarm?: boolean | null;
+  hasStandpipe?: boolean | null;
+  hasPlaceOfAssembly?: boolean | null;
+  isFoodEstablishment?: boolean | null;
+  hasBackflowDevice?: boolean | null;
+  burnsNo4Oil?: boolean | null;
   onUpdate: () => void;
 }
 
@@ -90,6 +94,16 @@ export const PropertySettingsTab = ({
   hasBoiler,
   hasElevator,
   hasSprinkler,
+  hasRetainingWall,
+  hasParkingStructure,
+  hasCoolingTower,
+  hasWaterTank,
+  hasFireAlarm,
+  hasStandpipe,
+  hasPlaceOfAssembly,
+  isFoodEstablishment,
+  hasBackflowDevice,
+  burnsNo4Oil,
   onUpdate,
 }: PropertySettingsTabProps) => {
   const { user } = useAuth();
@@ -103,19 +117,29 @@ export const PropertySettingsTab = ({
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviting, setInviting] = useState(false);
 
-  // Form state
+  // Form state — original
   const [formOwnerName, setFormOwnerName] = useState(ownerName || '');
   const [formOwnerPhone, setFormOwnerPhone] = useState(ownerPhone || '');
   const [formSmsEnabled, setFormSmsEnabled] = useState(smsEnabled || false);
+
+  // Form state — building features
   const [formHasGas, setFormHasGas] = useState(hasGas || false);
   const [formHasBoiler, setFormHasBoiler] = useState(hasBoiler || false);
   const [formHasElevator, setFormHasElevator] = useState(hasElevator || false);
   const [formHasSprinkler, setFormHasSprinkler] = useState(hasSprinkler || false);
+  const [formHasRetainingWall, setFormHasRetainingWall] = useState(hasRetainingWall || false);
+  const [formHasParkingStructure, setFormHasParkingStructure] = useState(hasParkingStructure || false);
+  const [formHasCoolingTower, setFormHasCoolingTower] = useState(hasCoolingTower || false);
+  const [formHasWaterTank, setFormHasWaterTank] = useState(hasWaterTank || false);
+  const [formHasFireAlarm, setFormHasFireAlarm] = useState(hasFireAlarm || false);
+  const [formHasStandpipe, setFormHasStandpipe] = useState(hasStandpipe || false);
+  const [formHasPlaceOfAssembly, setFormHasPlaceOfAssembly] = useState(hasPlaceOfAssembly || false);
+  const [formIsFoodEstablishment, setFormIsFoodEstablishment] = useState(isFoodEstablishment || false);
+  const [formHasBackflowDevice, setFormHasBackflowDevice] = useState(hasBackflowDevice || false);
+  const [formBurnsNo4Oil, setFormBurnsNo4Oil] = useState(burnsNo4Oil || false);
   const [savingFeatures, setSavingFeatures] = useState(false);
 
-  useEffect(() => {
-    fetchMembers();
-  }, [propertyId]);
+  useEffect(() => { fetchMembers(); }, [propertyId]);
 
   useEffect(() => {
     setFormOwnerName(ownerName || '');
@@ -125,7 +149,19 @@ export const PropertySettingsTab = ({
     setFormHasBoiler(hasBoiler || false);
     setFormHasElevator(hasElevator || false);
     setFormHasSprinkler(hasSprinkler || false);
-  }, [ownerName, ownerPhone, smsEnabled, hasGas, hasBoiler, hasElevator, hasSprinkler]);
+    setFormHasRetainingWall(hasRetainingWall || false);
+    setFormHasParkingStructure(hasParkingStructure || false);
+    setFormHasCoolingTower(hasCoolingTower || false);
+    setFormHasWaterTank(hasWaterTank || false);
+    setFormHasFireAlarm(hasFireAlarm || false);
+    setFormHasStandpipe(hasStandpipe || false);
+    setFormHasPlaceOfAssembly(hasPlaceOfAssembly || false);
+    setFormIsFoodEstablishment(isFoodEstablishment || false);
+    setFormHasBackflowDevice(hasBackflowDevice || false);
+    setFormBurnsNo4Oil(burnsNo4Oil || false);
+  }, [ownerName, ownerPhone, smsEnabled, hasGas, hasBoiler, hasElevator, hasSprinkler,
+      hasRetainingWall, hasParkingStructure, hasCoolingTower, hasWaterTank, hasFireAlarm,
+      hasStandpipe, hasPlaceOfAssembly, isFoodEstablishment, hasBackflowDevice, burnsNo4Oil]);
 
   const fetchMembers = async () => {
     try {
@@ -135,7 +171,6 @@ export const PropertySettingsTab = ({
         .eq('property_id', propertyId)
         .neq('status', 'removed')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setMembers(data || []);
     } catch (error) {
@@ -156,7 +191,6 @@ export const PropertySettingsTab = ({
           sms_enabled: formSmsEnabled,
         })
         .eq('id', propertyId);
-
       if (error) throw error;
       toast.success('Settings saved');
       onUpdate();
@@ -178,9 +212,18 @@ export const PropertySettingsTab = ({
           has_boiler: formHasBoiler,
           has_elevator: formHasElevator,
           has_sprinkler: formHasSprinkler,
-        })
+          has_retaining_wall: formHasRetainingWall,
+          has_parking_structure: formHasParkingStructure,
+          has_cooling_tower: formHasCoolingTower,
+          has_water_tank: formHasWaterTank,
+          has_fire_alarm: formHasFireAlarm,
+          has_standpipe: formHasStandpipe,
+          has_place_of_assembly: formHasPlaceOfAssembly,
+          is_food_establishment: formIsFoodEstablishment,
+          has_backflow_device: formHasBackflowDevice,
+          burns_no4_oil: formBurnsNo4Oil,
+        } as any)
         .eq('id', propertyId);
-
       if (error) throw error;
       toast.success('Building features saved');
       onUpdate();
@@ -194,27 +237,21 @@ export const PropertySettingsTab = ({
 
   const handleInviteMember = async () => {
     if (!inviteEmail || !user) return;
-
     setInviting(true);
     try {
       const { error } = await supabase.from('property_members').insert({
         property_id: propertyId,
-        user_id: user.id, // Will be updated when they accept
+        user_id: user.id,
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
         invited_by: user.id,
         status: 'pending',
       });
-
       if (error) {
-        if (error.code === '23505') {
-          toast.error('This person has already been invited');
-        } else {
-          throw error;
-        }
+        if (error.code === '23505') { toast.error('This person has already been invited'); }
+        else { throw error; }
         return;
       }
-
       toast.success(`Invitation sent to ${inviteEmail}`);
       setInviteEmail('');
       setInviteRole('viewer');
@@ -234,7 +271,6 @@ export const PropertySettingsTab = ({
         .from('property_members')
         .update({ status: 'removed' })
         .eq('id', memberId);
-
       if (error) throw error;
       toast.success('Member removed');
       fetchMembers();
@@ -247,7 +283,6 @@ export const PropertySettingsTab = ({
   const handleDeleteProperty = async () => {
     setDeleting(true);
     try {
-      // Delete related data first, then the property
       await Promise.all([
         supabase.from('applications').delete().eq('property_id', propertyId),
         supabase.from('violations').delete().eq('property_id', propertyId),
@@ -256,38 +291,20 @@ export const PropertySettingsTab = ({
         supabase.from('property_activity_log').delete().eq('property_id', propertyId),
         supabase.from('property_members').delete().eq('property_id', propertyId),
       ]);
-
-      // Delete AI conversations and messages
-      const { data: convos } = await supabase
-        .from('property_ai_conversations')
-        .select('id')
-        .eq('property_id', propertyId);
-      
+      const { data: convos } = await supabase.from('property_ai_conversations').select('id').eq('property_id', propertyId);
       if (convos && convos.length > 0) {
         const convoIds = convos.map(c => c.id);
         await supabase.from('property_ai_messages').delete().in('conversation_id', convoIds);
         await supabase.from('property_ai_conversations').delete().eq('property_id', propertyId);
       }
-
-      // Delete lease conversations and messages
-      const { data: leaseConvos } = await supabase
-        .from('lease_conversations')
-        .select('id')
-        .eq('property_id', propertyId);
-      
+      const { data: leaseConvos } = await supabase.from('lease_conversations').select('id').eq('property_id', propertyId);
       if (leaseConvos && leaseConvos.length > 0) {
         const leaseIds = leaseConvos.map(c => c.id);
         await supabase.from('lease_messages').delete().in('conversation_id', leaseIds);
         await supabase.from('lease_conversations').delete().eq('property_id', propertyId);
       }
-
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', propertyId);
-
+      const { error } = await supabase.from('properties').delete().eq('id', propertyId);
       if (error) throw error;
-      
       toast.success('Property deleted');
       navigate('/dashboard/properties');
     } catch (error) {
@@ -307,6 +324,16 @@ export const PropertySettingsTab = ({
     }
   };
 
+  const FeatureToggle = ({ label, sublabel, checked, onChange }: { label: string; sublabel: string; checked: boolean; onChange: (v: boolean) => void }) => (
+    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+      <div>
+        <p className="font-medium text-sm">{label}</p>
+        <p className="text-xs text-muted-foreground">{sublabel}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Owner & Contact Information */}
@@ -324,25 +351,12 @@ export const PropertySettingsTab = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="owner_name">Owner / Entity Name</Label>
-              <Input
-                id="owner_name"
-                placeholder="e.g., ABC Realty LLC"
-                value={formOwnerName}
-                onChange={(e) => setFormOwnerName(e.target.value)}
-              />
+              <Input id="owner_name" placeholder="e.g., ABC Realty LLC" value={formOwnerName} onChange={(e) => setFormOwnerName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="owner_phone">Owner Phone</Label>
-              <Input
-                id="owner_phone"
-                type="tel"
-                placeholder="+1 (555) 123-4567"
-                value={formOwnerPhone}
-                onChange={(e) => setFormOwnerPhone(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                This number receives SMS alerts for new violations
-              </p>
+              <Input id="owner_phone" type="tel" placeholder="+1 (555) 123-4567" value={formOwnerPhone} onChange={(e) => setFormOwnerPhone(e.target.value)} />
+              <p className="text-xs text-muted-foreground">This number receives SMS alerts for new violations</p>
             </div>
           </div>
         </CardContent>
@@ -359,53 +373,43 @@ export const PropertySettingsTab = ({
             These features determine which Local Law requirements apply to this property.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">Gas Piping</p>
-                  <p className="text-xs text-muted-foreground">LL152 gas inspections</p>
-                </div>
-              </div>
-              <Switch checked={formHasGas} onCheckedChange={setFormHasGas} />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Droplets className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">Boiler</p>
-                  <p className="text-xs text-muted-foreground">LL62 boiler inspections</p>
-                </div>
-              </div>
-              <Switch checked={formHasBoiler} onCheckedChange={setFormHasBoiler} />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">Elevator</p>
-                  <p className="text-xs text-muted-foreground">LL126 elevator inspections</p>
-                </div>
-              </div>
-              <Switch checked={formHasElevator} onCheckedChange={setFormHasElevator} />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <p className="font-medium text-sm">Sprinkler System</p>
-                  <p className="text-xs text-muted-foreground">LL26 sprinkler inspections</p>
-                </div>
-              </div>
-              <Switch checked={formHasSprinkler} onCheckedChange={setFormHasSprinkler} />
+        <CardContent className="space-y-5">
+          {/* Mechanical Systems */}
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Mechanical Systems</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <FeatureToggle label="Gas Piping" sublabel="LL152, LL157, LL159 gas inspections" checked={formHasGas} onChange={setFormHasGas} />
+              <FeatureToggle label="Boiler" sublabel="Annual boiler inspection (Admin Code)" checked={formHasBoiler} onChange={setFormHasBoiler} />
+              <FeatureToggle label="Elevator" sublabel="LL62 elevator inspections" checked={formHasElevator} onChange={setFormHasElevator} />
+              <FeatureToggle label="Sprinkler System" sublabel="LL26 retrofit + FDNY maintenance" checked={formHasSprinkler} onChange={setFormHasSprinkler} />
+              <FeatureToggle label="Standpipe System" sublabel="FDNY standpipe inspections" checked={formHasStandpipe} onChange={setFormHasStandpipe} />
+              <FeatureToggle label="Fire Alarm System" sublabel="FDNY fire alarm inspections" checked={formHasFireAlarm} onChange={setFormHasFireAlarm} />
             </div>
           </div>
-          <Button
-            onClick={handleSaveBuildingFeatures}
-            disabled={savingFeatures}
-          >
+
+          {/* Structural Features */}
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Structural Features</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <FeatureToggle label="Retaining Wall" sublabel="LL37 retaining wall inspections" checked={formHasRetainingWall} onChange={setFormHasRetainingWall} />
+              <FeatureToggle label="Parking Structure" sublabel="LL126/08 PIPS inspections" checked={formHasParkingStructure} onChange={setFormHasParkingStructure} />
+              <FeatureToggle label="Cooling Tower" sublabel="LL77/15 DOHMH certification" checked={formHasCoolingTower} onChange={setFormHasCoolingTower} />
+              <FeatureToggle label="Rooftop Water Tank" sublabel="LL76 DOHMH inspections" checked={formHasWaterTank} onChange={setFormHasWaterTank} />
+            </div>
+          </div>
+
+          {/* Use & Operations */}
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Use & Operations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <FeatureToggle label="Place of Assembly" sublabel="FDNY PA certificate (75+ persons)" checked={formHasPlaceOfAssembly} onChange={setFormHasPlaceOfAssembly} />
+              <FeatureToggle label="Food Establishment" sublabel="DEP grease trap maintenance" checked={formIsFoodEstablishment} onChange={setFormIsFoodEstablishment} />
+              <FeatureToggle label="Backflow Prevention Device" sublabel="DEP annual testing" checked={formHasBackflowDevice} onChange={setFormHasBackflowDevice} />
+              <FeatureToggle label="Burns No. 4 Oil" sublabel="LL32 oil phaseout (deadline 2027)" checked={formBurnsNo4Oil} onChange={setFormBurnsNo4Oil} />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveBuildingFeatures} disabled={savingFeatures}>
             {savingFeatures && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Building Features
           </Button>
@@ -419,32 +423,19 @@ export const PropertySettingsTab = ({
             <Bell className="w-5 h-5 text-primary" />
             SMS Alerts
           </CardTitle>
-          <CardDescription>
-            Get instant text messages when new violations are detected
-          </CardDescription>
+          <CardDescription>Get instant text messages when new violations are detected</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
             <div>
               <p className="font-medium">Enable SMS Alerts</p>
               <p className="text-sm text-muted-foreground">
-                {formOwnerPhone 
-                  ? `Alerts will be sent to ${formOwnerPhone}` 
-                  : 'Add an owner phone number above to enable'}
+                {formOwnerPhone ? `Alerts will be sent to ${formOwnerPhone}` : 'Add an owner phone number above to enable'}
               </p>
             </div>
-            <Switch
-              checked={formSmsEnabled}
-              onCheckedChange={setFormSmsEnabled}
-              disabled={!formOwnerPhone}
-            />
+            <Switch checked={formSmsEnabled} onCheckedChange={setFormSmsEnabled} disabled={!formOwnerPhone} />
           </div>
-
-          <Button 
-            onClick={handleSaveOwnerSettings} 
-            className="mt-4"
-            disabled={saving}
-          >
+          <Button onClick={handleSaveOwnerSettings} className="mt-4" disabled={saving}>
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Settings
           </Button>
@@ -460,71 +451,31 @@ export const PropertySettingsTab = ({
                 <Users className="w-5 h-5 text-primary" />
                 Team Members
               </CardTitle>
-              <CardDescription>
-                Invite property managers, supers, or other team members
-              </CardDescription>
+              <CardDescription>Invite property managers, supers, or other team members</CardDescription>
             </div>
             <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite
-                </Button>
+                <Button size="sm"><UserPlus className="w-4 h-4 mr-2" />Invite</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Invite Team Member</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Invite Team Member</DialogTitle></DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2">
                     <Label htmlFor="invite_email">Email Address</Label>
-                    <Input
-                      id="invite_email"
-                      type="email"
-                      placeholder="team@example.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                    />
+                    <Input id="invite_email" type="email" placeholder="team@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="invite_role">Role</Label>
                     <Select value={inviteRole} onValueChange={setInviteRole}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="manager">
-                          <div className="flex flex-col items-start">
-                            <span>Manager</span>
-                            <span className="text-xs text-muted-foreground">
-                              Full access to property data
-                            </span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="super">
-                          <div className="flex flex-col items-start">
-                            <span>Super / Maintenance</span>
-                            <span className="text-xs text-muted-foreground">
-                              View violations and work orders
-                            </span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="viewer">
-                          <div className="flex flex-col items-start">
-                            <span>Viewer</span>
-                            <span className="text-xs text-muted-foreground">
-                              Read-only access
-                            </span>
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="super">Super / Maintenance</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button 
-                    onClick={handleInviteMember} 
-                    className="w-full"
-                    disabled={!inviteEmail || inviting}
-                  >
+                  <Button onClick={handleInviteMember} className="w-full" disabled={!inviteEmail || inviting}>
                     {inviting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Send Invitation
                   </Button>
@@ -541,10 +492,7 @@ export const PropertySettingsTab = ({
           ) : members.length > 0 ? (
             <div className="space-y-3">
               {members.map((member) => (
-                <div 
-                  key={member.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border"
-                >
+                <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
                       <Mail className="w-4 h-4 text-muted-foreground" />
@@ -552,29 +500,16 @@ export const PropertySettingsTab = ({
                     <div>
                       <p className="text-sm font-medium">{member.email}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline" className={getRoleBadgeColor(member.role)}>
-                          {member.role}
-                        </Badge>
+                        <Badge variant="outline" className={getRoleBadgeColor(member.role)}>{member.role}</Badge>
                         {member.status === 'pending' ? (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Pending
-                          </span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" />Pending</span>
                         ) : (
-                          <span className="text-xs text-success flex items-center gap-1">
-                            <Check className="w-3 h-3" />
-                            Active
-                          </span>
+                          <span className="text-xs text-success flex items-center gap-1"><Check className="w-3 h-3" />Active</span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => handleRemoveMember(member.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleRemoveMember(member.id)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -597,9 +532,7 @@ export const PropertySettingsTab = ({
             <AlertTriangle className="w-5 h-5" />
             Danger Zone
           </CardTitle>
-          <CardDescription>
-            Irreversible actions for this property
-          </CardDescription>
+          <CardDescription>Irreversible actions for this property</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/20 bg-destructive/5">
@@ -611,10 +544,7 @@ export const PropertySettingsTab = ({
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Property
-                </Button>
+                <Button variant="destructive" size="sm"><Trash2 className="w-4 h-4 mr-2" />Delete Property</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -625,11 +555,7 @@ export const PropertySettingsTab = ({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteProperty}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={deleting}
-                  >
+                  <AlertDialogAction onClick={handleDeleteProperty} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleting}>
                     {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Delete Property
                   </AlertDialogAction>

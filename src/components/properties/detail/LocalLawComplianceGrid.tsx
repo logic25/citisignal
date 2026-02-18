@@ -20,6 +20,7 @@ import {
 import {
   type PropertyForCompliance,
   type LocalLawRequirement,
+  type ComplianceCategory,
   getApplicableLaws,
   getComplianceSummary,
 } from '@/lib/local-law-engine';
@@ -72,9 +73,9 @@ function LawRow({ law }: { law: LocalLawRequirement }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between py-3 px-4 hover:bg-muted/50 transition-colors rounded-lg">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <span className="font-mono font-semibold text-sm w-16 text-left shrink-0">
+        <div className="flex items-center justify-between py-2.5 px-3 hover:bg-muted/50 transition-colors rounded-lg">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <span className="font-mono font-semibold text-xs w-20 text-left shrink-0 truncate">
               {law.local_law}
             </span>
             <span className="text-sm truncate">{law.requirement_name}</span>
@@ -87,7 +88,7 @@ function LawRow({ law }: { law: LocalLawRequirement }) {
               </TooltipContent>
             </Tooltip>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             {law.next_due_date && law.applies && (
               <span className="text-xs text-muted-foreground hidden md:block">
                 Due: {new Date(law.next_due_date).toLocaleDateString()}
@@ -99,7 +100,7 @@ function LawRow({ law }: { law: LocalLawRequirement }) {
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="px-4 pb-3 pt-1 ml-[76px] space-y-2 text-sm">
+        <div className="px-3 pb-2.5 pt-1 ml-[88px] space-y-2 text-sm">
           <p className="text-muted-foreground">{law.description}</p>
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
             <div>
@@ -133,6 +134,38 @@ function LawRow({ law }: { law: LocalLawRequirement }) {
   );
 }
 
+function CategorySection({ category, laws }: { category: string; laws: LocalLawRequirement[] }) {
+  const [open, setOpen] = useState(true);
+  const applicableCount = laws.filter(l => l.applies).length;
+  const overdueCount = laws.filter(l => l.applies && l.status === 'overdue').length;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between py-2 px-1 hover:bg-muted/30 transition-colors rounded">
+          <div className="flex items-center gap-2">
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+            <span className="text-sm font-semibold">{category}</span>
+            <span className="text-xs text-muted-foreground">({applicableCount} applicable)</span>
+          </div>
+          {overdueCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              {overdueCount} overdue
+            </Badge>
+          )}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="divide-y divide-border/50 ml-2">
+          {laws.map(law => (
+            <LawRow key={law.local_law} law={law} />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function LocalLawComplianceGrid({ property }: LocalLawComplianceGridProps) {
   const [showExempt, setShowExempt] = useState(false);
   const requirements = getApplicableLaws(property);
@@ -140,6 +173,27 @@ export function LocalLawComplianceGrid({ property }: LocalLawComplianceGridProps
 
   const applicableLaws = requirements.filter(r => r.applies);
   const exemptLaws = requirements.filter(r => !r.applies);
+
+  // Group applicable laws by category
+  const categoryOrder: ComplianceCategory[] = [
+    'DOB — Facade, Exterior & Structural',
+    'DOB — Energy & Emissions',
+    'DOB — Gas Safety',
+    'DOB — Elevators & Mechanical',
+    'DOB — Fire Safety & Sprinklers',
+    'DOHMH — Cooling Towers & Water',
+    'DEP — Water & Environmental',
+    'HPD — Residential Housing',
+    'FDNY — Fire Safety',
+    'Multi-Agency & Other',
+  ];
+
+  const groupedApplicable = categoryOrder
+    .map(cat => ({
+      category: cat,
+      laws: applicableLaws.filter(l => l.category === cat),
+    }))
+    .filter(g => g.laws.length > 0);
 
   return (
     <Card>
@@ -172,9 +226,13 @@ export function LocalLawComplianceGrid({ property }: LocalLawComplianceGridProps
             No applicable Local Law requirements detected for this property.
           </p>
         ) : (
-          <div className="divide-y divide-border">
-            {applicableLaws.map(law => (
-              <LawRow key={law.local_law} law={law} />
+          <div className="space-y-1">
+            {groupedApplicable.map(group => (
+              <CategorySection
+                key={group.category}
+                category={group.category}
+                laws={group.laws}
+              />
             ))}
           </div>
         )}
