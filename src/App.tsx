@@ -16,6 +16,7 @@ import ApplicationsPage from "@/pages/dashboard/ApplicationsPage";
 import ViolationsPage from "@/pages/dashboard/ViolationsPage";
 import DDReportsPage from "@/pages/dashboard/DDReportsPage";
 import VendorsPage from "@/pages/dashboard/VendorsPage";
+import VendorDetailPage from "@/pages/dashboard/VendorDetailPage";
 import WorkOrdersPage from "@/pages/dashboard/WorkOrdersPage";
 import SettingsPage from "@/pages/dashboard/SettingsPage";
 import CalendarPage from "@/pages/dashboard/CalendarPage";
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="violations" element={<ViolationsPage />} />
               <Route path="dd-reports" element={<DDReportsPage />} />
               <Route path="vendors" element={<VendorsPage />} />
+              <Route path="vendors/:id" element={<VendorDetailPage />} />
               <Route path="work-orders" element={<WorkOrdersPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
