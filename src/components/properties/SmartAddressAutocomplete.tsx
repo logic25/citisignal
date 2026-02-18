@@ -159,18 +159,25 @@ export const SmartAddressAutocomplete = ({
       let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
       
       // Extract and remove borough names from search (DOB stores borough separately)
-      const boroughNames: Record<string, string> = {
-        'MANHATTAN': '1', 'BRONX': '2', 'BROOKLYN': '3', 'QUEENS': '4', 'STATEN': '5',
-        'BK': '3', 'BX': '2', 'MN': '1', 'QN': '4', 'SI': '5',
-      };
+      // Use prefix matching so partial typing like "brook" matches "BROOKLYN"
+      const boroughPrefixes: [string, string][] = [
+        ['MANHATTAN', '1'], ['BRONX', '2'], ['BROOKLYN', '3'], ['QUEENS', '4'], 
+        ['STATEN', '5'], ['BK', '3'], ['BX', '2'], ['MN', '1'], ['QN', '4'], ['SI', '5'],
+      ];
       let boroughFilter = '';
       streetParts = streetParts.filter(p => {
-        if (boroughNames[p]) {
-          boroughFilter = boroughNames[p];
+        // Check if this word is a prefix of any borough name (or exact match of abbreviation)
+        const match = boroughPrefixes.find(([name]) => 
+          name.startsWith(p) && p.length >= 2
+        );
+        if (match) {
+          boroughFilter = match[1];
           return false;
         }
         // Also handle "STATEN ISLAND" -> skip "ISLAND" too
         if (p === 'ISLAND' && boroughFilter === '5') return false;
+        // Skip common suffixes that aren't street names: "NY", "NEW", "YORK"
+        if (['NY', 'NEW', 'YORK', 'NYC'].includes(p)) return false;
         return true;
       });
       
