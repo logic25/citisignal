@@ -501,7 +501,7 @@ export const PropertyAIWidget = ({
     <Dialog open={isDialogOpen} onOpenChange={handleDialogOpen}>
       <DialogTrigger asChild>
         <button
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 group"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105 transition-all duration-200 group"
           aria-label="Open Property AI"
         >
           <Sparkles className="w-5 h-5" />
