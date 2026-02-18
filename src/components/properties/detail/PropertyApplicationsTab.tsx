@@ -300,6 +300,10 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
   const clearAllSources = () => setSelectedSources(new Set());
 
   const filtered = useMemo(() => {
+    // If no statuses or sources selected, show nothing (user explicitly cleared all)
+    if (statusFilterInit && selectedStatuses.size === 0) return [];
+    if (sourceFilterInit && selectedSources.size === 0) return [];
+
     return (applications || []).filter(app => {
       const matchesSearch = !searchQuery ||
         app.application_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -308,11 +312,11 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
         app.tenant_name?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesAgency = agencyFilter === 'all' || app.agency === agencyFilter;
       const decodedStatus = decodeStatus(app.status, app.source);
-      const matchesStatus = selectedStatuses.size === 0 || selectedStatuses.has(decodedStatus);
-      const matchesSource = selectedSources.size === 0 || selectedSources.has(app.source);
+      const matchesStatus = selectedStatuses.has(decodedStatus);
+      const matchesSource = selectedSources.has(app.source);
       return matchesSearch && matchesAgency && matchesStatus && matchesSource;
     });
-  }, [applications, searchQuery, agencyFilter, selectedStatuses, selectedSources]);
+  }, [applications, searchQuery, agencyFilter, selectedStatuses, selectedSources, statusFilterInit, sourceFilterInit]);
 
   // Build a map of related filings by job number prefix
   const relatedFilingsMap = useMemo(() => {
