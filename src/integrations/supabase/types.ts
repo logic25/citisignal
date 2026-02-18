@@ -1722,6 +1722,7 @@ export type Database = {
           license_number: string | null
           name: string
           notes: string | null
+          payment_preference: string | null
           phone_number: string | null
           status: string | null
           telegram_chat_id: number | null
@@ -1730,6 +1731,8 @@ export type Database = {
           trade_type: string | null
           updated_at: string
           user_id: string
+          zelle_email: string | null
+          zelle_phone: string | null
         }
         Insert: {
           address?: string | null
@@ -1741,6 +1744,7 @@ export type Database = {
           license_number?: string | null
           name: string
           notes?: string | null
+          payment_preference?: string | null
           phone_number?: string | null
           status?: string | null
           telegram_chat_id?: number | null
@@ -1749,6 +1753,8 @@ export type Database = {
           trade_type?: string | null
           updated_at?: string
           user_id: string
+          zelle_email?: string | null
+          zelle_phone?: string | null
         }
         Update: {
           address?: string | null
@@ -1760,6 +1766,7 @@ export type Database = {
           license_number?: string | null
           name?: string
           notes?: string | null
+          payment_preference?: string | null
           phone_number?: string | null
           status?: string | null
           telegram_chat_id?: number | null
@@ -1768,6 +1775,8 @@ export type Database = {
           trade_type?: string | null
           updated_at?: string
           user_id?: string
+          zelle_email?: string | null
+          zelle_phone?: string | null
         }
         Relationships: []
       }
@@ -1945,12 +1954,19 @@ export type Database = {
           approved_amount: number | null
           approved_at: string | null
           approved_by: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          completion_photos: Json | null
           created_at: string
           dispatched_at: string | null
           due_date: string | null
           id: string
           linked_violation_id: string | null
           notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
           po_id: string | null
           priority: string
           property_id: string
@@ -1960,17 +1976,25 @@ export type Database = {
           updated_at: string
           vendor_id: string | null
           vendor_notified_via: string | null
+          verified_at: string | null
         }
         Insert: {
           approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_photos?: Json | null
           created_at?: string
           dispatched_at?: string | null
           due_date?: string | null
           id?: string
           linked_violation_id?: string | null
           notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
           po_id?: string | null
           priority?: string
           property_id: string
@@ -1980,17 +2004,25 @@ export type Database = {
           updated_at?: string
           vendor_id?: string | null
           vendor_notified_via?: string | null
+          verified_at?: string | null
         }
         Update: {
           approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_photos?: Json | null
           created_at?: string
           dispatched_at?: string | null
           due_date?: string | null
           id?: string
           linked_violation_id?: string | null
           notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
           po_id?: string | null
           priority?: string
           property_id?: string
@@ -2000,6 +2032,7 @@ export type Database = {
           updated_at?: string
           vendor_id?: string | null
           vendor_notified_via?: string | null
+          verified_at?: string | null
         }
         Relationships: [
           {
