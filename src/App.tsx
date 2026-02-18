@@ -25,6 +25,7 @@ import AdminOverview from "@/pages/dashboard/admin/AdminOverview";
 import AdminAPILogsPage from "@/pages/dashboard/admin/AdminAPILogsPage";
 import AdminUsersPage from "@/pages/dashboard/admin/AdminUsersPage";
 import AdminUserDetailPage from "@/pages/dashboard/admin/AdminUserDetailPage";
+import SignPO from "./pages/SignPO";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="admin/users" element={<AdminUsersPage />} />
               <Route path="admin/users/:userId" element={<AdminUserDetailPage />} />
             </Route>
+            <Route path="/sign-po/:token" element={<SignPO />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

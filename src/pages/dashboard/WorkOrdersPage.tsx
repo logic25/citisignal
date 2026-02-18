@@ -91,6 +91,7 @@ interface WorkOrder {
   quoted_amount?: number | null;
   approved_amount?: number | null;
   dispatched_at?: string | null;
+  po_id?: string | null;
 }
 
 const WorkOrdersPage = () => {
@@ -163,7 +164,18 @@ const WorkOrdersPage = () => {
         })
         .eq('id', wo.id);
       if (error) throw error;
-      toast.success(`Quote of $${wo.quoted_amount?.toLocaleString()} approved`);
+      toast.success(`Quote of $${wo.quoted_amount?.toLocaleString()} approved — generating PO...`);
+
+      // Auto-generate PO
+      const { error: poErr } = await supabase.functions.invoke('generate-po', {
+        body: { work_order_id: wo.id },
+      });
+      if (poErr) {
+        console.error('PO generation error:', poErr);
+        toast.error('Approved but PO generation failed. Try again from the detail view.');
+      } else {
+        toast.success('Purchase Order created and sent to vendor for signing!');
+      }
       fetchData();
     } catch { toast.error('Failed to approve'); }
   };
@@ -196,6 +208,24 @@ const WorkOrdersPage = () => {
         channel: 'in_app',
         message: `Counter offer: $${amount.toLocaleString()}`,
       });
+
+      // Notify vendor via Telegram if they have a chat_id
+      if (wo.vendor) {
+        const { data: vendorData } = await supabase
+          .from('vendors')
+          .select('telegram_chat_id')
+          .eq('id', wo.vendor.id)
+          .single();
+        if (vendorData?.telegram_chat_id) {
+          await supabase.functions.invoke('send-telegram', {
+            body: {
+              chat_id: vendorData.telegram_chat_id,
+              message: `💰 *Counter Offer*\n\nThe owner has countered your quote for "${wo.scope.substring(0, 80)}" at ${wo.property?.address}.\n\nNew amount: *$${amount.toLocaleString()}*\n\nReply with your new price to counter, or "accept" to agree.`,
+            },
+          });
+        }
+      }
+
       toast.success(`Counter offer of $${amount.toLocaleString()} sent`);
       setShowCounter(prev => ({ ...prev, [wo.id]: false }));
       fetchData();
@@ -695,7 +725,15 @@ const WorkOrdersPage = () => {
                                 <span className="font-semibold text-emerald-700 dark:text-emerald-300">
                                   Approved: ${workOrder.approved_amount.toLocaleString()}
                                 </span>
+                                {workOrder.po_id && (
+                                  <Badge className="bg-emerald-100 text-emerald-700 ml-2">PO Generated</Badge>
+                                )}
                               </div>
+                              {workOrder.po_id && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Purchase order sent to vendor for signing.
+                                </p>
+                              )}
                             </div>
                           )}
 

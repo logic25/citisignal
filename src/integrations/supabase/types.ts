@@ -1434,6 +1434,82 @@ export type Database = {
           },
         ]
       }
+      purchase_orders: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          owner_signed_at: string | null
+          pdf_url: string | null
+          po_number: string
+          property_id: string
+          scope: string
+          status: string
+          updated_at: string
+          user_id: string
+          vendor_id: string
+          vendor_sign_token: string
+          vendor_signed_at: string | null
+          work_order_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          owner_signed_at?: string | null
+          pdf_url?: string | null
+          po_number: string
+          property_id: string
+          scope: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          vendor_id: string
+          vendor_sign_token?: string
+          vendor_signed_at?: string | null
+          work_order_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          owner_signed_at?: string | null
+          pdf_url?: string | null
+          po_number?: string
+          property_id?: string
+          scope?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vendor_id?: string
+          vendor_sign_token?: string
+          vendor_signed_at?: string | null
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telegram_users: {
         Row: {
           chat_id: number
@@ -1875,6 +1951,7 @@ export type Database = {
           id: string
           linked_violation_id: string | null
           notes: string | null
+          po_id: string | null
           priority: string
           property_id: string
           quoted_amount: number | null
@@ -1894,6 +1971,7 @@ export type Database = {
           id?: string
           linked_violation_id?: string | null
           notes?: string | null
+          po_id?: string | null
           priority?: string
           property_id: string
           quoted_amount?: number | null
@@ -1913,6 +1991,7 @@ export type Database = {
           id?: string
           linked_violation_id?: string | null
           notes?: string | null
+          po_id?: string | null
           priority?: string
           property_id?: string
           quoted_amount?: number | null
@@ -1928,6 +2007,13 @@ export type Database = {
             columns: ["linked_violation_id"]
             isOneToOne: false
             referencedRelation: "violations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
             referencedColumns: ["id"]
           },
           {
@@ -1963,6 +2049,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      nextval_po_number: { Args: never; Returns: number }
     }
     Enums: {
       agency_type:

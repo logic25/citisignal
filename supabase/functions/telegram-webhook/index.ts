@@ -125,9 +125,67 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (vendorMatch) {
-      // Vendor message — try to extract quote and match to work order
+      // Vendor message — check for PO acceptance first
       console.log("Vendor message from:", vendorMatch.name, "text:", text);
 
+      // Handle "ACCEPT PO-XXXXX" to sign PO via Telegram
+      const acceptMatch = text.toUpperCase().match(/ACCEPT\s+(PO-\d+)/);
+      if (acceptMatch) {
+        const poNumber = acceptMatch[1];
+        const { data: po, error: poErr } = await supabase
+          .from("purchase_orders")
+          .select("id, po_number, status, work_order_id, property_id, user_id, amount")
+          .eq("po_number", poNumber)
+          .eq("vendor_id", vendorMatch.id)
+          .maybeSingle();
+
+        if (poErr || !po) {
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `❌ Purchase order ${poNumber} not found or not assigned to you.`);
+          return new Response("OK", { status: 200 });
+        }
+
+        if (po.status === "fully_executed") {
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `✅ ${poNumber} is already fully executed.`);
+          return new Response("OK", { status: 200 });
+        }
+
+        // Sign the PO
+        await supabase
+          .from("purchase_orders")
+          .update({ vendor_signed_at: new Date().toISOString(), status: "fully_executed" })
+          .eq("id", po.id);
+
+        // Move work order to in_progress
+        await supabase
+          .from("work_orders")
+          .update({ status: "in_progress" as any })
+          .eq("id", po.work_order_id);
+
+        // Notify owner
+        if (po.user_id) {
+          const { data: prop } = await supabase
+            .from("properties")
+            .select("address")
+            .eq("id", po.property_id)
+            .single();
+
+          await supabase.from("notifications").insert({
+            user_id: po.user_id,
+            title: `${poNumber} Signed by ${vendorMatch.name}`,
+            message: `${vendorMatch.name} has signed ${poNumber} ($${po.amount?.toLocaleString()}) for ${prop?.address}. Work is now in progress.`,
+            priority: "high",
+            category: "work_orders",
+            property_id: po.property_id,
+            entity_type: "purchase_order",
+            entity_id: po.id,
+          });
+        }
+
+        await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `✅ *${poNumber} Signed!*\n\nYou've accepted the purchase order for $${po.amount?.toLocaleString()}. Work is now authorized to begin.`, "Markdown");
+        return new Response("OK", { status: 200 });
+      }
+
+      // Otherwise handle normal vendor messages (quotes, etc.)
       const { data: openWOs } = await supabase
         .from("work_orders")
         .select("id, scope, status, property_id")
@@ -139,7 +197,7 @@ Deno.serve(async (req) => {
         const amountMatch = text.match(/\$?([\d,]+(?:\.\d{1,2})?)/);
         const extractedAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
 
-        const targetWO = openWOs[0]; // Pick the most relevant (first open/dispatched)
+        const targetWO = openWOs[0];
 
         // Log the vendor message
         await supabase.from("work_order_messages").insert({
