@@ -202,66 +202,9 @@ const CLOSED_STATUSES = [
   'SETTLED', 'SATISFIED', 'VACATED', 'WAIVED', 'NO PENALTY', 'DEFAULT - PAID'
 ];
 
-// BIS Portal scraper for withdrawal detection AND actual status enrichment
-const TERMINAL_BIS_STATUSES = ['I', 'U', 'X', '3']; // Sign-Off, Completed, Signed-Off, Suspended
+// BIS Portal scraper — PAUSED per request
+// const TERMINAL_BIS_STATUSES = ['I', 'U', 'X', '3'];
 
-interface BisScraperResult {
-  withdrawn: boolean;
-  withdrawal_date: string | null;
-  actual_status_code: string | null;  // e.g. 'X' from "SIGNED OFF (X)"
-  actual_status_date: string | null;  // e.g. '08/20/2025'
-  document_count: number | null;      // e.g. 20 from "Document: 01 OF 20"
-}
-
-async function scrapeBisPortalStatus(jobNumber: string): Promise<BisScraperResult | null> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(
-      `https://a810-bisweb.nyc.gov/bisweb/JobsQueryByNumberServlet?passjobnumber=${jobNumber}`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-
-    if (!response.ok) return null;
-
-    const html = await response.text();
-    
-    const result: BisScraperResult = {
-      withdrawn: false,
-      withdrawal_date: null,
-      actual_status_code: null,
-      actual_status_date: null,
-      document_count: null,
-    };
-
-    // Check for withdrawal
-    const withdrawnMatch = html.match(/JOB\s+WITHDRAWN[:\s]*(\d{2}\/\d{2}\/\d{4})?/i);
-    if (withdrawnMatch) {
-      result.withdrawn = true;
-      result.withdrawal_date = withdrawnMatch[1] || null;
-    }
-
-    // Extract actual status from "Last Action: SIGNED OFF 08/20/2025 (X)" pattern
-    const lastActionMatch = html.match(/Last\s+Action:\s*([A-Z\s]+?)\s+(\d{2}\/\d{2}\/\d{4})\s*\((\w+)\)/i);
-    if (lastActionMatch) {
-      result.actual_status_date = lastActionMatch[2];
-      result.actual_status_code = lastActionMatch[3].toUpperCase();
-    }
-
-    // Extract document count from "Document: 01 OF 20"
-    const docCountMatch = html.match(/Document:\s*\d+\s+OF\s+(\d+)/i);
-    if (docCountMatch) {
-      result.document_count = parseInt(docCountMatch[1], 10);
-    }
-
-    return result;
-  } catch {
-    // Timeout or network error — graceful fallback
-    return null;
-  }
-}
 
 async function sendSMSAlert(
   supabaseUrl: string,
@@ -1009,14 +952,42 @@ Deno.serve(async (req) => {
         permitsByJob.get(jobKey)!.push(p);
       }
 
-      // Determine if this is a full sync (not dob_quick) for scraper usage
-      const isFullSync = !agenciesToSync || agenciesToSync.length !== 1 || agenciesToSync[0] !== 'DOB';
-
+      // ── Step 1: Deduplicate BIS rows by job__ + doc__ (keep latest dobrundate) ──
+      const bisDeduped = new Map<string, Record<string, unknown>>();
       for (const j of bisJobs as Record<string, unknown>[]) {
         const jobNum = j.job__ as string;
+        const docNum = j.doc__ as string || '01';
         if (!jobNum) continue;
+        const key = `${jobNum}-${docNum}`;
+        const existing = bisDeduped.get(key);
+        if (existing) {
+          const existingDate = String(existing.dobrundate || '');
+          const newDate = String(j.dobrundate || '');
+          if (newDate > existingDate) {
+            bisDeduped.set(key, j);
+          }
+        } else {
+          bisDeduped.set(key, j);
+        }
+      }
 
-        const jobType = (j.job_type as string) || null;
+      // ── Step 2: Group deduplicated rows by job number ──
+      const bisJobGroups = new Map<string, Record<string, unknown>[]>();
+      for (const row of bisDeduped.values()) {
+        const jobNum = row.job__ as string;
+        if (!bisJobGroups.has(jobNum)) bisJobGroups.set(jobNum, []);
+        bisJobGroups.get(jobNum)!.push(row);
+      }
+
+      console.log(`BIS: ${bisJobs.length} raw rows → ${bisDeduped.size} deduped → ${bisJobGroups.size} unique jobs`);
+
+      // ── Step 3: Build one application record per job ──
+      for (const [jobNum, docs] of bisJobGroups) {
+        // Sort docs by doc number ascending; Doc 01 is primary
+        docs.sort((a, b) => String(a.doc__ || '01').localeCompare(String(b.doc__ || '01')));
+        const primary = docs[0]; // Doc 01 (or lowest)
+
+        const jobType = (primary.job_type as string) || null;
         const jobTypeLabel = jobType === 'NB' ? 'New Building' :
                             jobType === 'A1' ? 'Alteration Type 1' :
                             jobType === 'A2' ? 'Alteration Type 2' :
@@ -1025,34 +996,69 @@ Deno.serve(async (req) => {
                             jobType === 'SG' ? 'Sign' :
                             jobType || 'Job Filing';
 
-        // Determine initial status
-        let appStatus: string | null = (j.withdrawal_flag && j.withdrawal_flag !== '0' && j.withdrawal_flag !== 'N')
+        // Use primary doc for status (already deduped to latest dobrundate)
+        const appStatus: string | null = (primary.withdrawal_flag && primary.withdrawal_flag !== '0' && primary.withdrawal_flag !== 'N')
           ? 'Withdrawn'
-          : (j.job_status as string) || (j.latest_action_date ? 'Filed' : null);
+          : (primary.job_status as string) || (primary.latest_action_date ? 'Filed' : null);
 
-        // Build raw_data with permit sub-filings (deduplicated by job_doc + permit_sequence)
-        const rawData: Record<string, unknown> = {};
-        const jobPermits = permitsByJob.get(String(jobNum));
-        if (jobPermits && jobPermits.length > 0) {
-          // Deduplicate: use composite key of job_doc + permit_sequence
-          const seen = new Set<string>();
-          const dedupedPermits = jobPermits.filter(p => {
+        // ── Build bis_documents array ──
+        const bisDocuments = docs.map(d => {
+          const docNum = String(d.doc__ || '01');
+          // Derive work_type from flag fields
+          const workParts: string[] = [];
+          if (d.other_description || d.job_description) workParts.push(String(d.other_description || d.job_description || ''));
+          if (d.plumbing && String(d.plumbing).toUpperCase() === 'X') workParts.push('Plumbing');
+          if (d.mechanical && String(d.mechanical).toUpperCase() === 'X') workParts.push('Mechanical');
+          if (d.sprinkler && String(d.sprinkler).toUpperCase() === 'X') workParts.push('Sprinkler');
+          if (d.boiler && String(d.boiler).toUpperCase() === 'X') workParts.push('Boiler');
+          if (d.fuel_burning && String(d.fuel_burning).toUpperCase() === 'X') workParts.push('Fuel Burning');
+          if (d.fuel_storage && String(d.fuel_storage).toUpperCase() === 'X') workParts.push('Fuel Storage');
+          if (d.standpipe && String(d.standpipe).toUpperCase() === 'X') workParts.push('Standpipe');
+          if (d.fire_alarm && String(d.fire_alarm).toUpperCase() === 'X') workParts.push('Fire Alarm');
+          if (d.equipment_work && String(d.equipment_work).toUpperCase() === 'X') workParts.push('Equipment');
+          if (d.fire_suppression && String(d.fire_suppression).toUpperCase() === 'X') workParts.push('Fire Suppression');
+          if (d.curb_cut && String(d.curb_cut).toUpperCase() === 'X') workParts.push('Curb Cut');
+
+          const docEntry: Record<string, unknown> = {
+            doc_number: docNum,
+            applicant_name: (d.applicant_s_first_name && d.applicant_s_last_name)
+              ? `${d.applicant_s_first_name} ${d.applicant_s_last_name}`.trim()
+              : null,
+            applicant_professional_title: d.applicant_professional_title || null,
+            applicant_license_number: d.applicant_license__ || null,
+            description: String(d.job_description || ''),
+            work_type: workParts.join(', ') || null,
+            job_status: d.job_status || null,
+            job_status_descrp: d.job_status_descrp || null,
+            permits: [] as Array<Record<string, unknown>>,
+          };
+          return docEntry;
+        });
+
+        // ── Step 4: Merge permit data into bis_documents ──
+        const jobPermits = permitsByJob.get(String(jobNum)) || [];
+        // Group permits by doc number
+        const permitsByDoc = new Map<string, Array<Record<string, unknown>>>();
+        for (const p of jobPermits) {
+          const pDoc = String(p.job_doc___ || '01');
+          if (!permitsByDoc.has(pDoc)) permitsByDoc.set(pDoc, []);
+          permitsByDoc.get(pDoc)!.push(p);
+        }
+
+        for (const bisDoc of bisDocuments) {
+          const docPermits = permitsByDoc.get(bisDoc.doc_number as string) || [];
+          // Deduplicate permits by doc + sequence
+          const seenPermits = new Set<string>();
+          const dedupedPermits = docPermits.filter(p => {
             const key = `${String(p.job_doc___ || '')}-${String(p.permit_sequence___ || '')}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
+            if (seenPermits.has(key)) return false;
+            seenPermits.add(key);
             return true;
           });
-          
-          rawData.permits = dedupedPermits
-            .sort((a, b) => {
-              const docA = String(a.job_doc___ || '');
-              const docB = String(b.job_doc___ || '');
-              if (docA !== docB) return docA.localeCompare(docB);
-              // Within same doc, sort by permit sequence
-              return String(a.permit_sequence___ || '').localeCompare(String(b.permit_sequence___ || ''));
-            })
+
+          bisDoc.permits = dedupedPermits
+            .sort((a, b) => String(a.permit_sequence___ || '').localeCompare(String(b.permit_sequence___ || '')))
             .map(p => ({
-              job_doc: String(p.job_doc___ || ''),
               permit_type: p.permit_type || null,
               permit_status: p.permit_status || null,
               filing_status: p.filing_status || null,
@@ -1072,32 +1078,43 @@ Deno.serve(async (req) => {
             }));
         }
 
-        // BIS Portal scraper: enrich status + detect withdrawals during full sync
-        if (isFullSync && appStatus !== 'Withdrawn') {
-          const scraperResult = await scrapeBisPortalStatus(String(jobNum));
-          if (scraperResult) {
-            if (scraperResult.withdrawn) {
-              appStatus = 'Withdrawn';
-              rawData.withdrawal_date = scraperResult.withdrawal_date;
-              rawData.withdrawal_source = 'bis_portal_scraper';
-              console.log(`  BIS scraper: Job ${jobNum} detected as WITHDRAWN (date: ${scraperResult.withdrawal_date || 'unknown'})`);
-            } else if (scraperResult.actual_status_code) {
-              // Override stale API status with portal's actual status
-              const portalCode = scraperResult.actual_status_code;
-              const apiCode = (j.job_status as string) || '';
-              if (portalCode !== apiCode.toUpperCase()) {
-                console.log(`  BIS scraper: Job ${jobNum} status corrected from '${apiCode}' to '${portalCode}' (portal date: ${scraperResult.actual_status_date})`);
-                appStatus = portalCode;
-                rawData.portal_status_date = scraperResult.actual_status_date;
-                rawData.portal_status_source = 'bis_portal_scraper';
-              }
-            }
-            if (scraperResult.document_count) {
-              rawData.total_documents = scraperResult.document_count;
-            }
-          }
-          // Rate-limit: 200ms delay between scraper calls
-          await new Promise(resolve => setTimeout(resolve, 200));
+        // Build raw_data with bis_documents + backward-compat permits array
+        const rawData: Record<string, unknown> = {
+          bis_documents: bisDocuments,
+        };
+
+        // Also keep flat permits array for backward compat
+        if (jobPermits.length > 0) {
+          const seenFlat = new Set<string>();
+          rawData.permits = jobPermits.filter(p => {
+            const key = `${String(p.job_doc___ || '')}-${String(p.permit_sequence___ || '')}`;
+            if (seenFlat.has(key)) return false;
+            seenFlat.add(key);
+            return true;
+          }).sort((a, b) => {
+            const docA = String(a.job_doc___ || '');
+            const docB = String(b.job_doc___ || '');
+            if (docA !== docB) return docA.localeCompare(docB);
+            return String(a.permit_sequence___ || '').localeCompare(String(b.permit_sequence___ || ''));
+          }).map(p => ({
+            job_doc: String(p.job_doc___ || ''),
+            permit_type: p.permit_type || null,
+            permit_status: p.permit_status || null,
+            filing_status: p.filing_status || null,
+            permit_sequence: p.permit_sequence___ || null,
+            issuance_date: p.issuance_date ? String(p.issuance_date).split('T')[0] : null,
+            expiration_date: p.expiration_date ? String(p.expiration_date).split('T')[0] : null,
+            job_start_date: p.job_start_date ? String(p.job_start_date).split('T')[0] : null,
+            permittee_first_name: p.permittee_s_first_name || null,
+            permittee_last_name: p.permittee_s_last_name || null,
+            permittee_business_name: p.permittee_s_business_name || null,
+            permittee_license_type: p.permittee_s_license_type || null,
+            permittee_license_number: p.permittee_s_license__ || null,
+            permittee_phone: p.permittee_s_phone__ || null,
+            owner_first_name: p.owner_s_first_name || null,
+            owner_last_name: p.owner_s_last_name || null,
+            owner_business_name: p.owner_s_business_name || null,
+          }));
         }
 
         applicationRecords.push({
@@ -1107,29 +1124,29 @@ Deno.serve(async (req) => {
           agency: 'DOB',
           source: 'DOB BIS',
           status: appStatus,
-          filing_date: j.pre__filing_date ? (j.pre__filing_date as string).split('T')[0] :
-                       j.latest_action_date ? (j.latest_action_date as string).split('T')[0] : null,
-          approval_date: j.approved_date ? (j.approved_date as string).split('T')[0] :
-                         j.fully_permitted_date ? (j.fully_permitted_date as string).split('T')[0] : null,
-          expiration_date: j.job_status_descrp?.toString().toLowerCase().includes('expired') ? 
-                          (j.latest_action_date as string)?.split('T')[0] || null : null,
+          filing_date: primary.pre__filing_date ? (primary.pre__filing_date as string).split('T')[0] :
+                       primary.latest_action_date ? (primary.latest_action_date as string).split('T')[0] : null,
+          approval_date: primary.approved_date ? (primary.approved_date as string).split('T')[0] :
+                         primary.fully_permitted_date ? (primary.fully_permitted_date as string).split('T')[0] : null,
+          expiration_date: primary.job_status_descrp?.toString().toLowerCase().includes('expired') ? 
+                          (primary.latest_action_date as string)?.split('T')[0] || null : null,
           job_type: jobType,
-          work_type: (j.building_type as string) || null,
+          work_type: (primary.building_type as string) || null,
           description: [
-            j.job_description,
-            j.building_type ? `Building Type: ${j.building_type}` : null,
+            primary.job_description,
+            primary.building_type ? `Building Type: ${primary.building_type}` : null,
           ].filter(Boolean).join(' — ') || null,
-          applicant_name: (j.applicant_s_first_name && j.applicant_s_last_name)
-            ? `${j.applicant_s_first_name} ${j.applicant_s_last_name}`.trim()
+          applicant_name: (primary.applicant_s_first_name && primary.applicant_s_last_name)
+            ? `${primary.applicant_s_first_name} ${primary.applicant_s_last_name}`.trim()
             : null,
-          owner_name: (j.owner_s_first_name && j.owner_s_last_name)
-            ? `${j.owner_s_first_name} ${j.owner_s_last_name}`.trim()
-            : (j.owner_s_business_name as string) || null,
-          estimated_cost: j.initial_cost ? parseFloat(j.initial_cost as string) : null,
-          stories: j.proposed_no_of_stories ? parseInt(j.proposed_no_of_stories as string) : null,
-          dwelling_units: j.proposed_dwelling_units ? parseInt(j.proposed_dwelling_units as string) : null,
-          floor_area: j.proposed_zoning_sqft ? parseFloat(j.proposed_zoning_sqft as string) : null,
-          raw_data: Object.keys(rawData).length > 0 ? rawData : null,
+          owner_name: (primary.owner_s_first_name && primary.owner_s_last_name)
+            ? `${primary.owner_s_first_name} ${primary.owner_s_last_name}`.trim()
+            : (primary.owner_s_business_name as string) || null,
+          estimated_cost: primary.initial_cost ? parseFloat(primary.initial_cost as string) : null,
+          stories: primary.proposed_no_of_stories ? parseInt(primary.proposed_no_of_stories as string) : null,
+          dwelling_units: primary.proposed_dwelling_units ? parseInt(primary.proposed_dwelling_units as string) : null,
+          floor_area: primary.proposed_zoning_sqft ? parseFloat(primary.proposed_zoning_sqft as string) : null,
+          raw_data: rawData,
         });
       }
 
