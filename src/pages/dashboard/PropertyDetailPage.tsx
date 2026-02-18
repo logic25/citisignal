@@ -156,10 +156,11 @@ const PropertyDetailPage = () => {
             const decoded = ({ h: 'completed', i: 'signed off', j: 'disapproved', k: 'co issued', x: 'signed off / completed', l: 'withdrawn', m: 'disapproved', u: 'completed', '3': 'suspended' } as Record<string, string>)[s] || '';
             return !TERMINAL.some(c => decoded.includes(c));
           }
-          // "Approved" only counts as active for initial filings (P1 / Doc 01)
+          // "Approved" only counts as active for initial filings (Doc 01)
+          // All amendments (P1, P2, etc.) with Approved status are terminal
           if (s === 'approved') {
-            const match = a.application_number.match(/-P(\d+)$/i);
-            if (match && parseInt(match[1], 10) > 1) return false;
+            const hasPSuffix = /-P\d+$/i.test(a.application_number);
+            if (hasPSuffix) return false;
           }
           return !TERMINAL.some(c => s.includes(c));
         });
