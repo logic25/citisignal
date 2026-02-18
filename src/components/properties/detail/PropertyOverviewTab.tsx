@@ -19,7 +19,9 @@ import {
   Home,
   Landmark,
   Scale,
-  RefreshCw
+  RefreshCw,
+  MapPin,
+  GraduationCap
 } from 'lucide-react';
 import { getBoroughName } from '@/lib/property-utils';
 import { isActiveViolation } from '@/lib/violation-utils';
@@ -50,12 +52,16 @@ interface Property {
   last_synced_at: string | null;
   owner_name?: string | null;
   
-  // Comprehensive fields
+  // Zoning
   zoning_district?: string | null;
+  zoning_district_2?: string | null;
+  zoning_district_3?: string | null;
   zoning_map?: string | null;
   overlay_district?: string | null;
   special_district?: string | null;
   commercial_overlay?: string | null;
+  split_zone?: boolean | null;
+  limited_height_district?: string | null;
   lot_area_sqft?: number | null;
   building_area_sqft?: number | null;
   residential_area_sqft?: number | null;
@@ -65,24 +71,39 @@ interface Property {
   air_rights_sqft?: number | null;
   unused_far?: number | null;
   
+  // Lot dimensions
+  lot_frontage?: number | null;
+  lot_depth?: number | null;
+
   building_class?: string | null;
   occupancy_group?: string | null;
   year_built?: number | null;
+  land_use?: string | null;
+  total_units?: number | null;
   
+  // Location / Neighborhood
   community_board?: string | null;
   council_district?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  school_district?: string | null;
+  police_precinct?: string | null;
+  fire_company?: string | null;
+  sanitation_borough?: string | null;
+  sanitation_subsection?: string | null;
   
+  // Landmark
   is_landmark?: boolean | null;
   landmark_status?: string | null;
   historic_district?: string | null;
   
+  // Restrictions
   loft_law?: boolean | null;
   is_city_owned?: boolean | null;
   professional_cert_restricted?: boolean | null;
   legal_adult_use?: boolean | null;
   hpd_multiple_dwelling?: boolean | null;
+  environmental_restrictions?: string | null;
   
   assessed_land_value?: number | null;
   assessed_total_value?: number | null;
@@ -117,6 +138,20 @@ interface PropertyOverviewTabProps {
   onTabChange?: (tab: string) => void;
 }
 
+const LAND_USE_LABELS: Record<string, string> = {
+  '01': 'One & Two Family',
+  '02': 'Multi-Family Walk-Up',
+  '03': 'Multi-Family Elevator',
+  '04': 'Mixed Residential & Commercial',
+  '05': 'Commercial & Office',
+  '06': 'Industrial & Manufacturing',
+  '07': 'Transportation & Utility',
+  '08': 'Public Facilities & Institutions',
+  '09': 'Open Space & Recreation',
+  '10': 'Parking Facilities',
+  '11': 'Vacant Land',
+};
+
 export const PropertyOverviewTab = ({ 
   property, 
   violations, 
@@ -126,21 +161,17 @@ export const PropertyOverviewTab = ({
 }: PropertyOverviewTabProps) => {
   const { score: complianceData, isLoading: scoreLoading, recalculate } = useComplianceScore(property.id);
 
-  // Auto-calculate score on first load if missing
   useEffect(() => {
     if (!scoreLoading && !complianceData && property.id) {
       recalculate();
     }
   }, [scoreLoading, complianceData, property.id, recalculate]);
   
-  // Filter to only active violations
   const activeViolations = violations.filter(isActiveViolation);
-  
   const openViolations = activeViolations.filter(v => v.status === 'open').length;
   const inProgressViolations = activeViolations.filter(v => v.status === 'in_progress').length;
   const activeWorkOrders = workOrders.filter(w => w.status !== 'completed').length;
 
-  // Find next deadline from active violations
   const upcomingDeadlines = activeViolations
     .filter(v => v.cure_due_date && new Date(v.cure_due_date) > new Date())
     .sort((a, b) => new Date(a.cure_due_date!).getTime() - new Date(b.cure_due_date!).getTime());
@@ -150,7 +181,6 @@ export const PropertyOverviewTab = ({
     ? Math.ceil((new Date(nextDeadline.cure_due_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
-  // Use DB-calculated compliance score or fallback
   const criticalIssues = activeViolations.filter(v => v.is_stop_work_order || v.is_vacate_order).length;
   const complianceScore = complianceData?.score ?? Math.max(0, 100 - (openViolations * 5) - (criticalIssues * 25));
 
@@ -180,12 +210,11 @@ export const PropertyOverviewTab = ({
     return num.toLocaleString();
   };
 
-  const hasRestrictions = property.loft_law || property.professional_cert_restricted || property.legal_adult_use;
-  const hasZoningData = property.zoning_district || property.lot_area_sqft || property.floor_area_ratio;
+  const hasNeighborhoodData = property.school_district || property.police_precinct || property.fire_company || property.sanitation_borough;
 
   return (
     <div className="space-y-4">
-      {/* Quick Stats Row - Clickable cards */}
+      {/* Quick Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card 
           className="cursor-pointer hover:border-destructive/50 transition-colors"
@@ -273,10 +302,9 @@ export const PropertyOverviewTab = ({
             </div>
           </CardContent>
         </Card>
-
       </div>
 
-      {/* Last Synced Indicator */}
+      {/* Last Synced */}
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <RefreshCw className="w-3 h-3" />
         <span>
@@ -285,6 +313,8 @@ export const PropertyOverviewTab = ({
             : 'Never'}
         </span>
       </div>
+
+      {/* Building Details */}
       <Card>
         <CardHeader className="pb-2 pt-4">
           <div className="flex items-center justify-between">
@@ -325,8 +355,12 @@ export const PropertyOverviewTab = ({
             <div className="flex items-start gap-2">
               <Home className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
-                <p className="text-xs text-muted-foreground">Occupancy Group</p>
-                <p className="font-medium text-sm">{property.occupancy_group || property.primary_use_group || '-'}</p>
+                <p className="text-xs text-muted-foreground">Land Use</p>
+                <p className="font-medium text-sm">
+                  {property.land_use 
+                    ? (LAND_USE_LABELS[property.land_use] || property.land_use) 
+                    : (property.occupancy_group || property.primary_use_group || '-')}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -353,12 +387,26 @@ export const PropertyOverviewTab = ({
             <div className="flex items-start gap-2">
               <Home className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
-                <p className="text-xs text-muted-foreground">Dwelling Units</p>
+                <p className="text-xs text-muted-foreground">Units (Res / Total)</p>
                 <p className="font-medium text-sm">
                   {property.dwelling_units && property.dwelling_units > 0 ? property.dwelling_units : '-'}
+                  {property.total_units && property.total_units > 0 && property.total_units !== property.dwelling_units 
+                    ? ` / ${property.total_units}` : ''}
                 </p>
               </div>
             </div>
+            {/* Lot dimensions */}
+            {(property.lot_frontage || property.lot_depth) && (
+              <div className="flex items-start gap-2">
+                <Ruler className="w-4 h-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Lot (Front × Depth)</p>
+                  <p className="font-medium text-sm">
+                    {property.lot_frontage ? `${property.lot_frontage}'` : '-'} × {property.lot_depth ? `${property.lot_depth}'` : '-'}
+                  </p>
+                </div>
+              </div>
+            )}
             <div>
               <p className="text-xs text-muted-foreground">BIN</p>
               <p className="font-medium text-sm font-mono">{property.bin || '-'}</p>
@@ -383,7 +431,11 @@ export const PropertyOverviewTab = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Zoning District</p>
-                <p className="font-medium">{property.zoning_district || '-'}</p>
+                <p className="font-medium">
+                  {property.zoning_district || '-'}
+                  {property.zoning_district_2 ? ` / ${property.zoning_district_2}` : ''}
+                  {property.zoning_district_3 ? ` / ${property.zoning_district_3}` : ''}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Zoning Map</p>
@@ -401,6 +453,18 @@ export const PropertyOverviewTab = ({
                 <p className="text-xs text-muted-foreground">Commercial Overlay</p>
                 <p className="font-medium">{property.commercial_overlay || '-'}</p>
               </div>
+              {property.limited_height_district && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Limited Height</p>
+                  <p className="font-medium">{property.limited_height_district}</p>
+                </div>
+              )}
+              {property.split_zone && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Split Zone</p>
+                  <p className="font-medium">Yes</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-muted-foreground">Lot Area</p>
                 <p className="font-medium">{formatNumber(property.lot_area_sqft)} sf</p>
@@ -423,6 +487,55 @@ export const PropertyOverviewTab = ({
               )}
             </div>
           </div>
+
+          {/* Neighborhood Information */}
+          {hasNeighborhoodData && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" /> Neighborhood
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+                {property.community_board && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Community District</p>
+                    <p className="font-medium">{property.community_board}</p>
+                  </div>
+                )}
+                {property.council_district && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Council District</p>
+                    <p className="font-medium">{property.council_district}</p>
+                  </div>
+                )}
+                {property.school_district && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">School District</p>
+                    <p className="font-medium">{property.school_district}</p>
+                  </div>
+                )}
+                {property.police_precinct && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Police Precinct</p>
+                    <p className="font-medium">{property.police_precinct}</p>
+                  </div>
+                )}
+                {property.fire_company && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Fire Company</p>
+                    <p className="font-medium">{property.fire_company}</p>
+                  </div>
+                )}
+                {(property.sanitation_borough || property.sanitation_subsection) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Sanitation</p>
+                    <p className="font-medium">
+                      {[property.sanitation_borough, property.sanitation_subsection].filter(Boolean).join(' / ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Status & Restrictions */}
           <div className="pt-2 border-t border-border">
@@ -458,6 +571,12 @@ export const PropertyOverviewTab = ({
                 <p className="text-xs text-muted-foreground">HPD Multiple Dwelling</p>
                 <p className="font-medium">{property.hpd_multiple_dwelling ? 'Yes' : 'No'}</p>
               </div>
+              {property.environmental_restrictions && (
+                <div className="col-span-2 md:col-span-4">
+                  <p className="text-xs text-muted-foreground">Environmental Restrictions (E-Designation)</p>
+                  <p className="font-medium text-xs">{property.environmental_restrictions}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -493,7 +612,7 @@ export const PropertyOverviewTab = ({
         </CardContent>
       </Card>
 
-      {/* Compliance Score + Local Law Grid — stacked to avoid dead space */}
+      {/* Compliance Score + Local Law Grid */}
       <div id="local-law-compliance" className="space-y-4">
         {complianceData ? (
           <ComplianceScoreCard

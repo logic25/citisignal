@@ -825,6 +825,7 @@ export type Database = {
           exempt_land_value: number | null
           exempt_total_value: number | null
           factory_area_sqft: number | null
+          fire_company: string | null
           floor_area_ratio: number | null
           garage_area_sqft: number | null
           grandfathered_sign: boolean | null
@@ -849,15 +850,19 @@ export type Database = {
           is_food_establishment: boolean | null
           is_landmark: boolean | null
           jurisdiction: Database["public"]["Enums"]["jurisdiction_type"]
+          land_use: string | null
           landmark_status: string | null
           last_checked_at: string | null
           last_synced_at: string | null
           latitude: number | null
           legal_adult_use: boolean | null
+          limited_height_district: string | null
           local_law: string | null
           loft_law: boolean | null
           longitude: number | null
           lot_area_sqft: number | null
+          lot_depth: number | null
+          lot_frontage: number | null
           max_floor_area_ratio: number | null
           monitoring_enabled: boolean | null
           nta_name: string | null
@@ -870,19 +875,25 @@ export type Database = {
           overlay_district: string | null
           owner_name: string | null
           owner_phone: string | null
+          police_precinct: string | null
           portfolio_id: string | null
           primary_use_group: string | null
           professional_cert_restricted: boolean | null
           residential_area_sqft: number | null
           retail_area_sqft: number | null
+          sanitation_borough: string | null
+          sanitation_subsection: string | null
+          school_district: string | null
           sms_enabled: boolean | null
           special_district: string | null
           special_place_name: string | null
           special_status: string | null
+          split_zone: boolean | null
           sro_restricted: boolean | null
           storage_area_sqft: number | null
           stories: number | null
           ta_restricted: boolean | null
+          total_units: number | null
           ub_restricted: boolean | null
           unused_far: number | null
           updated_at: string
@@ -892,6 +903,8 @@ export type Database = {
           year_altered_2: number | null
           year_built: number | null
           zoning_district: string | null
+          zoning_district_2: string | null
+          zoning_district_3: string | null
           zoning_map: string | null
         }
         Insert: {
@@ -925,6 +938,7 @@ export type Database = {
           exempt_land_value?: number | null
           exempt_total_value?: number | null
           factory_area_sqft?: number | null
+          fire_company?: string | null
           floor_area_ratio?: number | null
           garage_area_sqft?: number | null
           grandfathered_sign?: boolean | null
@@ -949,15 +963,19 @@ export type Database = {
           is_food_establishment?: boolean | null
           is_landmark?: boolean | null
           jurisdiction?: Database["public"]["Enums"]["jurisdiction_type"]
+          land_use?: string | null
           landmark_status?: string | null
           last_checked_at?: string | null
           last_synced_at?: string | null
           latitude?: number | null
           legal_adult_use?: boolean | null
+          limited_height_district?: string | null
           local_law?: string | null
           loft_law?: boolean | null
           longitude?: number | null
           lot_area_sqft?: number | null
+          lot_depth?: number | null
+          lot_frontage?: number | null
           max_floor_area_ratio?: number | null
           monitoring_enabled?: boolean | null
           nta_name?: string | null
@@ -970,19 +988,25 @@ export type Database = {
           overlay_district?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          police_precinct?: string | null
           portfolio_id?: string | null
           primary_use_group?: string | null
           professional_cert_restricted?: boolean | null
           residential_area_sqft?: number | null
           retail_area_sqft?: number | null
+          sanitation_borough?: string | null
+          sanitation_subsection?: string | null
+          school_district?: string | null
           sms_enabled?: boolean | null
           special_district?: string | null
           special_place_name?: string | null
           special_status?: string | null
+          split_zone?: boolean | null
           sro_restricted?: boolean | null
           storage_area_sqft?: number | null
           stories?: number | null
           ta_restricted?: boolean | null
+          total_units?: number | null
           ub_restricted?: boolean | null
           unused_far?: number | null
           updated_at?: string
@@ -992,6 +1016,8 @@ export type Database = {
           year_altered_2?: number | null
           year_built?: number | null
           zoning_district?: string | null
+          zoning_district_2?: string | null
+          zoning_district_3?: string | null
           zoning_map?: string | null
         }
         Update: {
@@ -1025,6 +1051,7 @@ export type Database = {
           exempt_land_value?: number | null
           exempt_total_value?: number | null
           factory_area_sqft?: number | null
+          fire_company?: string | null
           floor_area_ratio?: number | null
           garage_area_sqft?: number | null
           grandfathered_sign?: boolean | null
@@ -1049,15 +1076,19 @@ export type Database = {
           is_food_establishment?: boolean | null
           is_landmark?: boolean | null
           jurisdiction?: Database["public"]["Enums"]["jurisdiction_type"]
+          land_use?: string | null
           landmark_status?: string | null
           last_checked_at?: string | null
           last_synced_at?: string | null
           latitude?: number | null
           legal_adult_use?: boolean | null
+          limited_height_district?: string | null
           local_law?: string | null
           loft_law?: boolean | null
           longitude?: number | null
           lot_area_sqft?: number | null
+          lot_depth?: number | null
+          lot_frontage?: number | null
           max_floor_area_ratio?: number | null
           monitoring_enabled?: boolean | null
           nta_name?: string | null
@@ -1070,19 +1101,25 @@ export type Database = {
           overlay_district?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          police_precinct?: string | null
           portfolio_id?: string | null
           primary_use_group?: string | null
           professional_cert_restricted?: boolean | null
           residential_area_sqft?: number | null
           retail_area_sqft?: number | null
+          sanitation_borough?: string | null
+          sanitation_subsection?: string | null
+          school_district?: string | null
           sms_enabled?: boolean | null
           special_district?: string | null
           special_place_name?: string | null
           special_status?: string | null
+          split_zone?: boolean | null
           sro_restricted?: boolean | null
           storage_area_sqft?: number | null
           stories?: number | null
           ta_restricted?: boolean | null
+          total_units?: number | null
           ub_restricted?: boolean | null
           unused_far?: number | null
           updated_at?: string
@@ -1092,6 +1129,8 @@ export type Database = {
           year_altered_2?: number | null
           year_built?: number | null
           zoning_district?: string | null
+          zoning_district_2?: string | null
+          zoning_district_3?: string | null
           zoning_map?: string | null
         }
         Relationships: [
