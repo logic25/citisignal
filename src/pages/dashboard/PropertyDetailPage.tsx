@@ -82,6 +82,11 @@ interface WorkOrder {
   created_at: string;
   linked_violation_id: string | null;
   vendor_id: string | null;
+  quoted_amount?: number | null;
+  approved_amount?: number | null;
+  priority?: string | null;
+  due_date?: string | null;
+  dispatched_at?: string | null;
 }
 
 interface Document {

@@ -65,11 +65,16 @@ interface Violation {
 interface WorkOrder {
   id: string;
   scope: string;
-  status: 'open' | 'in_progress' | 'awaiting_docs' | 'completed';
+  status: string;
   created_at: string;
   property: Property | null;
   vendor: Vendor | null;
   violation: Violation | null;
+  priority?: string | null;
+  due_date?: string | null;
+  quoted_amount?: number | null;
+  approved_amount?: number | null;
+  dispatched_at?: string | null;
 }
 
 const WorkOrdersPage = () => {
@@ -173,11 +178,11 @@ const WorkOrdersPage = () => {
     }
   };
 
-  const updateStatus = async (id: string, status: WorkOrder['status']) => {
+  const updateStatus = async (id: string, status: string) => {
     try {
       const { error } = await supabase
         .from('work_orders')
-        .update({ status })
+        .update({ status: status as any })
         .eq('id', id);
 
       if (error) throw error;
@@ -202,6 +207,9 @@ const WorkOrdersPage = () => {
 
   const statusColors: Record<string, string> = {
     open: 'bg-destructive/10 text-destructive border-destructive',
+    dispatched: 'bg-orange-500/10 text-orange-600 border-orange-500',
+    quoted: 'bg-purple-500/10 text-purple-600 border-purple-500',
+    approved: 'bg-emerald-500/10 text-emerald-600 border-emerald-500',
     in_progress: 'bg-warning/10 text-warning border-warning',
     awaiting_docs: 'bg-primary/10 text-primary border-primary',
     completed: 'bg-success/10 text-success border-success',
@@ -210,6 +218,9 @@ const WorkOrdersPage = () => {
   const getStatusBadge = (status: string) => {
     const labels: Record<string, string> = {
       open: 'Open',
+      dispatched: 'Dispatched',
+      quoted: 'Quoted',
+      approved: 'Approved',
       in_progress: 'In Progress',
       awaiting_docs: 'Awaiting Docs',
       completed: 'Completed',
@@ -219,6 +230,12 @@ const WorkOrdersPage = () => {
         {labels[status] || status}
       </Badge>
     );
+  };
+
+  const getPriorityBadge = (priority: string | null | undefined) => {
+    if (priority === 'urgent') return <Badge className="bg-destructive/10 text-destructive text-xs">Urgent</Badge>;
+    if (priority === 'low') return <Badge className="bg-muted text-muted-foreground text-xs">Low</Badge>;
+    return null;
   };
 
   if (loading) {
@@ -353,6 +370,9 @@ const WorkOrdersPage = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="dispatched">Dispatched</SelectItem>
+            <SelectItem value="quoted">Quoted</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="awaiting_docs">Awaiting Docs</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
@@ -367,9 +387,10 @@ const WorkOrdersPage = () => {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-10"></TableHead>
-                <TableHead className="font-semibold">Scope</TableHead>
+              <TableHead className="font-semibold">Scope</TableHead>
                 <TableHead className="font-semibold">Property</TableHead>
                 <TableHead className="font-semibold">Vendor</TableHead>
+                <TableHead className="font-semibold">Quote</TableHead>
                 <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Created</TableHead>
               </TableRow>
@@ -395,7 +416,12 @@ const WorkOrdersPage = () => {
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                             <ClipboardList className="w-4 h-4 text-primary" />
                           </div>
-                          <span className="font-medium line-clamp-1">{workOrder.scope}</span>
+                          <div>
+                            <span className="font-medium line-clamp-1">{workOrder.scope}</span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {getPriorityBadge(workOrder.priority)}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -415,15 +441,27 @@ const WorkOrdersPage = () => {
                         )}
                       </TableCell>
                       <TableCell>
+                        {workOrder.quoted_amount != null ? (
+                          <span className="font-semibold text-sm">${workOrder.quoted_amount.toLocaleString()}</span>
+                        ) : workOrder.approved_amount != null ? (
+                          <span className="font-semibold text-sm text-success">${workOrder.approved_amount.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Select
                           value={workOrder.status}
-                          onValueChange={(v) => updateStatus(workOrder.id, v as WorkOrder['status'])}
+                          onValueChange={(v) => updateStatus(workOrder.id, v as any)}
                         >
                           <SelectTrigger className={`w-32 h-8 text-xs ${statusColors[workOrder.status]}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="dispatched">Dispatched</SelectItem>
+                            <SelectItem value="quoted">Quoted</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
                             <SelectItem value="in_progress">In Progress</SelectItem>
                             <SelectItem value="awaiting_docs">Awaiting Docs</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
@@ -439,7 +477,7 @@ const WorkOrdersPage = () => {
                     </TableRow>
                     <CollapsibleContent asChild>
                       <tr className="bg-muted/20">
-                        <td colSpan={6} className="p-4 border-t border-border">
+                        <td colSpan={7} className="p-4 border-t border-border">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">Full Scope:</span>
