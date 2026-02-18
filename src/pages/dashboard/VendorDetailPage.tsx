@@ -38,7 +38,7 @@ import {
   Plus,
   Loader2,
   AlertCircle,
-  TrendingUp,
+  
   Clock,
   CheckCircle2,
   Pencil,
@@ -216,10 +216,6 @@ const VendorDetailPage = () => {
   const completedWOs = workOrders.filter(wo => wo.status === 'completed');
   const activeWOs = workOrders.filter(wo => !['completed', 'cancelled'].includes(wo.status));
   const totalSpent = workOrders.reduce((sum, wo) => sum + (wo.approved_amount || 0), 0);
-  const avgQuote = workOrders.filter(wo => wo.quoted_amount).length > 0
-    ? workOrders.reduce((sum, wo) => sum + (wo.quoted_amount || 0), 0) / workOrders.filter(wo => wo.quoted_amount).length
-    : 0;
-  const completionRate = workOrders.length > 0 ? Math.round((completedWOs.length / workOrders.length) * 100) : 0;
 
   const renderStars = (rating: number, size = 'w-4 h-4') => (
     <div className="flex items-center gap-0.5">
@@ -274,7 +270,7 @@ const VendorDetailPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><ClipboardList className="w-4 h-4" /> Total Jobs</div>
@@ -289,20 +285,14 @@ const VendorDetailPage = () => {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><TrendingUp className="w-4 h-4" /> Completion Rate</div>
-            <p className="text-2xl font-bold">{completionRate}%</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><Clock className="w-4 h-4" /> Active Jobs</div>
+            <p className="text-2xl font-bold">{activeWOs.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><DollarSign className="w-4 h-4" /> Total Spent</div>
             <p className="text-2xl font-bold">${totalSpent.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><DollarSign className="w-4 h-4" /> Avg Quote</div>
-            <p className="text-2xl font-bold">${Math.round(avgQuote).toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
