@@ -584,27 +584,29 @@ export const PropertyOverviewTab = ({
       </Card>
 
       {/* Compliance Score + Local Law Grid */}
-      <div id="local-law-compliance" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          {complianceData ? (
-            <ComplianceScoreCard
-              score={complianceData.score}
-              grade={complianceData.grade}
-              violationScore={complianceData.violation_score}
-              complianceScore={complianceData.compliance_score}
-              resolutionScore={complianceData.resolution_score}
-              violationDetails={complianceData.violation_details}
-              complianceDetails={complianceData.compliance_details}
-              resolutionDetails={complianceData.resolution_details}
-              calculatedAt={complianceData.calculated_at}
-              onRecalculate={recalculate}
-            />
-          ) : (
-            <div className="bg-card rounded-xl border border-border p-5 shadow-card animate-pulse h-64" />
-          )}
-        </div>
-        <div className="lg:col-span-2">
-          <LocalLawComplianceGrid property={property} />
+      <div id="local-law-compliance" className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            {complianceData ? (
+              <ComplianceScoreCard
+                score={complianceData.score}
+                grade={complianceData.grade}
+                violationScore={complianceData.violation_score}
+                complianceScore={complianceData.compliance_score}
+                resolutionScore={complianceData.resolution_score}
+                violationDetails={complianceData.violation_details}
+                complianceDetails={complianceData.compliance_details}
+                resolutionDetails={complianceData.resolution_details}
+                calculatedAt={complianceData.calculated_at}
+                onRecalculate={recalculate}
+              />
+            ) : (
+              <div className="bg-card rounded-xl border border-border p-5 shadow-card animate-pulse h-64" />
+            )}
+          </div>
+          <div>
+            <LocalLawComplianceGrid property={property} />
+          </div>
         </div>
       </div>
 

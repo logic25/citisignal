@@ -94,7 +94,8 @@ function isCommercialOrOffice(p: PropertyForCompliance): boolean {
 }
 
 function isMultipleDwelling(p: PropertyForCompliance): boolean {
-  return (p.dwelling_units ?? 0) >= 3 || isResidential(p);
+  // NYC MDL defines multiple dwelling as 3+ independent dwelling units
+  return (p.dwelling_units ?? 0) >= 3;
 }
 
 function calcStatus(applies: boolean, nextDue: string | null, monthsThreshold = 12): LocalLawRequirement['status'] {
@@ -150,7 +151,8 @@ function checkLL11(p: PropertyForCompliance): LocalLawRequirement {
 
 function checkLL126Parapet(p: PropertyForCompliance): LocalLawRequirement {
   const CAT: ComplianceCategory = 'DOB — Facade, Exterior & Structural';
-  const applies = true; // parapets are nearly universal
+  // Parapets are relevant for buildings with street-facing facades; exclude small 1-2 family homes
+  const applies = (p.stories ?? 0) >= 3 || (p.dwelling_units ?? 0) >= 3;
   const nextDue = annualDue(12, 31);
 
   return {
@@ -891,19 +893,20 @@ function checkFireExtinguisher(p: PropertyForCompliance): LocalLawRequirement {
   };
 }
 
-function checkEmergencyLighting(_p: PropertyForCompliance): LocalLawRequirement {
+function checkEmergencyLighting(p: PropertyForCompliance): LocalLawRequirement {
   const CAT: ComplianceCategory = 'FDNY — Fire Safety';
-  const applies = true; // all buildings
+  // Only meaningful for commercial, multi-family (3+), or buildings with assembly
+  const applies = isCommercialOrOffice(p) || (p.dwelling_units ?? 0) >= 3 || !!p.has_place_of_assembly;
 
   return {
     local_law: 'FDNY/DOB', requirement_name: 'Emergency / Exit Lighting', category: CAT,
     description: 'Exit signs and emergency lighting must be functional at all times. Battery backup tested periodically.',
     applies,
-    applicability_reason: 'All buildings with required emergency lighting.',
+    applicability_reason: applies ? 'Commercial, multiple dwelling, or place of assembly.' : 'Small residential building — basic requirements only.',
     cycle_year: null, next_due_date: null, filing_deadline: null,
-    penalty_amount: 2500,
-    penalty_description: 'FDNY/DOB violation',
-    status: 'pending',
+    penalty_amount: applies ? 2500 : null,
+    penalty_description: applies ? 'FDNY/DOB violation' : null,
+    status: !applies ? 'exempt' : 'pending',
     learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/exit-signs-and-emergency-lighting.page',
     tooltip: 'Ongoing: maintain emergency and exit lighting.',
   };
@@ -960,19 +963,17 @@ function checkConstructionNoise(_p: PropertyForCompliance): LocalLawRequirement 
 
 function checkCOCompliance(_p: PropertyForCompliance): LocalLawRequirement {
   const CAT: ComplianceCategory = 'Multi-Agency & Other';
-  const applies = true;
-
   return {
     local_law: 'DOB CO', requirement_name: 'Certificate of Occupancy Compliance', category: CAT,
     description: 'Use must conform to CO. Illegal conversions trigger violations. Fines $5,000–$15,000.',
-    applies,
-    applicability_reason: 'All buildings must maintain valid Certificate of Occupancy.',
+    applies: false,
+    applicability_reason: 'Universal requirement — tracked via CO status on property overview.',
     cycle_year: null, next_due_date: null, filing_deadline: null,
-    penalty_amount: 15000,
+    penalty_amount: null,
     penalty_description: 'DOB violation; potential vacate order; $5,000–$15,000',
-    status: 'pending',
+    status: 'exempt',
     learn_more_url: 'https://www.nyc.gov/site/buildings/property-or-business-owner/certificate-of-occupancy.page',
-    tooltip: 'Ongoing: building use must conform to Certificate of Occupancy.',
+    tooltip: 'Ongoing: building use must conform to Certificate of Occupancy. Tracked via CO status.',
   };
 }
 
