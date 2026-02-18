@@ -18,7 +18,10 @@ import {
   Bell,
   ShieldCheck,
   Activity,
-  UserCog
+  UserCog,
+  Receipt,
+  DollarSign,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -35,6 +38,9 @@ const navItems = [
   { icon: FileText, label: 'DD Reports', href: '/dashboard/dd-reports' },
   { icon: Users, label: 'Vendors', href: '/dashboard/vendors' },
   { icon: ClipboardList, label: 'Work Orders', href: '/dashboard/work-orders' },
+  { icon: Receipt, label: 'CAM Charges', href: '/dashboard/cam' },
+  { icon: DollarSign, label: 'Owner Statements', href: '/dashboard/owner-statements' },
+  { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
   { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
 ];
 
