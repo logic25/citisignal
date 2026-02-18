@@ -447,6 +447,16 @@ const PropertyDetailPage = () => {
             hasBoiler={property.has_boiler ?? null}
             hasElevator={property.has_elevator ?? null}
             hasSprinkler={property.has_sprinkler ?? null}
+            hasRetainingWall={(property as any).has_retaining_wall ?? null}
+            hasParkingStructure={(property as any).has_parking_structure ?? null}
+            hasCoolingTower={(property as any).has_cooling_tower ?? null}
+            hasWaterTank={(property as any).has_water_tank ?? null}
+            hasFireAlarm={(property as any).has_fire_alarm ?? null}
+            hasStandpipe={(property as any).has_standpipe ?? null}
+            hasPlaceOfAssembly={(property as any).has_place_of_assembly ?? null}
+            isFoodEstablishment={(property as any).is_food_establishment ?? null}
+            hasBackflowDevice={(property as any).has_backflow_device ?? null}
+            burnsNo4Oil={(property as any).burns_no4_oil ?? null}
             onUpdate={fetchPropertyData}
           />
         </TabsContent>

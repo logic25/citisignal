@@ -809,6 +809,7 @@ export type Database = {
           building_area_sqft: number | null
           building_class: string | null
           building_remarks: string | null
+          burns_no4_oil: boolean | null
           census_tract: string | null
           co_data: Json | null
           co_status: string | null
@@ -828,15 +829,24 @@ export type Database = {
           garage_area_sqft: number | null
           grandfathered_sign: boolean | null
           gross_sqft: number | null
+          has_backflow_device: boolean | null
           has_boiler: boolean | null
+          has_cooling_tower: boolean | null
           has_elevator: boolean | null
+          has_fire_alarm: boolean | null
           has_gas: boolean | null
+          has_parking_structure: boolean | null
+          has_place_of_assembly: boolean | null
+          has_retaining_wall: boolean | null
           has_sprinkler: boolean | null
+          has_standpipe: boolean | null
+          has_water_tank: boolean | null
           height_ft: number | null
           historic_district: string | null
           hpd_multiple_dwelling: boolean | null
           id: string
           is_city_owned: boolean | null
+          is_food_establishment: boolean | null
           is_landmark: boolean | null
           jurisdiction: Database["public"]["Enums"]["jurisdiction_type"]
           landmark_status: string | null
@@ -899,6 +909,7 @@ export type Database = {
           building_area_sqft?: number | null
           building_class?: string | null
           building_remarks?: string | null
+          burns_no4_oil?: boolean | null
           census_tract?: string | null
           co_data?: Json | null
           co_status?: string | null
@@ -918,15 +929,24 @@ export type Database = {
           garage_area_sqft?: number | null
           grandfathered_sign?: boolean | null
           gross_sqft?: number | null
+          has_backflow_device?: boolean | null
           has_boiler?: boolean | null
+          has_cooling_tower?: boolean | null
           has_elevator?: boolean | null
+          has_fire_alarm?: boolean | null
           has_gas?: boolean | null
+          has_parking_structure?: boolean | null
+          has_place_of_assembly?: boolean | null
+          has_retaining_wall?: boolean | null
           has_sprinkler?: boolean | null
+          has_standpipe?: boolean | null
+          has_water_tank?: boolean | null
           height_ft?: number | null
           historic_district?: string | null
           hpd_multiple_dwelling?: boolean | null
           id?: string
           is_city_owned?: boolean | null
+          is_food_establishment?: boolean | null
           is_landmark?: boolean | null
           jurisdiction?: Database["public"]["Enums"]["jurisdiction_type"]
           landmark_status?: string | null
@@ -989,6 +1009,7 @@ export type Database = {
           building_area_sqft?: number | null
           building_class?: string | null
           building_remarks?: string | null
+          burns_no4_oil?: boolean | null
           census_tract?: string | null
           co_data?: Json | null
           co_status?: string | null
@@ -1008,15 +1029,24 @@ export type Database = {
           garage_area_sqft?: number | null
           grandfathered_sign?: boolean | null
           gross_sqft?: number | null
+          has_backflow_device?: boolean | null
           has_boiler?: boolean | null
+          has_cooling_tower?: boolean | null
           has_elevator?: boolean | null
+          has_fire_alarm?: boolean | null
           has_gas?: boolean | null
+          has_parking_structure?: boolean | null
+          has_place_of_assembly?: boolean | null
+          has_retaining_wall?: boolean | null
           has_sprinkler?: boolean | null
+          has_standpipe?: boolean | null
+          has_water_tank?: boolean | null
           height_ft?: number | null
           historic_district?: string | null
           hpd_multiple_dwelling?: boolean | null
           id?: string
           is_city_owned?: boolean | null
+          is_food_establishment?: boolean | null
           is_landmark?: boolean | null
           jurisdiction?: Database["public"]["Enums"]["jurisdiction_type"]
           landmark_status?: string | null
