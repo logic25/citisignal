@@ -611,6 +611,11 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
             <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
               <FileStack className="w-3.5 h-3.5" />
               Related Filings ({permits.length})
+              {app.raw_data?.total_documents && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  of {app.raw_data.total_documents as number} documents on BIS
+                </span>
+              )}
             </h4>
             <div className="space-y-2">
               {permits.map((permit, idx) => {

@@ -202,10 +202,18 @@ const CLOSED_STATUSES = [
   'SETTLED', 'SATISFIED', 'VACATED', 'WAIVED', 'NO PENALTY', 'DEFAULT - PAID'
 ];
 
-// BIS Portal scraper for withdrawal detection (portal-only data)
+// BIS Portal scraper for withdrawal detection AND actual status enrichment
 const TERMINAL_BIS_STATUSES = ['I', 'U', 'X', '3']; // Sign-Off, Completed, Signed-Off, Suspended
 
-async function scrapeBisPortalStatus(jobNumber: string): Promise<{ withdrawn: boolean; withdrawal_date: string | null } | null> {
+interface BisScraperResult {
+  withdrawn: boolean;
+  withdrawal_date: string | null;
+  actual_status_code: string | null;  // e.g. 'X' from "SIGNED OFF (X)"
+  actual_status_date: string | null;  // e.g. '08/20/2025'
+  document_count: number | null;      // e.g. 20 from "Document: 01 OF 20"
+}
+
+async function scrapeBisPortalStatus(jobNumber: string): Promise<BisScraperResult | null> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -219,16 +227,36 @@ async function scrapeBisPortalStatus(jobNumber: string): Promise<{ withdrawn: bo
     if (!response.ok) return null;
 
     const html = await response.text();
-    const withdrawnMatch = html.match(/JOB\s+WITHDRAWN[:\s]*(\d{2}\/\d{2}\/\d{4})?/i);
+    
+    const result: BisScraperResult = {
+      withdrawn: false,
+      withdrawal_date: null,
+      actual_status_code: null,
+      actual_status_date: null,
+      document_count: null,
+    };
 
+    // Check for withdrawal
+    const withdrawnMatch = html.match(/JOB\s+WITHDRAWN[:\s]*(\d{2}\/\d{2}\/\d{4})?/i);
     if (withdrawnMatch) {
-      return {
-        withdrawn: true,
-        withdrawal_date: withdrawnMatch[1] || null,
-      };
+      result.withdrawn = true;
+      result.withdrawal_date = withdrawnMatch[1] || null;
     }
 
-    return { withdrawn: false, withdrawal_date: null };
+    // Extract actual status from "Last Action: SIGNED OFF 08/20/2025 (X)" pattern
+    const lastActionMatch = html.match(/Last\s+Action:\s*([A-Z\s]+?)\s+(\d{2}\/\d{2}\/\d{4})\s*\((\w+)\)/i);
+    if (lastActionMatch) {
+      result.actual_status_date = lastActionMatch[2];
+      result.actual_status_code = lastActionMatch[3].toUpperCase();
+    }
+
+    // Extract document count from "Document: 01 OF 20"
+    const docCountMatch = html.match(/Document:\s*\d+\s+OF\s+(\d+)/i);
+    if (docCountMatch) {
+      result.document_count = parseInt(docCountMatch[1], 10);
+    }
+
+    return result;
   } catch {
     // Timeout or network error — graceful fallback
     return null;
@@ -967,7 +995,7 @@ Deno.serve(async (req) => {
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_LIMITED_ALT}?location_bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_LIMITED_ALT"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_ELECTRICAL}?bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_ELECTRICAL"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_ELEVATOR}?bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_ELEVATOR"),
-        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_PERMIT_ISSUANCE}?bin__=${bin}&$limit=500&$order=issuance_date DESC`, "DOB_PERMIT_ISSUANCE"),
+        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_PERMIT_ISSUANCE}?bin__=${bin}&$limit=2000&$order=issuance_date DESC`, "DOB_PERMIT_ISSUANCE"),
       ]);
 
       console.log(`Found ${bisJobs.length} BIS jobs, ${dobNowBuild.length} Build, ${dobNowLimitedAlt.length} Limited Alt, ${dobNowElectrical.length} Electrical, ${dobNowElevator.length} Elevator apps, ${permitIssuanceData.length} permit issuance records`);
@@ -1002,12 +1030,27 @@ Deno.serve(async (req) => {
           ? 'Withdrawn'
           : (j.job_status as string) || (j.latest_action_date ? 'Filed' : null);
 
-        // Build raw_data with permit sub-filings
+        // Build raw_data with permit sub-filings (deduplicated by job_doc + permit_sequence)
         const rawData: Record<string, unknown> = {};
         const jobPermits = permitsByJob.get(String(jobNum));
         if (jobPermits && jobPermits.length > 0) {
-          rawData.permits = jobPermits
-            .sort((a, b) => String(a.job_doc___ || '').localeCompare(String(b.job_doc___ || '')))
+          // Deduplicate: use composite key of job_doc + permit_sequence
+          const seen = new Set<string>();
+          const dedupedPermits = jobPermits.filter(p => {
+            const key = `${String(p.job_doc___ || '')}-${String(p.permit_sequence___ || '')}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          
+          rawData.permits = dedupedPermits
+            .sort((a, b) => {
+              const docA = String(a.job_doc___ || '');
+              const docB = String(b.job_doc___ || '');
+              if (docA !== docB) return docA.localeCompare(docB);
+              // Within same doc, sort by permit sequence
+              return String(a.permit_sequence___ || '').localeCompare(String(b.permit_sequence___ || ''));
+            })
             .map(p => ({
               job_doc: String(p.job_doc___ || ''),
               permit_type: p.permit_type || null,
@@ -1029,15 +1072,29 @@ Deno.serve(async (req) => {
             }));
         }
 
-        // BIS Portal scraper: check for withdrawal on active jobs during full sync
-        const jobStatusCode = (j.job_status as string) || '';
-        if (isFullSync && appStatus !== 'Withdrawn' && !TERMINAL_BIS_STATUSES.includes(jobStatusCode.toUpperCase())) {
+        // BIS Portal scraper: enrich status + detect withdrawals during full sync
+        if (isFullSync && appStatus !== 'Withdrawn') {
           const scraperResult = await scrapeBisPortalStatus(String(jobNum));
-          if (scraperResult?.withdrawn) {
-            appStatus = 'Withdrawn';
-            rawData.withdrawal_date = scraperResult.withdrawal_date;
-            rawData.withdrawal_source = 'bis_portal_scraper';
-            console.log(`  BIS scraper: Job ${jobNum} detected as WITHDRAWN (date: ${scraperResult.withdrawal_date || 'unknown'})`);
+          if (scraperResult) {
+            if (scraperResult.withdrawn) {
+              appStatus = 'Withdrawn';
+              rawData.withdrawal_date = scraperResult.withdrawal_date;
+              rawData.withdrawal_source = 'bis_portal_scraper';
+              console.log(`  BIS scraper: Job ${jobNum} detected as WITHDRAWN (date: ${scraperResult.withdrawal_date || 'unknown'})`);
+            } else if (scraperResult.actual_status_code) {
+              // Override stale API status with portal's actual status
+              const portalCode = scraperResult.actual_status_code;
+              const apiCode = (j.job_status as string) || '';
+              if (portalCode !== apiCode.toUpperCase()) {
+                console.log(`  BIS scraper: Job ${jobNum} status corrected from '${apiCode}' to '${portalCode}' (portal date: ${scraperResult.actual_status_date})`);
+                appStatus = portalCode;
+                rawData.portal_status_date = scraperResult.actual_status_date;
+                rawData.portal_status_source = 'bis_portal_scraper';
+              }
+            }
+            if (scraperResult.document_count) {
+              rawData.total_documents = scraperResult.document_count;
+            }
           }
           // Rate-limit: 200ms delay between scraper calls
           await new Promise(resolve => setTimeout(resolve, 200));
