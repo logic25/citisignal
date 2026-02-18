@@ -156,16 +156,37 @@ export const SmartAddressAutocomplete = ({
       const parts = query.trim().split(/\s+/);
       const houseNumber = parts[0];
       // Strip ordinal suffixes (1st->1, 2nd->2, 73rd->73, 4th->4) since DOB stores "73 STREET" not "73RD STREET"
-      const streetQuery = parts.slice(1).join(' ').toUpperCase().replace(/(\d+)(ST|ND|RD|TH)\b/g, '$1');
+      let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
+      
+      // Extract and remove borough names from search (DOB stores borough separately)
+      const boroughNames: Record<string, string> = {
+        'MANHATTAN': '1', 'BRONX': '2', 'BROOKLYN': '3', 'QUEENS': '4', 'STATEN': '5',
+        'BK': '3', 'BX': '2', 'MN': '1', 'QN': '4', 'SI': '5',
+      };
+      let boroughFilter = '';
+      streetParts = streetParts.filter(p => {
+        if (boroughNames[p]) {
+          boroughFilter = boroughNames[p];
+          return false;
+        }
+        // Also handle "STATEN ISLAND" -> skip "ISLAND" too
+        if (p === 'ISLAND' && boroughFilter === '5') return false;
+        return true;
+      });
+      
+      const streetQuery = streetParts.join(' ');
 
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
 
+      let whereClause = `house__ LIKE '%${houseNumber}%'`;
       if (streetQuery) {
-        url.searchParams.set('$where', `house__ LIKE '%${houseNumber}%' AND upper(street_name) LIKE '%${streetQuery}%'`);
-      } else {
-        url.searchParams.set('$where', `house__ LIKE '%${houseNumber}%'`);
+        whereClause += ` AND upper(street_name) LIKE '%${streetQuery}%'`;
       }
-      url.searchParams.set('$limit', '25'); // Fetch more to dedupe
+      if (boroughFilter) {
+        whereClause += ` AND borough = '${boroughFilter}'`;
+      }
+      url.searchParams.set('$where', whereClause);
+      url.searchParams.set('$limit', '25');
 
       const response = await fetch(url.toString());
       
