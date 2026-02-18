@@ -194,9 +194,9 @@ export const PropertyOverviewTab = ({
   const hasZoningData = property.zoning_district || property.lot_area_sqft || property.floor_area_ratio;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Quick Stats Row - Clickable cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card 
           className="cursor-pointer hover:border-destructive/50 transition-colors"
           onClick={() => onTabChange?.('violations')}
@@ -287,7 +287,7 @@ export const PropertyOverviewTab = ({
       </div>
 
       {/* Last Synced Indicator */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <RefreshCw className="w-3 h-3" />
         <span>
           Last synced: {property.last_synced_at 
@@ -296,7 +296,7 @@ export const PropertyOverviewTab = ({
         </span>
       </div>
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2 pt-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Building2 className="w-5 h-5" />
@@ -308,9 +308,9 @@ export const PropertyOverviewTab = ({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 pt-0">
           {/* Core Building Info */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
             <div className="flex items-start gap-2">
               <User className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -400,8 +400,8 @@ export const PropertyOverviewTab = ({
           </div>
 
           {/* Building Features */}
-          <div className="pt-3 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-2">Building Features</p>
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-1.5">Building Features</p>
             <div className="flex flex-wrap gap-2">
               {property.has_gas && (
                 <Badge variant="outline" className="text-xs gap-1">
@@ -431,7 +431,7 @@ export const PropertyOverviewTab = ({
 
           {/* Collapsible: Zoning & Area */}
           <Collapsible open={zoningOpen} onOpenChange={setZoningOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full pt-3 border-t border-border">
+            <CollapsibleTrigger className="flex items-center justify-between w-full pt-2 border-t border-border">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Scale className="w-4 h-4 text-muted-foreground" />
                 Zoning & Area
@@ -513,7 +513,7 @@ export const PropertyOverviewTab = ({
 
           {/* Collapsible: Status & Restrictions */}
           <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full pt-3 border-t border-border">
+            <CollapsibleTrigger className="flex items-center justify-between w-full pt-2 border-t border-border">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Landmark className="w-4 h-4 text-muted-foreground" />
                 Status & Restrictions
@@ -584,7 +584,7 @@ export const PropertyOverviewTab = ({
       </Card>
 
       {/* Compliance Score + Local Law Grid — stacked to avoid dead space */}
-      <div id="local-law-compliance" className="space-y-6">
+      <div id="local-law-compliance" className="space-y-4">
         {complianceData ? (
           <ComplianceScoreCard
             score={complianceData.score}
