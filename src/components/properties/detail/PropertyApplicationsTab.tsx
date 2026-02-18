@@ -533,6 +533,8 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
   };
 
   const renderBisDetails = (app: Application) => {
+    const permits = (app.raw_data?.permits || []) as Array<Record<string, unknown>>;
+
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
         {/* Dates */}
@@ -582,12 +584,92 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
           </div>
         )}
 
+        {/* Withdrawal notice */}
+        {app.raw_data?.withdrawal_source === 'bis_portal_scraper' && (
+          <div className="col-span-2 md:col-span-3 bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+            <p className="text-sm font-medium text-destructive">
+              ⚠ Job Withdrawn (detected via BIS Portal)
+              {app.raw_data?.withdrawal_date && (
+                <span className="font-normal text-muted-foreground ml-2">— {app.raw_data.withdrawal_date as string}</span>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Status decode */}
         {app.status && app.status.length <= 2 && (
           <div className="col-span-2 md:col-span-3 bg-muted/50 rounded-lg p-3">
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Status Code "{app.status}"</span> → {decodeStatus(app.status, app.source)}
             </p>
+          </div>
+        )}
+
+        {/* Related Filings (Permit Sub-Filings: Doc 01, 02...) */}
+        {permits.length > 0 && (
+          <div className="col-span-2 md:col-span-3 mt-2 pt-3 border-t border-border">
+            <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+              <FileStack className="w-3.5 h-3.5" />
+              Related Filings ({permits.length})
+            </h4>
+            <div className="space-y-2">
+              {permits.map((permit, idx) => {
+                const docNum = String(permit.job_doc || '');
+                const filingType = String(permit.filing_status || '').toUpperCase();
+                const isInitial = filingType === 'INITIAL' || docNum === '01';
+                const permitteeName = [permit.permittee_first_name, permit.permittee_last_name].filter(Boolean).join(' ');
+                const ownerName = [permit.owner_first_name, permit.owner_last_name].filter(Boolean).join(' ');
+
+                const permitStatusLower = String(permit.permit_status || '').toLowerCase();
+                const statusVariant = permitStatusLower.includes('issued') ? 'default' as const
+                  : permitStatusLower.includes('expired') || permitStatusLower.includes('revoked') ? 'destructive' as const
+                  : 'outline' as const;
+
+                return (
+                  <div key={idx} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+                        Doc {docNum || '—'}
+                      </Badge>
+                      <Badge variant={isInitial ? 'outline' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {isInitial ? 'Initial' : 'Subsequent'}
+                      </Badge>
+                      {permit.permit_type && (
+                        <span className="text-xs text-muted-foreground">{permit.permit_type as string}</span>
+                      )}
+                      {permit.permit_status && (
+                        <Badge variant={statusVariant} className="text-[10px] px-1.5 py-0">
+                          {permit.permit_status as string}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+                      {permit.issuance_date && (
+                        <span>Issued: <span className="text-foreground">{format(new Date(permit.issuance_date as string), 'MM/dd/yy')}</span></span>
+                      )}
+                      {permit.expiration_date && (
+                        <span>Expires: <span className="text-foreground">{format(new Date(permit.expiration_date as string), 'MM/dd/yy')}</span></span>
+                      )}
+                      {permitteeName && (
+                        <span>Permittee: <span className="text-foreground">{permitteeName}</span></span>
+                      )}
+                      {permit.permittee_business_name && (
+                        <span className="text-foreground">{permit.permittee_business_name as string}</span>
+                      )}
+                      {permit.permittee_license_type && (
+                        <span>Lic: <span className="text-foreground">{permit.permittee_license_type as string}{permit.permittee_license_number ? ` #${permit.permittee_license_number}` : ''}</span></span>
+                      )}
+                      {!permitteeName && ownerName && (
+                        <span>Owner: <span className="text-foreground">{ownerName}</span></span>
+                      )}
+                      {!permitteeName && !ownerName && permit.owner_business_name && (
+                        <span>Owner: <span className="text-foreground">{permit.owner_business_name as string}</span></span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
