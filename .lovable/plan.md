@@ -1,54 +1,77 @@
 
 
-## Fix Local Law Compliance "Learn More" URLs
+## Fix BIS Application Status Codes and Add Withdrawn Detection
 
 ### Problem
-Several `learn_more_url` values in `src/lib/local-law-engine.ts` are broken (return 404) or are guessed URLs that likely don't exist on NYC.gov. The long-term goal is to point these to your own site's blog/knowledge base, but for now we'll fix them to point to the best available official sources.
 
-### Confirmed Broken Links (404)
+The BIS status code mapping is wrong in multiple places, causing applications to display incorrect statuses (e.g., "Permit Expired" instead of "Approved"). Additionally, withdrawn applications aren't detected because we're not reading the `withdrawal_flag` field from the BIS dataset.
 
-| Law | Current (Broken) URL | Corrected URL |
-|-----|---------------------|---------------|
-| LL97 | `nyc.gov/.../codes/ll97.page` | `nyc.gov/.../codes/ll97-greenhouse-gas-emissions-reductions.page` |
-| DEP Grease | `nyc.gov/.../dep/water/grease.page` | `nyc.gov/.../dep/water/disposing-of-grease-as-a-business.page` |
-| LL126/08 PIPS | `nyc.gov/.../parking-structures.page` | `nyc.gov/.../parking-structure.page` (singular) |
+### Corrected Status Code Table
 
-### Likely Invalid Links (guessed FDNY/DOB paths with no confirmation)
+Per your official BIS reference:
 
-These follow a pattern `fdny/business/all-businesses/...` that doesn't match FDNY's actual site structure. They'll be replaced with the closest verified alternatives:
+| Code | Current (Wrong) | Correct |
+|------|-----------------|---------|
+| A | Pre-Filing | Pre-Filed |
+| B | Plan Examination | Application Processing (Unpaid) |
+| C | Plan Exam Approval Pending | Application Processing (Payment Only) |
+| D | Plan Approved | Application Processed (Entire) |
+| E | Partial Permit Issued | Application Processed - No Plan Exam |
+| F | Permit Issued - Entire | Assigned to Plan Examiner |
+| G | Permit Renewed | PAA Fee Due |
+| H | Completed | Plan Exam In Process |
+| I | Signed Off | Sign-Off |
+| J | Signed Off | Plan Exam Disapproved |
+| K | CO Issued | Plan Exam Partial Approval |
+| L | Withdrawn | PAA Fee Pending |
+| M | Disapproved | PAA Fee Resolved |
+| N | Suspended | (remove -- not in BIS reference) |
+| P | Permit Expired | **Approved** |
+| Q | Partial Permit | Permit Issued - Partial |
+| R | Permit Entire | Permit Issued - Entire |
+| U | (missing) | Completed |
+| X | Signed Off / Completed | Signed-Off |
+| 3 | (missing) | Suspended |
 
-| Law | Current (Guessed) URL | Replacement |
-|-----|----------------------|-------------|
-| FDNY Fire Alarm | `.../fire-alarm-systems.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
-| FDNY Standpipe | `.../standpipe-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
-| FDNY Sprinkler | `.../sprinkler-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
-| FDNY PA | `.../places-of-assembly.page` | `nyc.gov/assets/buildings/pdf/code_notes_place-of-assembly.pdf` |
-| FDNY Extinguisher | `.../portable-fire-extinguishers.page` | `nyc.gov/site/fdny/business/all-certifications/portable-fire-extinguishers-company-certificates.page` |
-| FDNY/DOB Emergency Lighting | `.../exit-signs-and-emergency-lighting.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
-| LL10/99 Fire Door | `.../fire-safety-education-notice.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
-| LL26 Sprinkler Retrofit | `.../sprinkler-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
+### Withdrawn Detection
 
-### File Changed
+The BIS dataset (`ic3t-wcy2`) has a **`withdrawal_flag`** column we're not currently reading. In the sync function, we'll check this field:
 
-`src/lib/local-law-engine.ts` -- update ~11 `learn_more_url` string values across various check functions.
+```text
+If withdrawal_flag is truthy (e.g., "Y" or any non-empty value)
+  -> store status as "Withdrawn" instead of the raw job_status code
+```
 
-### Technical Details
+This is a proper field from the dataset, not a guess from the description text.
 
-Each fix is a single string replacement on the `learn_more_url` property within the respective `check*()` function. No logic changes. Functions affected:
+### Terminal/Completed Statuses Update
 
-1. `checkLL97` (line 249)
-2. `checkLL126PIPS` (line 185)
-3. `checkGreaseTrap` (line 658)
-4. `checkLL26` (line 536)
-5. `checkFireAlarm` (line 816)
-6. `checkStandpipe` (line 835)
-7. `checkSprinklerMaintenance` (line 854)
-8. `checkPlaceOfAssembly` (line 872)
-9. `checkFireExtinguisher` (line 891)
-10. `checkEmergencyLighting` (line 910)
-11. `checkFireSafetyDoor` (line 575)
+With correct codes, the terminal statuses become:
+- **I** = Sign-Off
+- **X** = Signed-Off
+- **U** = Completed
+- **J** = Plan Exam Disapproved
+- **3** = Suspended
+- **Withdrawn** (from withdrawal_flag)
 
-### Future
+### Files Changed
 
-Long-term, all these URLs should be replaced with links to your own site's blog/knowledge base pages that explain each local law and link out to the official source.
+1. **`src/components/properties/detail/PropertyApplicationsTab.tsx`** (lines 50-71)
+   - Replace entire `BIS_STATUS_CODES` map with correct values (add U, 3; fix all mappings)
+   - Update `COMPLETED_STATUSES` to include Withdrawn, Suspended, Plan Exam Disapproved
 
+2. **`src/pages/dashboard/ApplicationsPage.tsx`** (lines 51-60)
+   - Same corrections to the duplicated `BIS_STATUS_CODES` map and `COMPLETED_STATUSES`
+
+3. **`supabase/functions/fetch-nyc-violations/index.ts`** (line 959)
+   - Read `withdrawal_flag` from each BIS job record
+   - If withdrawal_flag is set, override the stored status to "Withdrawn"
+   - Change: `status: j.withdrawal_flag ? 'Withdrawn' : (j.job_status as string) || ...`
+
+4. **`docs/DATA-LOGIC.md`** (Section 5)
+   - Update the BIS Job Status Reference table with correct codes
+   - Document the withdrawal_flag field usage
+
+### Data Fix
+
+After deploying, a re-sync of properties will correct the stored status codes. The raw `job_status` letter is stored in the database, and the UI decodes it — so fixing the UI map immediately fixes display for all existing data. The withdrawal_flag change only affects future syncs (or re-syncs).
