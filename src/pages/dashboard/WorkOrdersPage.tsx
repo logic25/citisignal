@@ -41,9 +41,15 @@ import {
   AlertTriangle,
   ChevronRight,
   ChevronDown,
-  Calendar
+  Calendar,
+  Check,
+  X,
+  DollarSign,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
 interface Property {
@@ -60,6 +66,16 @@ interface Violation {
   id: string;
   violation_number: string;
   agency: string;
+}
+
+interface WorkOrderMessage {
+  id: string;
+  sender_type: string;
+  sender_name: string | null;
+  channel: string | null;
+  message: string;
+  extracted_amount: number | null;
+  created_at: string;
 }
 
 interface WorkOrder {
@@ -97,10 +113,94 @@ const WorkOrdersPage = () => {
         newSet.delete(id);
       } else {
         newSet.add(id);
+        fetchMessages(id);
       }
       return newSet;
     });
   };
+  const [messages, setMessages] = useState<Record<string, WorkOrderMessage[]>>({});
+  const [counterAmounts, setCounterAmounts] = useState<Record<string, string>>({});
+  const [showCounter, setShowCounter] = useState<Record<string, boolean>>({});
+  const [newMessage, setNewMessage] = useState<Record<string, string>>({});
+
+  const fetchMessages = async (workOrderId: string) => {
+    const { data } = await supabase
+      .from('work_order_messages')
+      .select('*')
+      .eq('work_order_id', workOrderId)
+      .order('created_at', { ascending: true });
+    if (data) {
+      setMessages(prev => ({ ...prev, [workOrderId]: data as unknown as WorkOrderMessage[] }));
+    }
+  };
+
+  const handleApprove = async (wo: WorkOrder) => {
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({
+          status: 'approved' as any,
+          approved_amount: wo.quoted_amount,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', wo.id);
+      if (error) throw error;
+      toast.success(`Quote of $${wo.quoted_amount?.toLocaleString()} approved`);
+      fetchData();
+    } catch { toast.error('Failed to approve'); }
+  };
+
+  const handleReject = async (wo: WorkOrder) => {
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ status: 'open' as any, quoted_amount: null })
+        .eq('id', wo.id);
+      if (error) throw error;
+      toast.success('Quote rejected, work order reopened');
+      fetchData();
+    } catch { toast.error('Failed to reject'); }
+  };
+
+  const handleCounter = async (wo: WorkOrder) => {
+    const amount = parseFloat(counterAmounts[wo.id] || '');
+    if (isNaN(amount) || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ quoted_amount: amount })
+        .eq('id', wo.id);
+      if (error) throw error;
+      await supabase.from('work_order_messages').insert({
+        work_order_id: wo.id,
+        sender_type: 'owner',
+        sender_name: 'You',
+        channel: 'in_app',
+        message: `Counter offer: $${amount.toLocaleString()}`,
+      });
+      toast.success(`Counter offer of $${amount.toLocaleString()} sent`);
+      setShowCounter(prev => ({ ...prev, [wo.id]: false }));
+      fetchData();
+    } catch { toast.error('Failed to send counter'); }
+  };
+
+  const handleSendMessage = async (woId: string) => {
+    const msg = newMessage[woId]?.trim();
+    if (!msg) return;
+    try {
+      await supabase.from('work_order_messages').insert({
+        work_order_id: woId,
+        sender_type: 'owner',
+        sender_name: 'You',
+        channel: 'in_app',
+        message: msg,
+      });
+      setNewMessage(prev => ({ ...prev, [woId]: '' }));
+      fetchMessages(woId);
+      toast.success('Message added');
+    } catch { toast.error('Failed to send message'); }
+  };
+
   const [formData, setFormData] = useState({
     property_id: '',
     vendor_id: '',
@@ -495,6 +595,104 @@ const WorkOrdersPage = () => {
                             <div>
                               <span className="text-muted-foreground">Created:</span>
                               <p className="font-medium">{new Date(workOrder.created_at).toLocaleString()}</p>
+                            </div>
+                            {workOrder.due_date && (
+                              <div>
+                                <span className="text-muted-foreground">Due Date:</span>
+                                <p className="font-medium">{new Date(workOrder.due_date).toLocaleDateString()}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Approval Flow */}
+                          {workOrder.status === 'quoted' && workOrder.quoted_amount != null && (
+                            <div className="mt-4 p-3 rounded-lg border border-purple-200 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-800">
+                              <div className="flex items-center gap-2 mb-3">
+                                <DollarSign className="w-4 h-4 text-purple-600" />
+                                <span className="font-semibold text-purple-700 dark:text-purple-300">
+                                  Quote: ${workOrder.quoted_amount.toLocaleString()}
+                                </span>
+                                {workOrder.vendor && (
+                                  <span className="text-sm text-muted-foreground">from {workOrder.vendor.name}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove(workOrder)}>
+                                  <Check className="w-3 h-3 mr-1" /> Approve
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setShowCounter(prev => ({ ...prev, [workOrder.id]: !prev[workOrder.id] }))}>
+                                  <DollarSign className="w-3 h-3 mr-1" /> Counter
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleReject(workOrder)}>
+                                  <X className="w-3 h-3 mr-1" /> Reject
+                                </Button>
+                              </div>
+                              {showCounter[workOrder.id] && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Input
+                                    type="number"
+                                    placeholder="Your counter amount"
+                                    className="w-40 h-8"
+                                    value={counterAmounts[workOrder.id] || ''}
+                                    onChange={(e) => setCounterAmounts(prev => ({ ...prev, [workOrder.id]: e.target.value }))}
+                                  />
+                                  <Button size="sm" onClick={() => handleCounter(workOrder)}>Send Counter</Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {workOrder.status === 'approved' && workOrder.approved_amount != null && (
+                            <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+                              <div className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-emerald-600" />
+                                <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                                  Approved: ${workOrder.approved_amount.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Communication Thread */}
+                          <div className="mt-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm font-medium text-muted-foreground">Communication Thread</span>
+                            </div>
+                            {(messages[workOrder.id] || []).length > 0 ? (
+                              <div className="space-y-2 max-h-48 overflow-y-auto mb-2">
+                                {(messages[workOrder.id] || []).map((msg) => (
+                                  <div key={msg.id} className={`text-sm p-2 rounded-lg ${
+                                    msg.sender_type === 'vendor' ? 'bg-blue-50 dark:bg-blue-950/30 ml-0 mr-8' :
+                                    msg.sender_type === 'system' ? 'bg-muted mx-4 text-center italic' :
+                                    'bg-primary/5 ml-8 mr-0'
+                                  }`}>
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="font-medium text-xs">{msg.sender_name || msg.sender_type}</span>
+                                      {msg.channel && <Badge variant="outline" className="text-[10px] h-4">{msg.channel}</Badge>}
+                                      <span className="text-[10px] text-muted-foreground ml-auto">{new Date(msg.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <p>{msg.message}</p>
+                                    {msg.extracted_amount && (
+                                      <Badge className="mt-1 bg-purple-100 text-purple-700 text-xs">Extracted: ${msg.extracted_amount.toLocaleString()}</Badge>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mb-2">No messages yet.</p>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Textarea
+                                placeholder="Add a note..."
+                                className="h-8 min-h-[32px] text-sm resize-none"
+                                value={newMessage[workOrder.id] || ''}
+                                onChange={(e) => setNewMessage(prev => ({ ...prev, [workOrder.id]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(workOrder.id); }}}
+                              />
+                              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSendMessage(workOrder.id)}>
+                                <Send className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
                         </td>
