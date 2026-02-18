@@ -19,7 +19,6 @@ import {
   Home,
   Landmark,
   Scale,
-  Ban,
   RefreshCw
 } from 'lucide-react';
 import { getBoroughName } from '@/lib/property-utils';
@@ -70,7 +69,6 @@ interface Property {
   occupancy_group?: string | null;
   year_built?: number | null;
   
-  cross_streets?: string | null;
   community_board?: string | null;
   council_district?: string | null;
   latitude?: number | null;
@@ -79,20 +77,11 @@ interface Property {
   is_landmark?: boolean | null;
   landmark_status?: string | null;
   historic_district?: string | null;
-  special_status?: string | null;
-  special_place_name?: string | null;
-  building_remarks?: string | null;
   
   loft_law?: boolean | null;
-  sro_restricted?: boolean | null;
-  ta_restricted?: boolean | null;
-  ub_restricted?: boolean | null;
   is_city_owned?: boolean | null;
   professional_cert_restricted?: boolean | null;
-  local_law?: string | null;
-  environmental_restrictions?: string | null;
   legal_adult_use?: boolean | null;
-  grandfathered_sign?: boolean | null;
   hpd_multiple_dwelling?: boolean | null;
   
   assessed_land_value?: number | null;
@@ -191,7 +180,7 @@ export const PropertyOverviewTab = ({
     return num.toLocaleString();
   };
 
-  const hasRestrictions = property.loft_law || property.sro_restricted || property.ta_restricted || property.ub_restricted;
+  const hasRestrictions = property.loft_law || property.professional_cert_restricted || property.legal_adult_use;
   const hasZoningData = property.zoning_district || property.lot_area_sqft || property.floor_area_ratio;
 
   return (
@@ -384,16 +373,6 @@ export const PropertyOverviewTab = ({
                 ) : '-'}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Cross Streets</p>
-              <p className="font-medium text-sm">{property.cross_streets || '-'}</p>
-            </div>
-            {property.special_place_name && (
-              <div>
-                <p className="text-xs text-muted-foreground">Special Place Name</p>
-                <p className="font-medium text-sm">{property.special_place_name}</p>
-              </div>
-            )}
           </div>
 
           {/* Zoning & Area */}
@@ -453,11 +432,7 @@ export const PropertyOverviewTab = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Landmark Status</p>
-                <p className="font-medium">{property.is_landmark ? 'Landmark' : (property.landmark_status || 'Not Landmarked')}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Special Status</p>
-                <p className="font-medium">{property.special_status || '-'}</p>
+                <p className="font-medium">{property.landmark_status || (property.is_landmark ? 'Landmark' : 'Not Landmarked')}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Historic District</p>
@@ -468,24 +443,8 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium">{property.is_city_owned ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Local Law</p>
-                <p className="font-medium">{property.local_law || '-'}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">Loft Law</p>
                 <p className="font-medium">{property.loft_law ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">SRO Restricted</p>
-                <p className="font-medium">{property.sro_restricted ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">TA Restricted</p>
-                <p className="font-medium">{property.ta_restricted ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">UB Restricted</p>
-                <p className="font-medium">{property.ub_restricted ? 'Yes' : 'No'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pro Cert Restricted</p>
@@ -496,16 +455,8 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium">{property.legal_adult_use ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Grandfathered Sign</p>
-                <p className="font-medium">{property.grandfathered_sign ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">HPD Multiple Dwelling</p>
                 <p className="font-medium">{property.hpd_multiple_dwelling ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Environmental Restrictions</p>
-                <p className="font-medium">{property.environmental_restrictions || '-'}</p>
               </div>
             </div>
           </div>
