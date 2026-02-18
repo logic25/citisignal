@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { work_order_id } = await req.json();
+    const { work_order_id, terms_override } = await req.json();
     if (!work_order_id) {
       return new Response(JSON.stringify({ error: "work_order_id required" }), {
         status: 400,
@@ -50,6 +50,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch owner's default PO terms
+    let terms = terms_override || null;
+    if (!terms && wo.property?.user_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("po_terms_and_conditions")
+        .eq("user_id", wo.property.user_id)
+        .single();
+      terms = profile?.po_terms_and_conditions || null;
+    }
+
     // Generate PO number
     const { data: seqData } = await supabase.rpc("nextval_po_number");
     const poNumber = `PO-${String(seqData || Date.now()).padStart(5, "0")}`;
@@ -67,6 +78,7 @@ Deno.serve(async (req) => {
         scope: wo.scope,
         status: "pending_vendor_signature",
         owner_signed_at: new Date().toISOString(),
+        terms_and_conditions: terms,
       })
       .select("*")
       .single();
@@ -90,8 +102,6 @@ Deno.serve(async (req) => {
     if (vendor?.telegram_chat_id) {
       const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
       if (TELEGRAM_BOT_TOKEN) {
-        const signUrl = `${Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app").replace(/^https:\/\/[^.]+/, (m) => m)}/sign-po/${po.vendor_sign_token}`;
-        // Build a simpler sign URL using the app's domain
         const appUrl = Deno.env.get("APP_URL") || "https://id-preview--9d9b6494-36da-4c50-a4c2-79428913d706.lovable.app";
         const vendorSignUrl = `${appUrl}/sign-po/${po.vendor_sign_token}`;
 

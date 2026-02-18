@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, FileText, DollarSign, Building2, Calendar, Pen } from 'lucide-react';
+import { Loader2, CheckCircle2, FileText, DollarSign, Building2, Calendar, Pen, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SignPO = () => {
@@ -96,6 +96,7 @@ const SignPO = () => {
 
   const property = po?.property as any;
   const vendor = po?.vendor as any;
+  const terms = (po as any)?.terms_and_conditions;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -165,6 +166,25 @@ const SignPO = () => {
           </CardContent>
         </Card>
 
+        {/* Terms & Conditions */}
+        {terms && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ScrollText className="w-5 h-5" />
+                Terms & Conditions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground bg-muted/30 p-4 rounded-lg border border-border">
+                  {terms}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Signatures */}
         <Card>
           <CardHeader>
@@ -212,7 +232,8 @@ const SignPO = () => {
         {!signed && (
           <div className="text-center space-y-3">
             <p className="text-sm text-muted-foreground">
-              By signing, you agree to perform the work described above for the stated amount.
+              By signing, you agree to perform the work described above for the stated amount
+              {terms ? ' and accept the terms & conditions' : ''}.
             </p>
             <Button
               size="lg"
