@@ -727,7 +727,7 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     loft_law: data.loftLaw,
     legal_adult_use: data.legalAdultUse,
     is_city_owned: data.isCityOwned,
-    professional_cert_restricted: data.professionalCertRestricted,
+    // professional_cert_restricted intentionally omitted — DOB Jobs data unreliable vs BIS; preserve manual value
     environmental_restrictions: data.environmentalRestrictions,
 
     // Additional info
