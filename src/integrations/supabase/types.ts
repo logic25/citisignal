@@ -768,6 +768,7 @@ export type Database = {
           id: string
           license_id: string | null
           phone: string | null
+          po_terms_and_conditions: string | null
           updated_at: string
           user_id: string
         }
@@ -778,6 +779,7 @@ export type Database = {
           id?: string
           license_id?: string | null
           phone?: string | null
+          po_terms_and_conditions?: string | null
           updated_at?: string
           user_id: string
         }
@@ -788,6 +790,7 @@ export type Database = {
           id?: string
           license_id?: string | null
           phone?: string | null
+          po_terms_and_conditions?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1445,6 +1448,7 @@ export type Database = {
           property_id: string
           scope: string
           status: string
+          terms_and_conditions: string | null
           updated_at: string
           user_id: string
           vendor_id: string
@@ -1462,6 +1466,7 @@ export type Database = {
           property_id: string
           scope: string
           status?: string
+          terms_and_conditions?: string | null
           updated_at?: string
           user_id: string
           vendor_id: string
@@ -1479,6 +1484,7 @@ export type Database = {
           property_id?: string
           scope?: string
           status?: string
+          terms_and_conditions?: string | null
           updated_at?: string
           user_id?: string
           vendor_id?: string

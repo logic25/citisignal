@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, CheckCheck, ExternalLink, AlertTriangle, Info, AlertCircle, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -57,8 +57,20 @@ const NotificationItem = ({
 
 export const NotificationBell = () => {
   const [open, setOpen] = useState(false);
+  const [isRinging, setIsRinging] = useState(false);
+  const prevCountRef = useRef(0);
   const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+  // Animate when unread count increases
+  useEffect(() => {
+    if (unreadCount > prevCountRef.current && prevCountRef.current >= 0) {
+      setIsRinging(true);
+      const timer = setTimeout(() => setIsRinging(false), 1000);
+      return () => clearTimeout(timer);
+    }
+    prevCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   const recentNotifications = notifications.slice(0, 8);
 
@@ -66,9 +78,15 @@ export const NotificationBell = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
+          <Bell className={cn(
+            'w-5 h-5 transition-transform',
+            isRinging && 'animate-[bell-ring_0.6s_ease-in-out]'
+          )} />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+            <span className={cn(
+              "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center",
+              isRinging && "animate-[bell-badge-pop_0.4s_ease-out]"
+            )}>
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}

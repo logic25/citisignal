@@ -389,6 +389,7 @@ const WorkOrdersPage = () => {
     if (!payDialogWO) return;
     setProcessingPayment(true);
     try {
+      const wo = workOrders.find(w => w.id === payDialogWO.id);
       const { error } = await supabase
         .from('work_orders')
         .update({
@@ -401,6 +402,25 @@ const WorkOrdersPage = () => {
         })
         .eq('id', payDialogWO.id);
       if (error) throw error;
+
+      // Send vendor payment notification via Telegram
+      if (wo?.vendor?.id) {
+        const { data: vendorData } = await supabase
+          .from('vendors')
+          .select('telegram_chat_id, name')
+          .eq('id', wo.vendor.id)
+          .single();
+        if (vendorData?.telegram_chat_id) {
+          const amount = wo.approved_amount || wo.quoted_amount || 0;
+          const methodLabel = paymentMethod === 'zelle' ? 'Zelle' : paymentMethod === 'check' ? 'Check' : paymentMethod === 'stripe' ? 'Stripe' : 'Other';
+          await supabase.functions.invoke('send-telegram', {
+            body: {
+              chat_id: vendorData.telegram_chat_id,
+              message: `💵 *Payment Sent*\n\nPayment of *$${amount.toLocaleString()}* has been sent via *${methodLabel}*${paymentReference ? ` (Ref: ${paymentReference})` : ''} for work at *${wo.property?.address}*.\n\nScope: ${wo.scope.substring(0, 100)}`,
+            },
+          });
+        }
+      }
 
       toast.success('Work verified and payment recorded!');
       setPayDialogWO(null);
@@ -1186,26 +1206,27 @@ const WorkOrdersPage = () => {
 
       {/* Verify & Pay Dialog */}
       <Dialog open={!!payDialogWO} onOpenChange={(open) => !open && setPayDialogWO(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Verify Work & Pay Vendor</DialogTitle>
             <DialogDescription>Confirm work is satisfactory and record payment.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             {payDialogWO && (() => {
-              const payVendorId = workOrders.find(w => w.id === payDialogWO.id)?.vendor?.id;
+              const payWO = workOrders.find(w => w.id === payDialogWO.id);
+              const payVendorId = payWO?.vendor?.id;
               const payVendor = payVendorId ? vendorDetails[payVendorId] : null;
-              return payVendor ? (
-                <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
-                  <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{payVendor.name}</span></p>
-                  {payVendor.zelle_email && (
-                    <p><span className="text-muted-foreground">Zelle Email:</span> <span className="font-medium">{payVendor.zelle_email}</span></p>
+              const payAmount = payWO?.approved_amount || payWO?.quoted_amount || 0;
+              return (
+                <>
+                  {payVendor && (
+                    <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
+                      <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{payVendor.name}</span></p>
+                      <p><span className="text-muted-foreground">Amount:</span> <span className="font-bold text-lg">${payAmount.toLocaleString()}</span></p>
+                    </div>
                   )}
-                  {payVendor.zelle_phone && (
-                    <p><span className="text-muted-foreground">Zelle Phone:</span> <span className="font-medium">{payVendor.zelle_phone}</span></p>
-                  )}
-                </div>
-              ) : null;
+                </>
+              );
             })()}
             <div className="space-y-2">
               <Label>Payment Method</Label>
@@ -1221,22 +1242,86 @@ const WorkOrdersPage = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>
-                {paymentMethod === 'zelle' ? 'Zelle Confirmation #' :
-                 paymentMethod === 'check' ? 'Check Number' :
-                 'Payment Reference'}
-              </Label>
-              <Input
-                placeholder="Enter reference number..."
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-              />
-            </div>
+
+            {/* Mock Zelle Payment Flow */}
+            {paymentMethod === 'zelle' && payDialogWO && (() => {
+              const payWO = workOrders.find(w => w.id === payDialogWO.id);
+              const payVendorId = payWO?.vendor?.id;
+              const payVendor = payVendorId ? vendorDetails[payVendorId] : null;
+              const payAmount = payWO?.approved_amount || payWO?.quoted_amount || 0;
+              return (
+                <div className="p-4 rounded-lg border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-700 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">Z</span>
+                    </div>
+                    <span className="font-semibold text-purple-700 dark:text-purple-300">Send via Zelle</span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between p-2 rounded bg-background border border-border">
+                      <span className="text-muted-foreground">Send to</span>
+                      <span className="font-medium">{payVendor?.zelle_email || payVendor?.zelle_phone || 'Not configured'}</span>
+                    </div>
+                    <div className="flex justify-between p-2 rounded bg-background border border-border">
+                      <span className="text-muted-foreground">Amount</span>
+                      <span className="font-bold text-lg">${payAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between p-2 rounded bg-background border border-border">
+                      <span className="text-muted-foreground">Memo</span>
+                      <span className="font-medium text-xs">WO - {payWO?.scope?.substring(0, 30)}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Zelle Confirmation Number</Label>
+                    <Input
+                      placeholder="Enter Zelle confirmation #..."
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Check Payment Flow */}
+            {paymentMethod === 'check' && (
+              <div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-700 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-5 h-5 text-blue-600" />
+                  <span className="font-semibold text-blue-700 dark:text-blue-300">Check Payment</span>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Check Number</Label>
+                  <Input
+                    placeholder="Enter check number..."
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Stripe / Other */}
+            {paymentMethod === 'stripe' && (
+              <div className="p-4 rounded-lg border border-border bg-muted/30 text-center">
+                <p className="text-sm text-muted-foreground">Stripe payment integration coming soon.</p>
+              </div>
+            )}
+
+            {paymentMethod === 'other' && (
+              <div className="space-y-2">
+                <Label>Payment Reference</Label>
+                <Input
+                  placeholder="Enter reference..."
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setPayDialogWO(null)}>Cancel</Button>
-            <Button onClick={handleVerifyAndPay} disabled={processingPayment} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleVerifyAndPay} disabled={processingPayment || paymentMethod === 'stripe'} className="bg-emerald-600 hover:bg-emerald-700">
               {processingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
               Confirm Payment
             </Button>

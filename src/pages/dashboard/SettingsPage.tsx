@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, User, Bell, Shield, CreditCard, MessageCircle } from 'lucide-react';
+import { Loader2, User, Bell, Shield, CreditCard, MessageCircle, FileText } from 'lucide-react';
 import EmailPreferencesTab from '@/components/settings/EmailPreferencesTab';
 import TelegramTab from '@/components/settings/TelegramTab';
 
@@ -21,6 +22,7 @@ const SettingsPage = () => {
     company_name: '',
     phone: '',
     license_id: '',
+    po_terms_and_conditions: '',
   });
 
   useEffect(() => {
@@ -42,6 +44,7 @@ const SettingsPage = () => {
             company_name: data.company_name || '',
             phone: data.phone || '',
             license_id: (data as any).license_id || '',
+            po_terms_and_conditions: (data as any).po_terms_and_conditions || '',
           });
         }
       } catch (error) {
@@ -67,6 +70,7 @@ const SettingsPage = () => {
           company_name: profile.company_name || null,
           phone: profile.phone || null,
           license_id: profile.license_id || null,
+          po_terms_and_conditions: profile.po_terms_and_conditions || null,
         } as any, { onConflict: 'user_id' });
 
       if (error) throw error;
@@ -99,6 +103,10 @@ const SettingsPage = () => {
           <TabsTrigger value="profile" className="gap-2">
             <User className="w-4 h-4" />
             Profile
+          </TabsTrigger>
+          <TabsTrigger value="po-terms" className="gap-2">
+            <FileText className="w-4 h-4" />
+            PO Terms
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="w-4 h-4" />
@@ -186,6 +194,38 @@ const SettingsPage = () => {
                 <Button onClick={handleSaveProfile} disabled={isSaving}>
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="po-terms">
+          <Card>
+            <CardHeader>
+              <CardTitle>Purchase Order Terms & Conditions</CardTitle>
+              <CardDescription>
+                Set your default terms that appear on every purchase order. You can override them per PO when approving a work order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="po_terms">Default Terms & Conditions</Label>
+                <Textarea
+                  id="po_terms"
+                  placeholder={`e.g.,\n1. Work must be completed within the agreed timeline.\n2. All materials and labor are included in the agreed amount.\n3. Vendor must carry valid insurance.\n4. Payment will be issued within 7 business days of verified completion.\n5. Any change orders must be approved in writing before work proceeds.`}
+                  className="min-h-[200px] font-mono text-sm"
+                  value={profile.po_terms_and_conditions}
+                  onChange={(e) => setProfile({ ...profile, po_terms_and_conditions: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  These terms will be auto-applied to new purchase orders. You can edit them per PO before generating.
+                </p>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Save Terms
                 </Button>
               </div>
             </CardContent>
