@@ -71,10 +71,11 @@ const BIS_STATUS_CODES: Record<string, string> = {
 
 const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Complete', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn'];
 
-// Normalize "LOC Issued" and "Letter of Completion" to "Signed Off"
+// Normalize completion-related labels to a single "Signed Off"
 const normalizeCompletionLabel = (label: string): string => {
   const lower = label.toLowerCase();
   if (lower === 'loc issued' || lower === 'letter of completion') return 'Signed Off';
+  if (lower === 'sign-off' || lower === 'signed-off') return 'Signed Off';
   return label;
 };
 
