@@ -140,7 +140,7 @@ const PropertyDetailPage = () => {
           .order('uploaded_at', { ascending: false }),
         supabase
           .from('applications')
-          .select('status, source')
+          .select('status, source, application_number')
           .eq('property_id', id),
       ]);
 
