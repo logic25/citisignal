@@ -498,214 +498,169 @@ export const PropertyAIWidget = ({
   const hasDocuments = (allDocuments || documents).length > 0;
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          Property AI
+    <Dialog open={isDialogOpen} onOpenChange={handleDialogOpen}>
+      <DialogTrigger asChild>
+        <button
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 group"
+          aria-label="Open Property AI"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="text-sm font-medium hidden sm:inline">Property AI</span>
           {unreadCount > 0 && (
-            <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground animate-pulse">
+            <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-destructive text-destructive-foreground animate-pulse">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {/* Chat preview - shows recent messages or empty state */}
-        <div className="px-4 pb-3">
-          {isLoadingConversation ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl h-[80vh] p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Property AI</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col h-full bg-card rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-border bg-secondary/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">Property AI</span>
+              <span className="text-xs text-muted-foreground">• {propertyData.address}</span>
             </div>
-          ) : messages.length > 0 ? (
-            <div className="space-y-2 mb-3">
-              {/* Show last 2 messages as preview */}
-              {messages.slice(-2).map((msg) => (
-                <div 
-                  key={msg.id} 
-                  className={`text-xs p-2 rounded-lg ${
-                    msg.role === 'user' 
-                      ? 'bg-primary/10 text-foreground ml-6' 
-                      : 'bg-muted text-muted-foreground mr-6'
-                  }`}
-                >
-                  <span className="font-medium">{msg.role === 'user' ? 'You: ' : 'AI: '}</span>
-                  <span className="line-clamp-2">{msg.content.replace(/\*\*/g, '')}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground mb-3">
-              Ask about violations, lease terms, deadlines, or zoning.
-            </p>
-          )}
-          
-          {/* Quick Q&A Button */}
-          <Dialog open={isDialogOpen} onOpenChange={handleDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                className="w-full justify-between"
-                variant={messages.length > 0 ? "default" : "outline"}
-                size="sm"
-              >
-                <span className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4" />
-                  {messages.length > 0 ? 'Continue conversation' : 'Ask about this property'}
+            <div className="flex items-center gap-1">
+              {hasDocuments && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1 mr-2">
+                  <FileText className="w-3 h-3" />
+                  {(allDocuments || documents).length} docs
                 </span>
-                <Sparkles className="w-4 h-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl h-[80vh] p-0">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Property AI</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col h-full bg-card rounded-xl overflow-hidden">
-                {/* Header */}
-                <div className="px-4 py-3 border-b border-border bg-secondary/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">Property AI</span>
-                    <span className="text-xs text-muted-foreground">• {propertyData.address}</span>
-                  </div>
-                  {messages.length > 0 && (
+              )}
+              {messages.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => clearConversation.mutate()}
+                  disabled={clearConversation.isPending}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
+            {messages.length === 0 ? (
+              <div className="text-center py-8">
+                <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <h3 className="font-medium text-foreground mb-2">Ask about this property</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Get answers about violations, deadlines, documents, zoning, and more.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {suggestedQuestions.map((q, i) => (
                     <Button
-                      variant="ghost"
+                      key={i}
+                      variant="outline"
                       size="sm"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => clearConversation.mutate()}
-                      disabled={clearConversation.isPending}
+                      className="text-xs"
+                      onClick={() => {
+                        setInputValue(q);
+                        inputRef.current?.focus();
+                      }}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {q}
                     </Button>
-                  )}
-                </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
-                  {messages.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                      <h3 className="font-medium text-foreground mb-2">Ask about this property</h3>
-                      <p className="text-sm text-muted-foreground mb-6">
-                        Get answers about violations, deadlines, documents, zoning, and more.
-                      </p>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {suggestedQuestions.map((q, i) => (
-                          <Button
-                            key={i}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => {
-                              setInputValue(q);
-                              inputRef.current?.focus();
-                            }}
-                          >
-                            {q}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {messages.map((message) => {
-                        const isTelegram = message.content.startsWith('[via Telegram]');
-                        const isAI = message.role === 'user' && message.content.toLowerCase().startsWith('@ai ');
-                        const displayContent = isTelegram 
-                          ? message.content.replace('[via Telegram] ', '') 
-                          : isAI 
-                            ? message.content.slice(4).trim() 
-                            : message.content;
-                        return (
-                        <div
-                          key={message.id}
-                          className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          {message.role === 'assistant' && (
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <Bot className="w-4 h-4 text-primary" />
-                            </div>
-                          )}
-                          <div
-                            className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                              message.role === 'user'
-                                ? 'bg-primary text-primary-foreground rounded-tr-none'
-                                : 'bg-secondary text-secondary-foreground rounded-tl-none'
-                            }`}
-                          >
-                            {isTelegram && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 mb-1">
-                                📱 Telegram
-                              </span>
-                            )}
-                            {isAI && message.role === 'user' && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/20 text-primary-foreground mb-1">
-                                ✨ AI Question
-                              </span>
-                            )}
-                            {message.role === 'assistant' ? (
-                              <div className="prose prose-sm dark:prose-invert max-w-none">
-                                <ReactMarkdown>{displayContent || '...'}</ReactMarkdown>
-                              </div>
-                            ) : (
-                              <p className="text-sm">{displayContent}</p>
-                            )}
-                          </div>
-                          {message.role === 'user' && (
-                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                              <User className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        );
-                      })}
-                      {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                        <div className="flex gap-3 justify-start">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <Bot className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="px-4 py-3 rounded-2xl bg-secondary rounded-tl-none">
-                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Input */}
-                <div className="p-4 border-t border-border">
-                  <div className="flex gap-2">
-                    <Input
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Type a message, or @ai to ask AI..."
-                      disabled={isLoading}
-                      className="flex-1"
-                    />
-                    <Button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} size="icon">
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Start with <span className="font-semibold text-primary">@ai</span> to ask AI. Plain messages are saved as notes. Only property-related topics.
-                  </p>
+                  ))}
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-        
-        {/* Document count footer */}
-        {hasDocuments && (
-          <div className="px-4 pb-3 pt-2 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
-            <FileText className="w-3 h-3" />
-            {(allDocuments || documents).length} documents available for Q&A
+            ) : (
+              <div className="space-y-4">
+                {messages.map((message) => {
+                  const isTelegram = message.content.startsWith('[via Telegram]');
+                  const isAI = message.role === 'user' && message.content.toLowerCase().startsWith('@ai ');
+                  const displayContent = isTelegram 
+                    ? message.content.replace('[via Telegram] ', '') 
+                    : isAI 
+                      ? message.content.slice(4).trim() 
+                      : message.content;
+                  return (
+                  <div
+                    key={message.id}
+                    className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {message.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Bot className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-tr-none'
+                          : 'bg-secondary text-secondary-foreground rounded-tl-none'
+                      }`}
+                    >
+                      {isTelegram && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 mb-1">
+                          📱 Telegram
+                        </span>
+                      )}
+                      {isAI && message.role === 'user' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/20 text-primary-foreground mb-1">
+                          ✨ AI Question
+                        </span>
+                      )}
+                      {message.role === 'assistant' ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{displayContent || '...'}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{displayContent}</p>
+                      )}
+                    </div>
+                    {message.role === 'user' && (
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+                {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                  <div className="flex gap-3 justify-start">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Bot className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="px-4 py-3 rounded-2xl bg-secondary rounded-tl-none">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Input */}
+          <div className="p-4 border-t border-border">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message, or @ai to ask AI..."
+                disabled={isLoading}
+                className="flex-1"
+              />
+              <Button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} size="icon">
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Start with <span className="font-semibold text-primary">@ai</span> to ask AI. Plain messages are saved as notes.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
