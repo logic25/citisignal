@@ -3,12 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useComplianceScore } from '@/hooks/useComplianceScore';
 import { ComplianceScoreCard } from '@/components/dashboard/ComplianceScoreCard';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { 
+import {
   AlertTriangle, 
   FileText, 
   Wrench, 
@@ -23,8 +18,6 @@ import {
   Layers,
   Home,
   Landmark,
-  Scale,
-  ChevronDown,
   Ban,
   RefreshCw
 } from 'lucide-react';
@@ -132,8 +125,6 @@ export const PropertyOverviewTab = ({
   workOrders,
   onTabChange 
 }: PropertyOverviewTabProps) => {
-  const [zoningOpen, setZoningOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
   const { score: complianceData, isLoading: scoreLoading, recalculate } = useComplianceScore(property.id);
 
   // Auto-calculate score on first load if missing
@@ -393,193 +384,87 @@ export const PropertyOverviewTab = ({
               </p>
             </div>
 
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-xs text-muted-foreground">Cross Streets</p>
-              <p className="font-medium text-sm">{property.cross_streets || '-'}</p>
-            </div>
-          </div>
-
-          {/* Building Features */}
-          <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-1.5">Building Features</p>
-            <div className="flex flex-wrap gap-2">
-              {property.has_gas && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Flame className="w-3 h-3" /> Gas
-                </Badge>
-              )}
-              {property.has_boiler && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Droplets className="w-3 h-3" /> Boiler
-                </Badge>
-              )}
-              {property.has_elevator && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Cog className="w-3 h-3" /> Elevator
-                </Badge>
-              )}
-              {property.has_sprinkler && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Shield className="w-3 h-3" /> Sprinkler
-                </Badge>
-              )}
-              {!property.has_gas && !property.has_boiler && !property.has_elevator && !property.has_sprinkler && (
-                <span className="text-sm text-muted-foreground">None specified</span>
-              )}
-            </div>
-          </div>
-
-          {/* Collapsible: Zoning & Area */}
-          <Collapsible open={zoningOpen} onOpenChange={setZoningOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full pt-2 border-t border-border">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Scale className="w-4 h-4 text-muted-foreground" />
-                Zoning & Area
-                {hasZoningData && (
-                  <Badge variant="secondary" className="text-xs ml-2">
-                    {property.zoning_district || 'Data Available'}
-                  </Badge>
-                )}
-              </div>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${zoningOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+            {hasZoningData && (
+              <>
                 <div>
                   <p className="text-xs text-muted-foreground">Zoning District</p>
-                  <p className="font-medium">{property.zoning_district || '-'}</p>
+                  <p className="font-medium text-sm">{property.zoning_district || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Overlay District</p>
-                  <p className="font-medium">{property.overlay_district || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Special District</p>
-                  <p className="font-medium">{property.special_district || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Commercial Overlay</p>
-                  <p className="font-medium">{property.commercial_overlay || '-'}</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Lot Area</p>
-                    <p className="font-medium">{formatNumber(property.lot_area_sqft)} sf</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Building Area</p>
-                    <p className="font-medium">{formatNumber(property.building_area_sqft || property.gross_sqft)} sf</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Built FAR</p>
-                  <p className="font-medium">{property.floor_area_ratio?.toFixed(2) || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Max FAR</p>
-                  <p className="font-medium">{property.max_floor_area_ratio?.toFixed(2) || '-'}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground">Unused Air Rights</p>
-                  <p className="font-medium">
-                    {property.air_rights_sqft ? `${formatNumber(property.air_rights_sqft)} sf` : '-'}
-                    {property.unused_far ? ` (${property.unused_far.toFixed(2)} FAR)` : ''}
+                  <p className="text-xs text-muted-foreground">Built FAR / Max FAR</p>
+                  <p className="font-medium text-sm">
+                    {property.floor_area_ratio?.toFixed(2) || '-'} / {property.max_floor_area_ratio?.toFixed(2) || '-'}
                   </p>
                 </div>
-                {(property.residential_area_sqft || property.commercial_area_sqft) && (
-                  <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground">Area Breakdown</p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {property.residential_area_sqft && property.residential_area_sqft > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          Residential: {formatNumber(property.residential_area_sqft)} sf
-                        </Badge>
-                      )}
-                      {property.commercial_area_sqft && property.commercial_area_sqft > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          Commercial: {formatNumber(property.commercial_area_sqft)} sf
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+              </>
+            )}
 
-          {/* Collapsible: Status & Restrictions */}
-          <Collapsible open={statusOpen} onOpenChange={setStatusOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full pt-2 border-t border-border">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Landmark className="w-4 h-4 text-muted-foreground" />
-                Status & Restrictions
-                {(property.is_landmark || hasRestrictions) && (
-                  <Badge variant="destructive" className="text-xs ml-2">
-                    {property.is_landmark ? 'Landmark' : 'Restrictions Apply'}
-                  </Badge>
-                )}
-              </div>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${statusOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm mb-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Landmark Status</p>
-                  <p className="font-medium">
-                    {property.is_landmark ? (
-                      <Badge variant="default" className="bg-amber-500">Landmark</Badge>
-                    ) : (
-                      property.landmark_status || 'Not Landmarked'
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Historic District</p>
-                  <p className="font-medium">{property.historic_district || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">City Owned</p>
-                  <p className="font-medium">{property.is_city_owned ? 'Yes' : 'No'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Pro Cert Restricted</p>
-                  <p className="font-medium">{property.professional_cert_restricted ? 'Yes' : 'No'}</p>
-                </div>
-              </div>
+            {property.lot_area_sqft && property.lot_area_sqft > 0 && (
               <div>
-                <p className="text-xs text-muted-foreground mb-2">Regulatory Restrictions</p>
-                <div className="flex flex-wrap gap-2">
-                  {property.loft_law && (
-                    <Badge variant="destructive" className="text-xs gap-1">
-                      <Ban className="w-3 h-3" /> Loft Law
-                    </Badge>
-                  )}
-                  {property.sro_restricted && (
-                    <Badge variant="destructive" className="text-xs gap-1">
-                      <Ban className="w-3 h-3" /> SRO Restricted
-                    </Badge>
-                  )}
-                  {property.ta_restricted && (
-                    <Badge variant="destructive" className="text-xs gap-1">
-                      <Ban className="w-3 h-3" /> TA Restricted
-                    </Badge>
-                  )}
-                  {property.ub_restricted && (
-                    <Badge variant="destructive" className="text-xs gap-1">
-                      <Ban className="w-3 h-3" /> UB Restricted
-                    </Badge>
-                  )}
-                  {!hasRestrictions && (
-                    <span className="text-sm text-muted-foreground">No restrictions</span>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground">Lot Area</p>
+                <p className="font-medium text-sm">{formatNumber(property.lot_area_sqft)} sf</p>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            )}
+
+            {property.cross_streets && (
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">Cross Streets</p>
+                <p className="font-medium text-sm">{property.cross_streets}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Building Features + Status — inline row */}
+          <div className="pt-2 border-t border-border flex flex-wrap items-center gap-2">
+            {property.has_gas && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Flame className="w-3 h-3" /> Gas
+              </Badge>
+            )}
+            {property.has_boiler && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Droplets className="w-3 h-3" /> Boiler
+              </Badge>
+            )}
+            {property.has_elevator && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Cog className="w-3 h-3" /> Elevator
+              </Badge>
+            )}
+            {property.has_sprinkler && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Shield className="w-3 h-3" /> Sprinkler
+              </Badge>
+            )}
+            {property.is_landmark && (
+              <Badge className="text-xs bg-amber-500 text-white">
+                <Landmark className="w-3 h-3 mr-1" /> Landmark
+              </Badge>
+            )}
+            {property.loft_law && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <Ban className="w-3 h-3" /> Loft Law
+              </Badge>
+            )}
+            {property.sro_restricted && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <Ban className="w-3 h-3" /> SRO
+              </Badge>
+            )}
+            {property.ta_restricted && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <Ban className="w-3 h-3" /> TA
+              </Badge>
+            )}
+            {property.ub_restricted && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <Ban className="w-3 h-3" /> UB
+              </Badge>
+            )}
+            {!property.has_gas && !property.has_boiler && !property.has_elevator && !property.has_sprinkler && !property.is_landmark && !hasRestrictions && (
+              <span className="text-xs text-muted-foreground">No features or restrictions</span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
