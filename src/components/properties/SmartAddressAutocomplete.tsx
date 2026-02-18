@@ -146,9 +146,79 @@ export const SmartAddressAutocomplete = ({
     }
   };
 
-  // PAD dataset no longer accessible (403) - BIN/BBL resolved from DOB Jobs + PLUTO directly
+  // Fallback: search PLUTO dataset directly (covers ALL NYC lots, not just those with DOB filings)
+  const searchPLUTO = async (query: string): Promise<AutocompleteResult[]> => {
+    if (query.length < 3) return [];
 
-  // Search NYC DOB buildings database
+    try {
+      const parts = query.trim().split(/\s+/);
+      const houseNumber = parts[0];
+      let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
+      
+      // Strip borough names from search (PLUTO address doesn't include borough)
+      const streetAbbreviations = new Set(['ST', 'AVE', 'AV', 'RD', 'DR', 'PL', 'CT', 'LN', 'BLVD', 'WAY']);
+      const boroughMap: Record<string, string> = {
+        'BK': 'BK', 'BX': 'BX', 'MN': 'MN', 'QN': 'QN', 'SI': 'SI',
+      };
+      const boroughPrefixMap: [string, string, number][] = [
+        ['MANHATTAN', 'MN', 3], ['BRONX', 'BX', 3], ['BROOKLYN', 'BK', 3], 
+        ['QUEENS', 'QN', 3], ['STATEN', 'SI', 5],
+      ];
+      let boroughCode = '';
+      streetParts = streetParts.filter(p => {
+        if (streetAbbreviations.has(p)) return true;
+        if (boroughMap[p]) { boroughCode = boroughMap[p]; return false; }
+        const match = boroughPrefixMap.find(([name, , minLen]) => name.startsWith(p) && p.length >= minLen);
+        if (match) { boroughCode = match[1]; return false; }
+        if (p === 'ISLAND' && boroughCode === 'SI') return false;
+        if (['NY', 'NEW', 'YORK', 'NYC'].includes(p)) return false;
+        return true;
+      });
+      
+      const streetQuery = streetParts.join(' ');
+      const url = new URL('https://data.cityofnewyork.us/resource/64uk-42ks.json');
+      let whereClause = `upper(address) LIKE '%${houseNumber} ${streetQuery}%'`;
+      if (boroughCode) {
+        whereClause += ` AND borough = '${boroughCode}'`;
+      }
+      url.searchParams.set('$where', whereClause);
+      url.searchParams.set('$limit', '10');
+      url.searchParams.set('$select', 'bbl,borough,block,lot,address,numfloors,unitsres,unitstotal,bldgarea,lotarea,bldgclass,landuse,yearbuilt,ownername');
+
+      const response = await fetch(url.toString());
+      if (!response.ok) return [];
+
+      const data: PLUTOData[] = await response.json();
+      
+      const seenBbls = new Set<string>();
+      return data.filter(p => {
+        if (!p.bbl || seenBbls.has(p.bbl)) return false;
+        seenBbls.add(p.bbl);
+        return true;
+      }).map(p => {
+        const bc = getBoroughCode(p.borough || '');
+        const bbl = p.bbl ? p.bbl.replace(/\.0+$/, '') : '';
+        return {
+          bin: '',
+          address: p.address || '',
+          borough: bc,
+          bbl,
+          block: p.block || '',
+          lot: p.lot || '',
+          stories: p.numfloors ? parseInt(p.numfloors) : null,
+          heightFt: null,
+          grossSqft: p.bldgarea ? parseFloat(p.bldgarea) : null,
+          primaryUseGroup: p.bldgclass || null,
+          dwellingUnits: p.unitsres ? parseInt(p.unitsres) : null,
+        };
+      });
+    } catch (error) {
+      console.error('Error searching PLUTO:', error);
+      return [];
+    }
+  };
+
+  // Search NYC DOB buildings database (with PLUTO fallback)
   const searchNYCBuildings = async (query: string): Promise<AutocompleteResult[]> => {
     if (query.length < 3) return [];
 
@@ -159,16 +229,29 @@ export const SmartAddressAutocomplete = ({
       let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
       
       // Extract and remove borough names from search (DOB stores borough separately)
-      // Use prefix matching so partial typing like "brook" matches "BROOKLYN"
-      const boroughPrefixes: [string, string][] = [
-        ['MANHATTAN', '1'], ['BRONX', '2'], ['BROOKLYN', '3'], ['QUEENS', '4'], 
-        ['STATEN', '5'], ['BK', '3'], ['BX', '2'], ['MN', '1'], ['QN', '4'], ['SI', '5'],
+      // Common street abbreviations that should NOT be treated as borough prefixes
+      const streetAbbreviations = new Set(['ST', 'AVE', 'AV', 'RD', 'DR', 'PL', 'CT', 'LN', 'BLVD', 'WAY']);
+      // DOB Jobs stores borough as text (MANHATTAN, BROOKLYN, etc.)
+      const boroughPrefixes: [string, string, number][] = [
+        // [name, boroughTextForQuery, minPrefixLength]
+        ['MANHATTAN', 'MANHATTAN', 3], ['BRONX', 'BRONX', 3], ['BROOKLYN', 'BROOKLYN', 3], 
+        ['QUEENS', 'QUEENS', 3], ['STATEN', 'STATEN ISLAND', 5],
       ];
+      const boroughExact: Record<string, string> = {
+        'BK': 'BROOKLYN', 'BX': 'BRONX', 'MN': 'MANHATTAN', 'QN': 'QUEENS', 'SI': 'STATEN ISLAND',
+      };
       let boroughFilter = '';
       streetParts = streetParts.filter(p => {
-        // Check if this word is a prefix of any borough name (or exact match of abbreviation)
-        const match = boroughPrefixes.find(([name]) => 
-          name.startsWith(p) && p.length >= 2
+        // Skip common street abbreviations - never treat as borough
+        if (streetAbbreviations.has(p)) return true;
+        // Exact match on abbreviations
+        if (boroughExact[p]) {
+          boroughFilter = boroughExact[p];
+          return false;
+        }
+        // Prefix match on full borough names (with minimum length)
+        const match = boroughPrefixes.find(([name, , minLen]) => 
+          name.startsWith(p) && p.length >= minLen
         );
         if (match) {
           boroughFilter = match[1];
@@ -245,6 +328,11 @@ export const SmartAddressAutocomplete = ({
           };
         })
       );
+
+      // If DOB Jobs returned no results, fall back to PLUTO (covers all lots)
+      if (results.length === 0) {
+        return searchPLUTO(query);
+      }
 
       return results;
     } catch (error) {
