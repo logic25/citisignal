@@ -1,147 +1,149 @@
 
+# Work Order Intelligence: Smart Dispatch, Vendor Quotes, and Follow-Up Automation
 
-# Revised Feature Expansion Plan
+## The Problem Today
 
-## What We Already Have (No Duplication)
+The current work order system is bare-bones: scope, status dropdown, optional vendor/violation link. It's missing the real-world workflows you described:
 
-The current codebase already has tenant-level features scattered across modules:
-- **Tenant tagging** on applications (name + notes via `TenantTagEditor`)
-- **Tenant tracking** on property taxes (tenant responsible, tenant name)
-- **Lease AI Q&A** with document-specific conversations and citations
-- **Property AI chat** as a collaborative team notebook (with Telegram cross-posting)
-- **Telegram bot** for property queries, violation lookups, and lease Q&A
-- **SMS webhook** for inbound property queries via Twilio
-
-Phase 1 from the previous plan overlaps with these. Instead of building a separate "tenant management" system, we should **elevate the existing tenant tags into a proper tenant directory** and add lease date tracking directly onto what we have.
+1. **No intelligence for finding the right vendor** -- when a leak happens, you manually scroll through roofers
+2. **No quote/pricing tracking** -- vendors text back prices, but there's nowhere to capture that
+3. **No approval workflow** -- no way to accept/reject a quote before work begins
+4. **No follow-up automation** -- work orders sit in "open" with no nudges
+5. **No communication thread** -- vendor replies via SMS/WhatsApp don't connect back to the work order
 
 ---
 
-## Revised Phase 1: Tenant Directory + Lease Dates (Upgrade, Not Rebuild)
+## What We're Building
 
-Instead of new `units`, `tenants`, `leases`, and `rent_roll` tables, we take a lighter approach:
+### 1. Smart Vendor Matching ("Find me a roofer")
 
-### Database Changes
-- **`tenants` table**: company_name, contact_name, contact_email, contact_phone, property_id, unit_number, lease_start, lease_end, rent_amount, escalation_notes, renewal_option_date, security_deposit, lease_type (gross/NNN/modified gross), status (active/expired/pending), notes
-- **No separate `units` or `leases` tables** -- for CRE, the tenant IS the unit occupant. Keep it flat until complexity demands otherwise.
+When creating a work order, instead of manually picking a vendor, you'll see a **"Find Vendor" button** that:
+- Filters your vendor list by **trade type** matching the issue (e.g., "Roofer" for a leak)
+- Sorts by **most recent completed work** at this property (familiarity)
+- Shows **COI status** inline so you don't pick an expired vendor
+- Allows **multi-dispatch**: send the same work order to 2-3 vendors at once for competitive quotes
+
+### 2. Quote/Bid Tracking on Work Orders
+
+New columns on `work_orders`:
+- `quoted_amount` -- the price the vendor comes back with
+- `approved_amount` -- what you approve
+- `approved_at` -- when you approved
+- `approved_by` -- who approved
+- `priority` -- urgent/normal/low
+- `due_date` -- when the work should be done by
+- `notes` -- internal notes / communication log
+
+New status values added to the workflow:
+```
+open -> dispatched -> quoted -> approved -> in_progress -> awaiting_docs -> completed
+```
+
+- **dispatched** = sent to vendor(s), waiting for quote
+- **quoted** = vendor replied with a price
+- **approved** = owner approved the price, work can begin
+
+### 3. Inbound Quote Capture via SMS/WhatsApp
+
+When a vendor texts/WhatsApps back with a price (e.g., "I can do it for $2,500"), the AI in the SMS/WhatsApp webhook will:
+- Detect it's a vendor response (match the sender's phone to a vendor in the database)
+- Find their **open/dispatched work order**
+- Extract the dollar amount from the message
+- Update the work order with `quoted_amount` and change status to `quoted`
+- Notify the owner: "Vendor ABC quoted $2,500 for roof repair at 123 Main St. Approve?"
+
+This uses the existing `sms-webhook` and the new `whatsapp-webhook` -- just adding vendor-detection logic.
+
+### 4. Approval Flow in the UI
+
+On the work order card, when status is `quoted`:
+- Show the quoted amount prominently
+- **Approve** button (sets `approved_amount = quoted_amount`, status -> `approved`, notifies vendor via SMS/WhatsApp: "Your quote has been approved. Please proceed.")
+- **Counter** button (lets you enter a different amount, sends to vendor)
+- **Reject** button (status -> `open`, notifies vendor)
+
+### 5. Follow-Up Intelligence
+
+A new edge function `work-order-followup` (called by the existing scheduled-sync pattern):
+- Work orders in `dispatched` for over 24 hours with no vendor response -- send a follow-up SMS/WhatsApp
+- Work orders in `approved` for over 48 hours with no status change -- nudge vendor
+- Work orders in `in_progress` for over 7 days -- flag for owner review
+- All follow-ups logged to the work order's notes
+
+---
+
+## Technical Details
+
+### Database Migration
+
+**Alter `work_orders` table** -- add new columns:
+- `quoted_amount NUMERIC`
+- `approved_amount NUMERIC`
+- `approved_at TIMESTAMPTZ`
+- `approved_by UUID`
+- `priority TEXT DEFAULT 'normal'`
+- `due_date DATE`
+- `notes TEXT`
+- `dispatched_at TIMESTAMPTZ`
+- `vendor_notified_via TEXT` (sms/whatsapp/email)
+
+**Alter work_order_status enum** -- add `dispatched`, `quoted`, `approved` values
+
+**New table: `work_order_messages`** -- communication thread per work order:
+- `id UUID PRIMARY KEY`
+- `work_order_id UUID REFERENCES work_orders`
+- `sender_type TEXT` (owner/vendor/system)
+- `sender_name TEXT`
+- `channel TEXT` (sms/whatsapp/in_app)
+- `message TEXT`
+- `extracted_amount NUMERIC` (if AI detected a quote)
+- `created_at TIMESTAMPTZ`
+
+RLS: same property-based policy pattern as work_orders.
+
+### Edge Function Changes
+
+**`sms-webhook/index.ts`** -- add vendor detection:
+1. Check if sender phone matches any vendor's `phone_number`
+2. If yes, find their open work orders
+3. Use AI to extract quote amount from message
+4. Update work order and create `work_order_messages` entry
+5. Notify owner
+
+**`whatsapp-webhook/index.ts`** (new, Phase 2) -- same vendor detection logic
+
+**`work-order-followup/index.ts`** (new) -- scheduled follow-up:
+- Query work orders by status and age
+- Send follow-up messages via appropriate channel
+- Log follow-ups
 
 ### UI Changes
-- New "Tenants" tab on PropertyDetailPage (alongside Violations, Applications, etc.)
-- Tenant list with lease expiration countdown badges
-- Existing `TenantTagEditor` on applications links to the tenant record
-- Lease expiration alerts reuse the existing notification system (7/3/1 day pattern from `generate_deadline_reminders`)
 
----
+**`PropertyWorkOrdersTab.tsx`** -- enhanced work order cards:
+- Priority badge (urgent = red, normal = blue, low = gray)
+- Due date display
+- Quoted/approved amount display
+- Approve/Counter/Reject buttons when status is `quoted`
+- Communication thread (expandable section showing `work_order_messages`)
+- "Find Vendor" smart matching when creating
 
-## Revised Phase 2: WhatsApp Integration
+**`WorkOrdersPage.tsx`** -- add filters for:
+- Priority filter
+- "Needs Attention" filter (overdue follow-ups)
 
-WhatsApp follows the exact same architecture as the existing Telegram bot. The pattern:
+**`CreateWorkOrderDialog.tsx`** -- add:
+- Priority selector
+- Due date picker
+- Multi-vendor dispatch (checkboxes to send to multiple vendors)
+- "Find Vendor" that auto-filters by trade type
 
-### Infrastructure
-- **New edge function**: `whatsapp-webhook/index.ts` -- mirrors `telegram-webhook/index.ts`
-- **New edge function**: `send-whatsapp/index.ts` -- mirrors `send-telegram/index.ts`
-- Uses **Twilio WhatsApp API** (same Twilio credentials already configured: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`)
-- Need one new secret: `TWILIO_WHATSAPP_NUMBER` (the Twilio WhatsApp-enabled number)
+### Implementation Order
 
-### How It Works
-- Twilio routes WhatsApp messages to the `whatsapp-webhook` edge function
-- Same Gemini-powered AI assistant answers property queries
-- Messages logged to `property_ai_messages` with a "WhatsApp" badge (same pattern as Telegram's badge)
-- Account linking via `/start` deep link or manual `/link` command
-
-### Database Changes
-- **`whatsapp_users` table**: user_id, phone_number, is_active, linked_at (mirrors `telegram_users`)
-
-### Settings UI
-- New "WhatsApp" section in Settings page alongside existing Telegram tab
-- Shows linking status, phone number, and unlink button
-
----
-
-## Revised Phase 3: Financial Tracking with QuickBooks
-
-For CRE financial tracking, **QuickBooks integration is the right move** rather than building a full accounting system. Two options:
-
-### Option A: QBO (QuickBooks Online) API -- Recommended
-- Direct API integration via OAuth2
-- Real-time sync of income/expenses
-- Automatic categorization by property
-- Requires: QBO API credentials (Client ID + Client Secret)
-- **New edge function**: `qbo-sync/index.ts` for fetching transactions
-- **New table**: `qbo_connections` (user_id, realm_id, access_token, refresh_token)
-- **New table**: `transactions` (property_id, amount, category, date, qbo_reference_id, description, vendor)
-- UI: Financial tab on PropertyDetailPage showing synced transactions, P&L summary
-
-### Option B: CSV/IIF Import (QuickBooks Desktop)
-- Manual upload workflow: user exports CSV/IIF from QBD, uploads to the app
-- **New edge function**: `parse-qbd-export/index.ts` to parse CSV/IIF format
-- Same `transactions` table as above, but `source: 'qbd_import'` instead of `'qbo_sync'`
-- UI: Import button on Financials page with drag-and-drop upload
-
-### Recommendation
-Support **both** -- QBO as primary with live sync, plus CSV import as fallback for QBD users. Many CRE managers use QBD, so CSV import is essential. The `transactions` table is the same either way; only the data source differs.
-
----
-
-## Revised Pricing (Adjusted for Overlap)
-
-### Starter -- $49/month
-- Up to 5 properties
-- Violation monitoring (DOB, ECB, HPD, FDNY, DEP, DOT, DSNY, DCA, SBS)
-- Compliance scoring and calendar
-- Application/permit tracking
-- Document uploads (5 GB)
-- Email notifications
-- 1 user
-
-### Professional -- $149/month
-- Up to 25 properties
-- Everything in Starter plus:
-- Tenant directory with lease tracking
-- Lease AI Q&A (50 questions/month)
-- Work orders and vendor management
-- SMS + Telegram + WhatsApp alerts
-- Due diligence reports (10/month)
-- 25 GB document storage
-- 3 users
-
-### Enterprise -- $349/month
-- Unlimited properties
-- Everything in Professional plus:
-- QuickBooks sync (QBO or CSV import)
-- Portfolio analytics dashboard
-- Insurance policy tracking
-- Property AI assistant (unlimited)
-- Lease AI Q&A (unlimited)
-- 100 GB document storage
-- Unlimited users
-- Priority support
-
-### Add-ons
-- Additional properties: $5/property/month (Starter), $3/property/month (Pro)
-- Additional AI questions: $0.10/question
-- Additional storage: $5 per 10 GB/month
-- White-label branding: $99/month
-
----
-
-## Implementation Order
-
-| Order | Feature | Effort | Why This Order |
-|-------|---------|--------|----------------|
-| 1 | Tenant directory + lease dates | Medium | Upgrades existing data, unlocks Pro tier |
-| 2 | WhatsApp integration | Medium | Mirrors Telegram pattern, high user demand |
-| 3 | QBO sync + CSV import | Large | Justifies Enterprise tier |
-| 4 | Stripe subscription billing | Medium | Monetizes the tiers |
-| 5 | Portfolio analytics | Medium | Enterprise differentiator |
-| 6 | Insurance tracking | Small | Completeness |
-
----
-
-## Technical Notes
-
-- WhatsApp webhook reuses the same Gemini AI pipeline and `property_ai_messages` logging as Telegram
-- Twilio WhatsApp API uses the same account credentials already stored -- only need the WhatsApp-specific phone number
-- QBO OAuth2 tokens need refresh handling in a scheduled edge function
-- CSV/IIF parsing runs entirely in an edge function with no external dependencies
-- All new tables follow existing RLS pattern (user_id ownership or property_id join check)
-
+| Step | What | Details |
+|------|------|---------|
+| 1 | Database migration | Add columns to work_orders, new status values, create work_order_messages table |
+| 2 | UI: Enhanced work order cards | Priority, due date, quote display, approve/reject flow |
+| 3 | UI: Smart vendor matching | Trade-type filter, COI status, multi-dispatch |
+| 4 | SMS webhook: Vendor quote detection | Match vendor phone, extract amount, update work order |
+| 5 | Follow-up edge function | Scheduled nudges for stale work orders |
+| 6 | WhatsApp webhook (Phase 2) | Same vendor detection as SMS |
