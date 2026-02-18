@@ -1,102 +1,140 @@
 
-
-# Fix Data Mapping and Remove Unavailable Fields
+# NYC Building Data Sync — Comprehensive Plan
 
 ## Summary
-Several property fields are hardcoded to false/null when Open Data actually has the data, some PLUTO fields are incorrectly mapped, and several fields shown in the UI have no consistent Open Data source and should be removed.
+Expand the property sync engine to achieve ZoLa-level data parity from PLUTO, add new data sources (E-Designations, LPC Landmarks), fix Professional Cert sourcing from DOB Jobs, and remove fields with no reliable Open Data source.
 
 ## What's Actually Available (verified via API)
 
-| Dataset | Available Fields |
-|---------|-----------------|
-| PLUTO | `zonemap`, `overlay1`, `overlay2`, `spdist1`, `spdist2`, `spdist3`, `ltdheight`, `splitzone`, `histdist`, `landmark` |
-| DOB Jobs | `professional_cert`, `loft_board`, `adult_estab`, `landmarked`, `little_e`, `cluster`, `non_profit`, `site_fill`, `special_district_1`, `special_district_2` |
+| Dataset | API ID | Available Fields |
+|---------|--------|-----------------|
+| PLUTO | 64uk-42ks | `zonedist1`, `zonedist2`, `zonedist3`, `zonemap`, `overlay1`, `overlay2`, `spdist1-3`, `ltdheight`, `splitzone`, `histdist`, `landmark`, `lotfront`, `lotdepth`, `schooldist`, `policeprct`, `firecomp`, `sanitboro`, `sanitsub`, `landuse`, `unitstotal`, `numbldgs`, `numfloors`, `bldgarea`, `unitsres`, `lotarea`, `bldgclass`, `yearbuilt`, `assessland`, `assesstot`, `exempttot`, `builtfar`, `residfar`, `commfar` |
+| DOB Jobs | ic3t-wcy2 | `professional_cert`, `loft_board`, `adult_estab`, `landmarked`, `little_e`, `cluster`, `non_profit`, `site_fill`, `special_district_1`, `special_district_2` |
+| E-Designations | jsrs-ggnx | Environmental restriction records by BBL — `e_designation_number`, `description`, `zoning_map_changes` |
+| LPC Landmarks | gpmc-yuvp | Individual and historic district landmarks — `lpc_number`, `lm_name`, `lm_type`, `status`, `cal_date`, `most_recent` |
 
 ## What's NOT Available (no consistent Open Data source)
 
-These fields will be **removed from the UI** since they can't be reliably populated:
+These fields are **removed from the UI** since they can't be reliably populated:
 - `cross_streets` (PAD returns 403)
 - `special_place_name` (BIS-only)
 - `building_remarks` (BIS-only)
 - `basement_code` (BIS-only)
-- `local_law` (LL 158/17 text with expiration -- BIS-only)
-- `sro_restricted` (not in DOB Jobs or PLUTO)
-- `ta_restricted` (not in DOB Jobs or PLUTO)
-- `ub_restricted` (not in DOB Jobs or PLUTO)
-- `grandfathered_sign` (not in DOB Jobs or PLUTO)
+- `local_law` (LL 158/17 text with expiration — BIS-only)
+- `sro_restricted`, `ta_restricted`, `ub_restricted`, `grandfathered_sign` (not in DOB Jobs or PLUTO)
 - `special_status` (no direct source)
-- `environmental_restrictions` (requires separate E-Designations dataset query by BBL -- could add later)
 
 ## Implementation
 
-### Step 1: Fix PLUTO Mapping (`src/lib/nyc-building-sync.ts`)
+### Step 1: Add Missing PLUTO Fields (`src/lib/nyc-building-sync.ts`)
 
-In `fetchPLUTOData()`:
-- Add `zoningMap: p.zonemap || null` (currently missing)
-- Fix `commercialOverlay`: change from `p.ltdheight` to `p.overlay2` (ltdheight is "limited height district", not commercial overlay)
-- Add `landmarkStatus: p.landmark || null` (PLUTO has `landmark` column with status text)
-- Add `specialDistrict`: combine `p.spdist1`, `p.spdist2`, `p.spdist3`
-- Add `splitZone` handling via `p.splitzone`
+In `fetchPLUTOData()`, add these new fields:
+- `zonedist2: p.zonedist2 || null`
+- `zonedist3: p.zonedist3 || null`
+- `lotFrontage: parseNumber(p.lotfront)`
+- `lotDepth: parseNumber(p.lotdepth)`
+- `schoolDistrict: p.schooldist || null`
+- `policePrecinct: p.policeprct || null`
+- `fireCompany: p.firecomp || null`
+- `sanitationBorough: p.sanitboro || null`
+- `sanitationSubsection: p.sanitsub || null`
+- `landUse: p.landuse || null`
+- `totalUnits: parseInt_(p.unitstotal)`
+- `splitZone: p.splitzone === 'Y'`
+- `limitedHeightDistrict: p.ltdheight || null`
 
-### Step 2: Fix DOB Jobs Mapping (`src/lib/nyc-building-sync.ts`)
+Fix existing mappings:
+- `zoningMap: p.zonemap || null` (currently missing)
+- `commercialOverlay: p.overlay2 || null` (was incorrectly mapped to ltdheight)
+- `landmarkStatus: p.landmark || null` (use actual PLUTO value)
+
+### Step 2: Fix Professional Cert from DOB Jobs
 
 In `fetchDOBJobsByBin()`:
-- Add `professionalCertRestricted: parseYesNo(d.professional_cert)` (currently missing -- this is the bug)
-- Add `specialDistrict: d.special_district_1 || null` as fallback
+- Change `$limit` from 1 to 10 (check multiple filings)
+- Iterate through all results: set `professionalCertRestricted = true` if ANY filing has `professional_cert = 'Y'`
+- This fixes the bug where the most recent filing may not have the field set
 
-### Step 3: Fix Merge Logic (`src/lib/nyc-building-sync.ts`)
+### Step 3: Add E-Designations Fetch (`jsrs-ggnx`)
 
-In both `syncNYCBuildingDataByIdentifiers()` and `syncNYCBuildingData()`:
-- Change `professionalCertRestricted` from hardcoded `false` to `dobJobsData?.professionalCertRestricted ?? false`
-- Change `landmarkStatus` from generic `'LANDMARK'` string to actual PLUTO `landmark` field value
-- Remove always-null/false fields from merge: `sroRestricted`, `taRestricted`, `ubRestricted`, `grandfatheredSign`, `specialStatus`, `localLaw`, `crossStreets`, `specialPlaceName`, `buildingRemarks`, `basementCode`
+New function `fetchEDesignations(bbl: string)`:
+- Query: `https://data.cityofnewyork.us/resource/jsrs-ggnx.json?$where=bbl='${bbl}'`
+- Map to `environmentalRestrictions` field (concatenated descriptions)
+- Called during `syncNYCBuildingDataByIdentifiers()` in parallel with PLUTO/DOB
 
-### Step 4: Clean Up Interface (`src/lib/nyc-building-sync.ts`)
+### Step 4: Add LPC Landmark Details (`gpmc-yuvp`)
 
-Remove fields from `NYCBuildingData` interface that have no data source:
-- `crossStreets`, `specialPlaceName`, `buildingRemarks`, `basementCode`
-- `sroRestricted`, `taRestricted`, `ubRestricted`, `grandfatheredSign`
-- `localLaw`, `specialStatus`
-- `environmentalRestrictions` (can add back later with E-Designations)
+New function `fetchLPCLandmarkDetails(bbl: string)`:
+- Query: `https://data.cityofnewyork.us/resource/gpmc-yuvp.json?$where=bbl='${bbl}'`
+- Map: `lpc_number`, `lm_name`, `lm_type`, `status`
+- Enriches `landmarkStatus` with actual LPC designation details
+- Called in parallel during sync
 
-Update `toPropertyUpdate()` to stop writing nulls/false for these removed fields.
+### Step 5: Database Migration
 
-### Step 5: Update UI (`PropertyOverviewTab.tsx`)
+Add new columns to `properties` table:
+- `zoning_district_2 TEXT`
+- `zoning_district_3 TEXT`
+- `lot_frontage NUMERIC`
+- `lot_depth NUMERIC`
+- `school_district TEXT`
+- `police_precinct TEXT`
+- `fire_company TEXT`
+- `sanitation_borough TEXT`
+- `sanitation_subsection TEXT`
+- `land_use TEXT`
+- `total_units INTEGER`
+- `split_zone BOOLEAN DEFAULT false`
+- `limited_height_district TEXT`
 
-**Remove from Status and Restrictions section:**
-- Cross Streets row
-- Special Place Name row
-- Local Law row
-- SRO Restricted row
-- TA Restricted row
-- UB Restricted row
-- Grandfathered Sign row
-- Special Status row
-- Environmental Restrictions row
+### Step 6: Update `NYCBuildingData` Interface & `toPropertyUpdate()`
 
-**Keep and fix:**
-- Landmark Status -- show actual PLUTO value
-- Historic District -- already works
-- Pro Cert Restricted -- will now show correct data after Step 2
-- Loft Law -- already works from DOB Jobs
-- Legal Adult Use -- already works
-- City Owned -- already works from DOB Jobs
-- HPD Multiple Dwelling -- keep (can be manually set)
+- Add new fields to interface
+- Map new fields in `toPropertyUpdate()` for database storage
+- Remove unavailable fields from interface
 
-**Zoning section -- fix display:**
-- Zoning Map will now populate from PLUTO `zonemap`
-- Commercial Overlay will show correct data (was showing limited height district)
+### Step 7: Update UI — Property Overview Tab
 
-### Step 6: Clean Up Property Settings Tab
+**Add to Zoning section:**
+- Zoning District 2, 3 (if present)
+- Limited Height District
+- Split Zone indicator
 
-Remove settings fields for data that can't be sourced, keeping only fields the user would manually enter.
+**Add new "Neighborhood Information" section** (matching ZoLa):
+- Community District (already have)
+- Council District (already have)
+- School District
+- Police Precinct
+- Fire Company
+- Sanitation Borough / Subsection
+
+**Add to Building Info:**
+- Lot Frontage, Lot Depth
+- Total Units (distinct from Residential Units)
+- Land Use category
+
+**Fix existing:**
+- Zoning Map — will populate from PLUTO `zonemap`
+- Commercial Overlay — corrected mapping from `overlay2`
+- Landmark Status — actual PLUTO value
+- Pro Cert Restricted — fixed DOB Jobs multi-filing check
+- Environmental Restrictions — now sourced from E-Designations
+
+**Remove from Status & Restrictions:**
+- Cross Streets, Special Place Name, Local Law
+- SRO/TA/UB Restricted, Grandfathered Sign, Special Status
+
+### Step 8: Update Property Settings Tab
+
+Remove settings fields for data with no source. Keep only user-editable feature flags.
 
 ## Files Changed
 
-1. `src/lib/nyc-building-sync.ts` -- Fix PLUTO mapping (zonemap, overlay2, landmark), fix DOB Jobs mapping (professional_cert), fix merge logic, remove unavailable fields
-2. `src/components/properties/detail/PropertyOverviewTab.tsx` -- Remove UI rows for unavailable fields, keep only fields with real data sources
+1. `src/lib/nyc-building-sync.ts` — Add PLUTO fields, fix DOB Jobs professional_cert, add E-Designations + LPC fetchers, update merge logic
+2. `src/components/properties/detail/PropertyOverviewTab.tsx` — Add Neighborhood Info section, lot dimensions, fix zoning display, remove unavailable fields
+3. `src/components/properties/PropertySettingsTab.tsx` — Remove unavailable field toggles
+4. Database migration — Add new columns for neighborhood/lot data
 
 ## After Deployment
 
-Users will need to click **Sync** on their properties to re-fetch data with the corrected mappings. The Pro Cert, Zoning Map, and Commercial Overlay fields will populate correctly after re-sync.
-
+Users must click **Sync** on properties to fetch data with new mappings. All new PLUTO fields, E-Designations, and LPC data will populate after re-sync.
