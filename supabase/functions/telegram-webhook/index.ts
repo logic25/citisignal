@@ -116,6 +116,79 @@ Deno.serve(async (req) => {
       .eq("chat_id", chatId)
       .single();
 
+    // Check if sender is a vendor (by telegram_chat_id)
+    const { data: vendorMatch } = await supabase
+      .from("vendors")
+      .select("id, name, user_id")
+      .eq("telegram_chat_id", chatId)
+      .limit(1)
+      .maybeSingle();
+
+    if (vendorMatch) {
+      // Vendor message — try to extract quote and match to work order
+      console.log("Vendor message from:", vendorMatch.name, "text:", text);
+
+      const { data: openWOs } = await supabase
+        .from("work_orders")
+        .select("id, scope, status, property_id")
+        .eq("vendor_id", vendorMatch.id)
+        .in("status", ["dispatched", "open"]);
+
+      if (openWOs && openWOs.length > 0) {
+        // Try to extract dollar amount from message
+        const amountMatch = text.match(/\$?([\d,]+(?:\.\d{1,2})?)/);
+        const extractedAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+
+        const targetWO = openWOs[0]; // Pick the most relevant (first open/dispatched)
+
+        // Log the vendor message
+        await supabase.from("work_order_messages").insert({
+          work_order_id: targetWO.id,
+          sender_type: "vendor",
+          sender_name: vendorMatch.name,
+          channel: "telegram",
+          message: text,
+          extracted_amount: extractedAmount,
+        });
+
+        if (extractedAmount && extractedAmount > 0) {
+          // Update work order to quoted
+          await supabase
+            .from("work_orders")
+            .update({ status: "quoted" as any, quoted_amount: extractedAmount })
+            .eq("id", targetWO.id);
+
+          // Notify the property owner
+          const { data: prop } = await supabase
+            .from("properties")
+            .select("user_id, address")
+            .eq("id", targetWO.property_id)
+            .single();
+
+          if (prop?.user_id) {
+            await supabase.from("notifications").insert({
+              user_id: prop.user_id,
+              title: "Vendor Quote Received",
+              message: `${vendorMatch.name} quoted $${extractedAmount.toLocaleString()} for "${targetWO.scope.substring(0, 80)}" at ${prop.address}`,
+              priority: "high",
+              category: "work_orders",
+              property_id: targetWO.property_id,
+              entity_type: "work_order",
+              entity_id: targetWO.id,
+            });
+          }
+
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `✅ Got it! Your quote of $${extractedAmount.toLocaleString()} for "${targetWO.scope.substring(0, 60)}" has been submitted. The owner will review and respond.`);
+        } else {
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `📝 Message logged for work order: "${targetWO.scope.substring(0, 60)}". To submit a quote, include the dollar amount (e.g. $2,500).`);
+        }
+      } else {
+        await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `Thanks for your message! No open work orders found assigned to you right now.`);
+      }
+
+      return new Response("OK", { status: 200 });
+    }
+
     if (!telegramUser || !telegramUser.is_active) {
       await sendTelegram(
         TELEGRAM_BOT_TOKEN,

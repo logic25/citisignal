@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const now = new Date();
     let followUpCount = 0;
 
-    // 1. Dispatched > 24h with no vendor response → send follow-up SMS
+    // 1. Dispatched > 24h with no vendor response → send follow-up via Telegram
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const { data: staleDispatched } = await supabase
       .from("work_orders")
@@ -38,27 +38,29 @@ Deno.serve(async (req) => {
 
       const { data: vendor } = await supabase
         .from("vendors")
-        .select("name, phone_number")
+        .select("name, telegram_chat_id")
         .eq("id", wo.vendor_id)
         .single();
 
-      if (vendor?.phone_number) {
-        // Check if we already sent a follow-up recently
-        const { data: recentFollowup } = await supabase
-          .from("work_order_messages")
-          .select("id")
-          .eq("work_order_id", wo.id)
-          .eq("sender_type", "system")
-          .gte("created_at", twentyFourHoursAgo)
-          .limit(1);
+      // Check if we already sent a follow-up recently
+      const { data: recentFollowup } = await supabase
+        .from("work_order_messages")
+        .select("id")
+        .eq("work_order_id", wo.id)
+        .eq("sender_type", "system")
+        .gte("created_at", twentyFourHoursAgo)
+        .limit(1);
 
-        if (recentFollowup && recentFollowup.length > 0) continue;
+      if (recentFollowup && recentFollowup.length > 0) continue;
 
+      const followUpMessage = `Reminder: We're still waiting on your quote for: "${wo.scope.substring(0, 100)}". Please reply with your price.`;
+
+      if (vendor?.telegram_chat_id) {
         try {
-          await supabase.functions.invoke("send-sms", {
+          await supabase.functions.invoke("send-telegram", {
             body: {
-              to: vendor.phone_number,
-              message: `Reminder: We're still waiting on your quote for: "${wo.scope.substring(0, 100)}". Please reply with your price.`,
+              chat_id: vendor.telegram_chat_id,
+              message: followUpMessage,
             },
           });
 
@@ -66,22 +68,52 @@ Deno.serve(async (req) => {
             work_order_id: wo.id,
             sender_type: "system",
             sender_name: "Auto Follow-up",
-            channel: "sms",
-            message: `Automatic follow-up sent to ${vendor.name}: awaiting quote (24h+)`,
+            channel: "telegram",
+            message: `Automatic follow-up sent to ${vendor.name} via Telegram: awaiting quote (24h+)`,
           });
 
           followUpCount++;
         } catch (e) {
-          console.error(`Failed to follow up with ${vendor.name}:`, e);
+          console.error(`Failed to follow up with ${vendor.name} via Telegram:`, e);
+        }
+      } else {
+        // Fall back to in-app notification
+        const { data: prop } = await supabase
+          .from("properties")
+          .select("user_id")
+          .eq("id", wo.property_id)
+          .single();
+
+        if (prop?.user_id) {
+          await supabase.from("notifications").insert({
+            user_id: prop.user_id,
+            title: "Vendor Not Responding",
+            message: `${vendor?.name || "Assigned vendor"} hasn't responded to "${wo.scope.substring(0, 80)}" after 24h. No Telegram linked — contact manually.`,
+            priority: "normal",
+            category: "work_orders",
+            property_id: wo.property_id,
+            entity_type: "work_order",
+            entity_id: wo.id,
+          });
+
+          await supabase.from("work_order_messages").insert({
+            work_order_id: wo.id,
+            sender_type: "system",
+            sender_name: "Auto Follow-up",
+            channel: "in_app",
+            message: `No Telegram linked for ${vendor?.name}. Owner notified to follow up manually.`,
+          });
+
+          followUpCount++;
         }
       }
     }
 
-    // 2. Approved > 48h with no status change → nudge vendor
+    // 2. Approved > 48h with no status change → nudge vendor via Telegram
     const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
     const { data: staleApproved } = await supabase
       .from("work_orders")
-      .select("id, scope, vendor_id, approved_at")
+      .select("id, scope, vendor_id, approved_at, property_id")
       .eq("status", "approved")
       .lt("approved_at", fortyEightHoursAgo);
 
@@ -90,26 +122,28 @@ Deno.serve(async (req) => {
 
       const { data: vendor } = await supabase
         .from("vendors")
-        .select("name, phone_number")
+        .select("name, telegram_chat_id")
         .eq("id", wo.vendor_id)
         .single();
 
-      if (vendor?.phone_number) {
-        const { data: recentFollowup } = await supabase
-          .from("work_order_messages")
-          .select("id")
-          .eq("work_order_id", wo.id)
-          .eq("sender_type", "system")
-          .gte("created_at", fortyEightHoursAgo)
-          .limit(1);
+      const { data: recentFollowup } = await supabase
+        .from("work_order_messages")
+        .select("id")
+        .eq("work_order_id", wo.id)
+        .eq("sender_type", "system")
+        .gte("created_at", fortyEightHoursAgo)
+        .limit(1);
 
-        if (recentFollowup && recentFollowup.length > 0) continue;
+      if (recentFollowup && recentFollowup.length > 0) continue;
 
+      const nudgeMessage = `Your quote for "${wo.scope.substring(0, 80)}" was approved. When can you start? Please update us.`;
+
+      if (vendor?.telegram_chat_id) {
         try {
-          await supabase.functions.invoke("send-sms", {
+          await supabase.functions.invoke("send-telegram", {
             body: {
-              to: vendor.phone_number,
-              message: `Your quote for "${wo.scope.substring(0, 80)}" was approved. When can you start? Please update us.`,
+              chat_id: vendor.telegram_chat_id,
+              message: nudgeMessage,
             },
           });
 
@@ -117,13 +151,33 @@ Deno.serve(async (req) => {
             work_order_id: wo.id,
             sender_type: "system",
             sender_name: "Auto Follow-up",
-            channel: "sms",
-            message: `Automatic nudge sent to ${vendor.name}: approved 48h+ ago, no update`,
+            channel: "telegram",
+            message: `Automatic nudge sent to ${vendor.name} via Telegram: approved 48h+ ago, no update`,
           });
 
           followUpCount++;
         } catch (e) {
-          console.error(`Failed to nudge ${vendor.name}:`, e);
+          console.error(`Failed to nudge ${vendor.name} via Telegram:`, e);
+        }
+      } else {
+        const { data: prop } = await supabase
+          .from("properties")
+          .select("user_id")
+          .eq("id", wo.property_id)
+          .single();
+
+        if (prop?.user_id) {
+          await supabase.from("notifications").insert({
+            user_id: prop.user_id,
+            title: "Vendor Not Starting Work",
+            message: `${vendor?.name || "Vendor"} approved 48h+ ago for "${wo.scope.substring(0, 80)}" but no update. No Telegram linked.`,
+            priority: "normal",
+            category: "work_orders",
+            property_id: wo.property_id,
+            entity_type: "work_order",
+            entity_id: wo.id,
+          });
+          followUpCount++;
         }
       }
     }
@@ -145,7 +199,6 @@ Deno.serve(async (req) => {
 
       if (!prop?.user_id) continue;
 
-      // Check if we already flagged this
       const { data: existing } = await supabase
         .from("notifications")
         .select("id")

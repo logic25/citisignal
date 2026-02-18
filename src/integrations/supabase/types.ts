@@ -1570,6 +1570,7 @@ export type Database = {
           name: string
           phone_number: string | null
           status: string | null
+          telegram_chat_id: number | null
           trade_type: string | null
           updated_at: string
           user_id: string
@@ -1581,6 +1582,7 @@ export type Database = {
           name: string
           phone_number?: string | null
           status?: string | null
+          telegram_chat_id?: number | null
           trade_type?: string | null
           updated_at?: string
           user_id: string
@@ -1592,6 +1594,7 @@ export type Database = {
           name?: string
           phone_number?: string | null
           status?: string | null
+          telegram_chat_id?: number | null
           trade_type?: string | null
           updated_at?: string
           user_id?: string
