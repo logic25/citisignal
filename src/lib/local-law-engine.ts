@@ -182,7 +182,7 @@ function checkLL126PIPS(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 17000 : null,
     penalty_description: applies ? 'Up to $17,000/year for non-compliance' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/parking-structures.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/parking-structure.page',
     tooltip: '6-year inspection cycle for parking structures with annual checklists.',
   };
 }
@@ -246,7 +246,7 @@ function checkLL97(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 268 : null,
     penalty_description: applies ? '$268/metric ton CO₂ over limit; $0.50/SF/month late reporting; up to $500,000 for false filings' : null,
     status: calcStatus(applies, nextDue),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/ll97.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/ll97-greenhouse-gas-emissions-reductions.page',
     tooltip: 'Carbon emission limits with $268/ton penalties. First report due May 2025.',
   };
 }
@@ -533,7 +533,7 @@ function checkLL26(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'DOB violation; potential vacate order' : null,
     status: !applies ? 'exempt' : (p.has_sprinkler ? 'compliant' : 'overdue'),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/sprinkler-requirements.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page',
     tooltip: 'Sprinkler retrofit for high-rise commercial buildings.',
   };
 }
@@ -572,7 +572,7 @@ function checkFireSafetyDoor(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 1000 : null,
     penalty_description: applies ? 'HPD/DOB violation' : null,
     status: calcStatus(applies, annualDue(12, 31), 3),
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/fire-safety-education-notice.page',
+    learn_more_url: 'https://www.nyc.gov/site/fdny/business/inspections/request-inspection.page',
     tooltip: 'Annual fire safety notice on apartment doors.',
   };
 }
@@ -655,7 +655,7 @@ function checkGreaseTrap(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 10000 : null,
     penalty_description: applies ? 'DEP violation; ECB summons; $1,000–$10,000' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/dep/water/grease.page',
+    learn_more_url: 'https://www.nyc.gov/site/dep/water/disposing-of-grease-as-a-business.page',
     tooltip: 'Ongoing grease trap maintenance for food establishments.',
   };
 }
@@ -813,7 +813,7 @@ function checkFireAlarm(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'FDNY violation; potential closure order for places of assembly' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/fire-alarm-systems.page',
+    learn_more_url: 'https://www.nyc.gov/site/fdny/business/inspections/request-inspection.page',
     tooltip: 'Annual fire alarm inspection by FDNY-approved company.',
   };
 }
@@ -832,7 +832,7 @@ function checkStandpipe(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'FDNY violation; ECB summons' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/standpipe-requirements.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page',
     tooltip: 'Annual standpipe hydrostatic test plus 5-year flow test.',
   };
 }
@@ -851,7 +851,7 @@ function checkSprinklerMaintenance(p: PropertyForCompliance): LocalLawRequiremen
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'FDNY violation; DOB violation; ECB summons' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/sprinkler-requirements.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page',
     tooltip: 'Annual sprinkler maintenance per NFPA 25.',
   };
 }
@@ -869,7 +869,7 @@ function checkPlaceOfAssembly(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 25000 : null,
     penalty_description: applies ? 'FDNY violation; closure; up to $25,000/offense' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/places-of-assembly.page',
+    learn_more_url: 'https://www.nyc.gov/assets/buildings/pdf/code_notes_place-of-assembly.pdf',
     tooltip: 'PA certificate required for spaces with 75+ person capacity.',
   };
 }
@@ -888,7 +888,7 @@ function checkFireExtinguisher(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 2500 : null,
     penalty_description: applies ? 'FDNY violation; ECB summons' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/portable-fire-extinguishers.page',
+    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-certifications/portable-fire-extinguishers-company-certificates.page',
     tooltip: 'Annual fire extinguisher inspection for commercial buildings.',
   };
 }
@@ -907,7 +907,7 @@ function checkEmergencyLighting(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 2500 : null,
     penalty_description: applies ? 'FDNY/DOB violation' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/fdny/business/all-businesses/exit-signs-and-emergency-lighting.page',
+    learn_more_url: 'https://www.nyc.gov/site/fdny/business/inspections/request-inspection.page',
     tooltip: 'Ongoing: maintain emergency and exit lighting.',
   };
 }
