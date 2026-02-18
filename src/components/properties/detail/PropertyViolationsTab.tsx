@@ -316,8 +316,16 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
   };
 
   const filteredAndSortedViolations = useMemo(() => {
-    // First filter by active vs all
-    let base = showActiveOnly ? violations.filter(isActiveViolation) : violations;
+    // First filter by active vs all, but include suppressed if toggled on
+    let base: Violation[];
+    if (showActiveOnly) {
+      // isActiveViolation excludes suppressed, so re-include them when showSuppressed is on
+      base = violations.filter(v => 
+        isActiveViolation(v) || (showSuppressed && v.suppressed && v.status !== 'closed')
+      );
+    } else {
+      base = violations;
+    }
     
     // Filter out suppressed unless toggled on
     if (!showSuppressed) {
