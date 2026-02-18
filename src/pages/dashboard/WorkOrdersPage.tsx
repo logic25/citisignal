@@ -122,6 +122,8 @@ const WorkOrdersPage = () => {
   const [counterAmounts, setCounterAmounts] = useState<Record<string, string>>({});
   const [showCounter, setShowCounter] = useState<Record<string, boolean>>({});
   const [newMessage, setNewMessage] = useState<Record<string, string>>({});
+  const [quoteInputs, setQuoteInputs] = useState<Record<string, string>>({});
+  const [savingQuote, setSavingQuote] = useState<Record<string, boolean>>({});
 
   const fetchMessages = async (workOrderId: string) => {
     const { data } = await supabase
@@ -132,6 +134,22 @@ const WorkOrdersPage = () => {
     if (data) {
       setMessages(prev => ({ ...prev, [workOrderId]: data as unknown as WorkOrderMessage[] }));
     }
+  };
+
+  const handleSaveQuote = async (woId: string) => {
+    const amount = parseFloat(quoteInputs[woId] || '');
+    if (isNaN(amount) || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    setSavingQuote(prev => ({ ...prev, [woId]: true }));
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ quoted_amount: amount })
+        .eq('id', woId);
+      if (error) throw error;
+      toast.success(`Quote of $${amount.toLocaleString()} saved`);
+      fetchData();
+    } catch { toast.error('Failed to save quote'); }
+    finally { setSavingQuote(prev => ({ ...prev, [woId]: false })); }
   };
 
   const handleApprove = async (wo: WorkOrder) => {
@@ -605,39 +623,67 @@ const WorkOrdersPage = () => {
                           </div>
 
                           {/* Approval Flow */}
-                          {workOrder.status === 'quoted' && workOrder.quoted_amount != null && (
+                          {workOrder.status === 'quoted' && (
                             <div className="mt-4 p-3 rounded-lg border border-purple-200 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-800">
-                              <div className="flex items-center gap-2 mb-3">
-                                <DollarSign className="w-4 h-4 text-purple-600" />
-                                <span className="font-semibold text-purple-700 dark:text-purple-300">
-                                  Quote: ${workOrder.quoted_amount.toLocaleString()}
-                                </span>
-                                {workOrder.vendor && (
-                                  <span className="text-sm text-muted-foreground">from {workOrder.vendor.name}</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove(workOrder)}>
-                                  <Check className="w-3 h-3 mr-1" /> Approve
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setShowCounter(prev => ({ ...prev, [workOrder.id]: !prev[workOrder.id] }))}>
-                                  <DollarSign className="w-3 h-3 mr-1" /> Counter
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleReject(workOrder)}>
-                                  <X className="w-3 h-3 mr-1" /> Reject
-                                </Button>
-                              </div>
-                              {showCounter[workOrder.id] && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Input
-                                    type="number"
-                                    placeholder="Your counter amount"
-                                    className="w-40 h-8"
-                                    value={counterAmounts[workOrder.id] || ''}
-                                    onChange={(e) => setCounterAmounts(prev => ({ ...prev, [workOrder.id]: e.target.value }))}
-                                  />
-                                  <Button size="sm" onClick={() => handleCounter(workOrder)}>Send Counter</Button>
-                                </div>
+                              {workOrder.quoted_amount != null ? (
+                                <>
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <DollarSign className="w-4 h-4 text-purple-600" />
+                                    <span className="font-semibold text-purple-700 dark:text-purple-300">
+                                      Quote: ${workOrder.quoted_amount.toLocaleString()}
+                                    </span>
+                                    {workOrder.vendor && (
+                                      <span className="text-sm text-muted-foreground">from {workOrder.vendor.name}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove(workOrder)}>
+                                      <Check className="w-3 h-3 mr-1" /> Approve
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setShowCounter(prev => ({ ...prev, [workOrder.id]: !prev[workOrder.id] }))}>
+                                      <DollarSign className="w-3 h-3 mr-1" /> Counter
+                                    </Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleReject(workOrder)}>
+                                      <X className="w-3 h-3 mr-1" /> Reject
+                                    </Button>
+                                  </div>
+                                  {showCounter[workOrder.id] && (
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <Input
+                                        type="number"
+                                        placeholder="Your counter amount"
+                                        className="w-40 h-8"
+                                        value={counterAmounts[workOrder.id] || ''}
+                                        onChange={(e) => setCounterAmounts(prev => ({ ...prev, [workOrder.id]: e.target.value }))}
+                                      />
+                                      <Button size="sm" onClick={() => handleCounter(workOrder)}>Send Counter</Button>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <DollarSign className="w-4 h-4 text-purple-600" />
+                                    <span className="font-medium text-purple-700 dark:text-purple-300">
+                                      Enter quote amount to approve or counter
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      placeholder="Quote amount ($)"
+                                      className="w-44 h-8"
+                                      value={quoteInputs[workOrder.id] || ''}
+                                      onChange={(e) => setQuoteInputs(prev => ({ ...prev, [workOrder.id]: e.target.value }))}
+                                    />
+                                    <Button size="sm" onClick={() => handleSaveQuote(workOrder.id)} disabled={savingQuote[workOrder.id]}>
+                                      {savingQuote[workOrder.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Set Quote'}
+                                    </Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleReject(workOrder)}>
+                                      <X className="w-3 h-3 mr-1" /> Reject
+                                    </Button>
+                                  </div>
+                                </>
                               )}
                             </div>
                           )}
