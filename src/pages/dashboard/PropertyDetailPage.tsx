@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { syncNYCBuildingDataByIdentifiers, toPropertyUpdate } from '@/lib/nyc-building-sync';
@@ -9,7 +10,8 @@ import {
   Loader2, 
   RefreshCw,
   Building2,
-  Settings
+  Settings,
+  Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertyOverviewTab } from '@/components/properties/detail/PropertyOverviewTab';
@@ -359,18 +361,26 @@ const PropertyDetailPage = () => {
           >
             <Settings className="w-4 h-4" />
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={syncViolations}
-            disabled={isSyncing || !property.bin}
-          >
-            {isSyncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            {property.last_synced_at && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Synced {formatDistanceToNow(new Date(property.last_synced_at), { addSuffix: true })}
+              </span>
             )}
-            {isSyncing ? 'Syncing...' : 'Sync Data'}
-          </Button>
+            <Button 
+              variant="outline" 
+              onClick={syncViolations}
+              disabled={isSyncing || !property.bin}
+            >
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              {isSyncing ? 'Syncing...' : 'Sync Data'}
+            </Button>
+          </div>
         </div>
       </div>
 
