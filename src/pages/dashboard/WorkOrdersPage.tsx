@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -47,9 +49,17 @@ import {
   DollarSign,
   MessageSquare,
   Send,
+  FileCheck,
+  Camera,
+  CreditCard,
+  ExternalLink,
+  Play,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 
 interface Property {
@@ -60,6 +70,9 @@ interface Property {
 interface Vendor {
   id: string;
   name: string;
+  zelle_email?: string | null;
+  zelle_phone?: string | null;
+  payment_preference?: string | null;
 }
 
 interface Violation {
@@ -78,6 +91,16 @@ interface WorkOrderMessage {
   created_at: string;
 }
 
+interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  amount: number;
+  status: string;
+  owner_signed_at: string | null;
+  vendor_signed_at: string | null;
+  vendor_sign_token: string;
+}
+
 interface WorkOrder {
   id: string;
   scope: string;
@@ -92,6 +115,14 @@ interface WorkOrder {
   approved_amount?: number | null;
   dispatched_at?: string | null;
   po_id?: string | null;
+  completion_photos?: any[] | null;
+  completion_notes?: string | null;
+  completed_at?: string | null;
+  verified_at?: string | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+  payment_reference?: string | null;
+  paid_at?: string | null;
 }
 
 const WorkOrdersPage = () => {
@@ -106,6 +137,20 @@ const WorkOrdersPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [poData, setPoData] = useState<Record<string, PurchaseOrder>>({});
+  const [vendorDetails, setVendorDetails] = useState<Record<string, Vendor>>({});
+
+  // Completion flow state
+  const [completeDialogWO, setCompleteDialogWO] = useState<WorkOrder | null>(null);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [completionFiles, setCompletionFiles] = useState<File[]>([]);
+  const [uploadingCompletion, setUploadingCompletion] = useState(false);
+
+  // Payment flow state
+  const [payDialogWO, setPayDialogWO] = useState<WorkOrder | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('zelle');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   const toggleRow = (id: string) => {
     setExpandedRows(prev => {
@@ -134,6 +179,28 @@ const WorkOrdersPage = () => {
       .order('created_at', { ascending: true });
     if (data) {
       setMessages(prev => ({ ...prev, [workOrderId]: data as unknown as WorkOrderMessage[] }));
+    }
+  };
+
+  const fetchPOForWorkOrder = async (poId: string) => {
+    const { data } = await supabase
+      .from('purchase_orders')
+      .select('id, po_number, amount, status, owner_signed_at, vendor_signed_at, vendor_sign_token')
+      .eq('id', poId)
+      .single();
+    if (data) {
+      setPoData(prev => ({ ...prev, [poId]: data as unknown as PurchaseOrder }));
+    }
+  };
+
+  const fetchVendorPaymentInfo = async (vendorId: string) => {
+    const { data } = await supabase
+      .from('vendors')
+      .select('id, name, zelle_email, zelle_phone, payment_preference')
+      .eq('id', vendorId)
+      .single();
+    if (data) {
+      setVendorDetails(prev => ({ ...prev, [vendorId]: data as unknown as Vendor }));
     }
   };
 
@@ -249,6 +316,103 @@ const WorkOrdersPage = () => {
     } catch { toast.error('Failed to send message'); }
   };
 
+  // === Simulate Vendor Sign ===
+  const handleSimulateVendorSign = async (wo: WorkOrder) => {
+    if (!wo.po_id) return;
+    try {
+      // Update PO to fully_executed
+      const { error: poErr } = await supabase
+        .from('purchase_orders')
+        .update({
+          vendor_signed_at: new Date().toISOString(),
+          status: 'fully_executed' as any,
+        })
+        .eq('id', wo.po_id);
+      if (poErr) throw poErr;
+
+      // Update work order to in_progress
+      const { error: woErr } = await supabase
+        .from('work_orders')
+        .update({ status: 'in_progress' as any })
+        .eq('id', wo.id);
+      if (woErr) throw woErr;
+
+      toast.success('Vendor signature simulated — PO fully executed, work order now In Progress');
+      fetchData();
+    } catch { toast.error('Failed to simulate vendor sign'); }
+  };
+
+  // === Mark Complete ===
+  const handleMarkComplete = async () => {
+    if (!completeDialogWO) return;
+    setUploadingCompletion(true);
+    try {
+      // Upload photos
+      const photoUrls: string[] = [];
+      for (const file of completionFiles) {
+        const path = `${completeDialogWO.id}/${Date.now()}-${file.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('work-order-photos')
+          .upload(path, file);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage
+          .from('work-order-photos')
+          .getPublicUrl(path);
+        photoUrls.push(urlData.publicUrl);
+      }
+
+      const { error } = await supabase
+        .from('work_orders')
+        .update({
+          status: 'awaiting_docs' as any,
+          completion_photos: photoUrls as any,
+          completion_notes: completionNotes || null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', completeDialogWO.id);
+      if (error) throw error;
+
+      toast.success('Work marked as complete — awaiting owner verification');
+      setCompleteDialogWO(null);
+      setCompletionNotes('');
+      setCompletionFiles([]);
+      fetchData();
+    } catch (e: any) {
+      toast.error('Failed to mark complete: ' + (e.message || ''));
+    } finally {
+      setUploadingCompletion(false);
+    }
+  };
+
+  // === Verify & Pay ===
+  const handleVerifyAndPay = async () => {
+    if (!payDialogWO) return;
+    setProcessingPayment(true);
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({
+          status: 'completed' as any,
+          verified_at: new Date().toISOString(),
+          payment_method: paymentMethod as any,
+          payment_status: 'paid' as any,
+          payment_reference: paymentReference || null,
+          paid_at: new Date().toISOString(),
+        })
+        .eq('id', payDialogWO.id);
+      if (error) throw error;
+
+      toast.success('Work verified and payment recorded!');
+      setPayDialogWO(null);
+      setPaymentReference('');
+      fetchData();
+    } catch {
+      toast.error('Failed to process payment');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     property_id: '',
     vendor_id: '',
@@ -277,10 +441,17 @@ const WorkOrdersPage = () => {
 
       if (workOrdersRes.error) throw workOrdersRes.error;
 
-      setWorkOrders(workOrdersRes.data as unknown as WorkOrder[] || []);
+      const orders = workOrdersRes.data as unknown as WorkOrder[] || [];
+      setWorkOrders(orders);
       setProperties(propertiesRes.data || []);
       setVendors(vendorsRes.data || []);
       setViolations(violationsRes.data || []);
+
+      // Fetch PO data for orders that have po_id
+      orders.forEach(wo => {
+        if (wo.po_id) fetchPOForWorkOrder(wo.po_id);
+        if (wo.vendor?.id) fetchVendorPaymentInfo(wo.vendor.id);
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load work orders');
@@ -544,7 +715,11 @@ const WorkOrdersPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredWorkOrders.map((workOrder) => (
+              {filteredWorkOrders.map((workOrder) => {
+                const po = workOrder.po_id ? poData[workOrder.po_id] : null;
+                const vendor = workOrder.vendor?.id ? vendorDetails[workOrder.vendor.id] : null;
+
+                return (
                 <Collapsible key={workOrder.id} asChild open={expandedRows.has(workOrder.id)} onOpenChange={() => toggleRow(workOrder.id)}>
                   <>
                     <TableRow className="hover:bg-muted/30">
@@ -718,6 +893,7 @@ const WorkOrdersPage = () => {
                             </div>
                           )}
 
+                          {/* Approved + PO Pending Vendor Sign */}
                           {workOrder.status === 'approved' && workOrder.approved_amount != null && (
                             <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
                               <div className="flex items-center gap-2">
@@ -730,10 +906,168 @@ const WorkOrdersPage = () => {
                                 )}
                               </div>
                               {workOrder.po_id && (
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  Purchase order sent to vendor for signing.
+                                <div className="flex items-center gap-2 mt-2">
+                                  <p className="text-sm text-muted-foreground">
+                                    Purchase order sent to vendor for signing.
+                                  </p>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                    onClick={() => handleSimulateVendorSign(workOrder)}
+                                  >
+                                    <Play className="w-3 h-3 mr-1" />
+                                    Simulate Vendor Sign
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Fully Executed PO Card */}
+                          {po && po.status === 'fully_executed' && (
+                            <Card className="mt-4 border-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <FileCheck className="w-5 h-5 text-emerald-600" />
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-300 text-lg">
+                                      {po.po_number}
+                                    </span>
+                                    <Badge className="bg-emerald-600 text-white">Fully Executed</Badge>
+                                  </div>
+                                  <a
+                                    href={`/sign-po/${po.vendor_sign_token}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-primary flex items-center gap-1 hover:underline"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View PO
+                                  </a>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">Amount</span>
+                                    <p className="font-bold text-lg">${po.amount.toLocaleString()}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Owner Signed</span>
+                                    <p className="font-medium">{po.owner_signed_at ? new Date(po.owner_signed_at).toLocaleDateString() : '—'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Vendor Signed</span>
+                                    <p className="font-medium">{po.vendor_signed_at ? new Date(po.vendor_signed_at).toLocaleDateString() : '—'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Status</span>
+                                    <p className="font-medium text-emerald-600">✓ Both parties signed</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* In Progress — Mark Complete Button */}
+                          {workOrder.status === 'in_progress' && (
+                            <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="w-4 h-4 text-amber-600" />
+                                  <span className="font-medium text-amber-700 dark:text-amber-300">Work In Progress</span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => { setCompleteDialogWO(workOrder); setCompletionNotes(''); setCompletionFiles([]); }}
+                                  className="bg-primary"
+                                >
+                                  <Camera className="w-3 h-3 mr-1" />
+                                  Mark Complete
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Awaiting Docs — Photos + Verify & Pay */}
+                          {workOrder.status === 'awaiting_docs' && (
+                            <div className="mt-4 p-3 rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <ImageIcon className="w-4 h-4 text-blue-600" />
+                                  <span className="font-medium text-blue-700 dark:text-blue-300">Completion Submitted — Awaiting Verification</span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  className="bg-emerald-600 hover:bg-emerald-700"
+                                  onClick={() => {
+                                    setPayDialogWO(workOrder);
+                                    setPaymentMethod(vendor?.payment_preference || 'zelle');
+                                    setPaymentReference('');
+                                  }}
+                                >
+                                  <CreditCard className="w-3 h-3 mr-1" />
+                                  Verify & Pay
+                                </Button>
+                              </div>
+                              {workOrder.completion_notes && (
+                                <p className="text-sm text-muted-foreground">
+                                  <span className="font-medium">Vendor notes:</span> {workOrder.completion_notes}
                                 </p>
                               )}
+                              {Array.isArray(workOrder.completion_photos) && workOrder.completion_photos.length > 0 && (
+                                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                                  {(workOrder.completion_photos as string[]).map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                      <img
+                                        src={url}
+                                        alt={`Completion photo ${i + 1}`}
+                                        className="w-full h-24 object-cover rounded-lg border border-border hover:opacity-80 transition"
+                                      />
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Completed — Payment Info */}
+                          {workOrder.status === 'completed' && (
+                            <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Check className="w-4 h-4 text-emerald-600" />
+                                <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                                  Work Completed & Verified
+                                </span>
+                                {workOrder.payment_status === 'paid' && (
+                                  <Badge className="bg-emerald-600 text-white">Paid</Badge>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                {workOrder.completed_at && (
+                                  <div>
+                                    <span className="text-muted-foreground">Completed</span>
+                                    <p className="font-medium">{new Date(workOrder.completed_at).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                                {workOrder.verified_at && (
+                                  <div>
+                                    <span className="text-muted-foreground">Verified</span>
+                                    <p className="font-medium">{new Date(workOrder.verified_at).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                                {workOrder.payment_method && (
+                                  <div>
+                                    <span className="text-muted-foreground">Payment</span>
+                                    <p className="font-medium capitalize">{workOrder.payment_method}</p>
+                                  </div>
+                                )}
+                                {workOrder.payment_reference && (
+                                  <div>
+                                    <span className="text-muted-foreground">Reference</span>
+                                    <p className="font-medium">{workOrder.payment_reference}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 
@@ -784,7 +1118,8 @@ const WorkOrdersPage = () => {
                     </CollapsibleContent>
                   </>
                 </Collapsible>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -801,6 +1136,113 @@ const WorkOrdersPage = () => {
           </p>
         </div>
       )}
+
+      {/* Mark Complete Dialog */}
+      <Dialog open={!!completeDialogWO} onOpenChange={(open) => !open && setCompleteDialogWO(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Work Complete</DialogTitle>
+            <DialogDescription>Upload completion photos and add notes before submitting.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>Completion Photos</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => setCompletionFiles(Array.from(e.target.files || []))}
+                  className="hidden"
+                  id="completion-photos"
+                />
+                <label htmlFor="completion-photos" className="cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Click to upload photos</p>
+                </label>
+                {completionFiles.length > 0 && (
+                  <p className="text-sm text-primary mt-2">{completionFiles.length} file(s) selected</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                placeholder="Describe the completed work..."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setCompleteDialogWO(null)}>Cancel</Button>
+            <Button onClick={handleMarkComplete} disabled={uploadingCompletion}>
+              {uploadingCompletion ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+              Submit Completion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Verify & Pay Dialog */}
+      <Dialog open={!!payDialogWO} onOpenChange={(open) => !open && setPayDialogWO(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify Work & Pay Vendor</DialogTitle>
+            <DialogDescription>Confirm work is satisfactory and record payment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {payDialogWO && (() => {
+              const payVendorId = workOrders.find(w => w.id === payDialogWO.id)?.vendor?.id;
+              const payVendor = payVendorId ? vendorDetails[payVendorId] : null;
+              return payVendor ? (
+                <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
+                  <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{payVendor.name}</span></p>
+                  {payVendor.zelle_email && (
+                    <p><span className="text-muted-foreground">Zelle Email:</span> <span className="font-medium">{payVendor.zelle_email}</span></p>
+                  )}
+                  {payVendor.zelle_phone && (
+                    <p><span className="text-muted-foreground">Zelle Phone:</span> <span className="font-medium">{payVendor.zelle_phone}</span></p>
+                  )}
+                </div>
+              ) : null;
+            })()}
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="zelle">Zelle</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="stripe">Stripe (coming soon)</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {paymentMethod === 'zelle' ? 'Zelle Confirmation #' :
+                 paymentMethod === 'check' ? 'Check Number' :
+                 'Payment Reference'}
+              </Label>
+              <Input
+                placeholder="Enter reference number..."
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setPayDialogWO(null)}>Cancel</Button>
+            <Button onClick={handleVerifyAndPay} disabled={processingPayment} className="bg-emerald-600 hover:bg-emerald-700">
+              {processingPayment ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
+              Confirm Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
