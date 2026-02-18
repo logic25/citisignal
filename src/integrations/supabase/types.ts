@@ -207,6 +207,160 @@ export type Database = {
           },
         ]
       }
+      cam_budgets: {
+        Row: {
+          budget_year: number
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          property_id: string
+          status: string
+          total_budget: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget_year: number
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          property_id: string
+          status?: string
+          total_budget?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget_year?: number
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          property_id?: string
+          status?: string
+          total_budget?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cam_budgets_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cam_line_items: {
+        Row: {
+          actual_amount: number
+          budget_id: string
+          budgeted_amount: number
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_amount?: number
+          budget_id: string
+          budgeted_amount?: number
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_amount?: number
+          budget_id?: string
+          budgeted_amount?: number
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cam_line_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "cam_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cam_tenant_allocations: {
+        Row: {
+          actual_annual: number
+          allocation_method: string
+          allocation_percentage: number | null
+          budget_id: string
+          created_at: string
+          estimated_annual: number
+          fixed_amount: number | null
+          id: string
+          monthly_charge: number
+          reconciliation_amount: number | null
+          tenant_id: string
+          tenant_sqft: number | null
+          updated_at: string
+        }
+        Insert: {
+          actual_annual?: number
+          allocation_method?: string
+          allocation_percentage?: number | null
+          budget_id: string
+          created_at?: string
+          estimated_annual?: number
+          fixed_amount?: number | null
+          id?: string
+          monthly_charge?: number
+          reconciliation_amount?: number | null
+          tenant_id: string
+          tenant_sqft?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actual_annual?: number
+          allocation_method?: string
+          allocation_percentage?: number | null
+          budget_id?: string
+          created_at?: string
+          estimated_annual?: number
+          fixed_amount?: number | null
+          id?: string
+          monthly_charge?: number
+          reconciliation_amount?: number | null
+          tenant_id?: string
+          tenant_sqft?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cam_tenant_allocations_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "cam_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cam_tenant_allocations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       change_log: {
         Row: {
           change_type: string
@@ -524,6 +678,81 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      financial_transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          payment_method: string | null
+          property_id: string
+          reference_entity_id: string | null
+          reference_entity_type: string | null
+          reference_number: string | null
+          status: string
+          tenant_id: string | null
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          property_id: string
+          reference_entity_id?: string | null
+          reference_entity_type?: string | null
+          reference_number?: string | null
+          status?: string
+          tenant_id?: string | null
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          property_id?: string
+          reference_entity_id?: string | null
+          reference_entity_type?: string | null
+          reference_number?: string | null
+          status?: string
+          tenant_id?: string | null
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lease_conversations: {
         Row: {
@@ -1515,6 +1744,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      report_runs: {
+        Row: {
+          created_at: string
+          generated_at: string
+          id: string
+          name: string
+          parameters: Json | null
+          pdf_url: string | null
+          report_type: string
+          result_data: Json | null
+          row_count: number | null
+          status: string
+          template_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          name: string
+          parameters?: Json | null
+          pdf_url?: string | null
+          report_type?: string
+          result_data?: Json | null
+          row_count?: number | null
+          status?: string
+          template_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          name?: string
+          parameters?: Json | null
+          pdf_url?: string | null
+          report_type?: string
+          result_data?: Json | null
+          row_count?: number | null
+          status?: string
+          template_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          columns: Json | null
+          created_at: string
+          data_sources: Json
+          description: string | null
+          filters: Json | null
+          group_by: string | null
+          id: string
+          include_charts: boolean | null
+          is_template: boolean | null
+          name: string
+          report_type: string
+          schedule_frequency: string | null
+          schedule_recipients: Json | null
+          sort_config: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          columns?: Json | null
+          created_at?: string
+          data_sources?: Json
+          description?: string | null
+          filters?: Json | null
+          group_by?: string | null
+          id?: string
+          include_charts?: boolean | null
+          is_template?: boolean | null
+          name: string
+          report_type?: string
+          schedule_frequency?: string | null
+          schedule_recipients?: Json | null
+          sort_config?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          columns?: Json | null
+          created_at?: string
+          data_sources?: Json
+          description?: string | null
+          filters?: Json | null
+          group_by?: string | null
+          id?: string
+          include_charts?: boolean | null
+          is_template?: boolean | null
+          name?: string
+          report_type?: string
+          schedule_frequency?: string | null
+          schedule_recipients?: Json | null
+          sort_config?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       telegram_users: {
         Row: {

@@ -18,6 +18,9 @@ import DDReportsPage from "@/pages/dashboard/DDReportsPage";
 import VendorsPage from "@/pages/dashboard/VendorsPage";
 import VendorDetailPage from "@/pages/dashboard/VendorDetailPage";
 import WorkOrdersPage from "@/pages/dashboard/WorkOrdersPage";
+import CAMPage from "@/pages/dashboard/CAMPage";
+import OwnerStatementsPage from "@/pages/dashboard/OwnerStatementsPage";
+import ReportBuilderPage from "@/pages/dashboard/ReportBuilderPage";
 import SettingsPage from "@/pages/dashboard/SettingsPage";
 import CalendarPage from "@/pages/dashboard/CalendarPage";
 import NotificationsPage from "@/pages/dashboard/NotificationsPage";
@@ -58,6 +61,9 @@ const App = () => (
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="vendors/:id" element={<VendorDetailPage />} />
               <Route path="work-orders" element={<WorkOrdersPage />} />
+              <Route path="cam" element={<CAMPage />} />
+              <Route path="owner-statements" element={<OwnerStatementsPage />} />
+              <Route path="reports" element={<ReportBuilderPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="settings" element={<SettingsPage />} />
