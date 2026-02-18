@@ -1,115 +1,121 @@
 
 
-# BIS Permit Sub-Filings + Lightweight BIS Portal Scraper
+# Fix BIS Job Grouping, Deduplication, and Permit Merge
 
-Two features in one rollback-safe deployment: (1) pull "Related Filings" (Doc 01, 02, 03...) from the DOB Permit Issuance dataset, and (2) add a targeted BIS portal scraper for withdrawal detection and other portal-only fields.
+## Problem
 
----
+Three issues with BIS job 210179732:
 
-## Part 1: BIS Related Filings from Permit Issuance Dataset (`ipu4-2q9a`)
+1. **Wrong status ("Permit Entire" instead of "Signed Off")**: The BIS Jobs API returns duplicate rows per document -- old rows with status `R` (Permit Entire) and newer rows with status `X` (Signed Off). The code must pick the row with the latest `dobrundate` per document to get the current status.
 
-### Edge Function Changes
+2. **Wrong applicant ("Marc Robbins")**: Without grouping by job number, the last document row overwrites the primary applicant. Doc 01 (the primary filing) has applicant Isaac-Daniel Astrachan; docs 03/04 have Marc Robbins.
 
-**File:** `supabase/functions/fetch-nyc-violations/index.ts`
+3. **Missing documents**: The BIS Jobs API only returns 6 docs (01-06) for this job. The remaining docs (07-20 visible on the BIS portal) are not in either Open Data dataset. We will display all docs we have and note how many are available.
 
-1. Add new endpoint constant:
+## Solution
+
+### Edge Function: `supabase/functions/fetch-nyc-violations/index.ts`
+
+**Step 1 -- Remove the scraper** (paused per request)
+- Delete the `scrapeBisPortalStatus` helper function and all calls to it
+- Remove the 200ms delay logic and scraper-related variables
+
+**Step 2 -- Deduplicate BIS rows by doc number**
+- When the BIS Jobs API returns multiple rows for the same `job__` + `doc__` combination, keep only the row with the **latest `dobrundate`** (this ensures we get status `X` instead of stale `R`)
+
+**Step 3 -- Group deduplicated docs by job number**
+- Group all deduplicated rows by `job__` into a Map
+- For each job group:
+  - Sort docs by `doc__` ascending
+  - Use **Doc 01** (or lowest doc number) as the primary record for: applicant name, professional title, license number, job description, status, owner info, proposed stories/units/height
+  - Build a `bis_documents` array from all docs, each containing:
+    - `doc_number` (from `doc__`)
+    - `applicant_name`, `applicant_professional_title`, `applicant_license_number`
+    - `description` (from `job_description`)
+    - `work_type` (derived from the `other_description`, `plumbing`, `mechanical`, `sprinkler` flag fields)
+    - `job_status`, `job_status_descrp`
+  - Create one application record per unique job (not per doc)
+
+**Step 4 -- Merge permit data into BIS documents**
+- After fetching permit issuance data (`ipu4-2q9a`), group permits by `job__` + `job_doc___`
+- For each BIS document in `bis_documents`, attach matching permit records as a `permits` sub-array
+- Each permit entry includes: `permit_type`, `permit_status`, `filing_status`, `permit_sequence`, `issuance_date`, `expiration_date`, `permittee_first_name`, `permittee_last_name`, `permittee_business_name`, `permittee_license_type`, `permittee_license_number`
+
+### UI: `src/components/properties/detail/PropertyApplicationsTab.tsx`
+
+**Step 5 -- Update Related Filings section**
+- Read from `raw_data.bis_documents` as the primary source
+- Fall back to `raw_data.permits` if `bis_documents` is not present (backward compatibility)
+- Each document row displays:
+  - Doc number badge (01, 02, etc.)
+  - Work type / description
+  - Doc-specific applicant name and title
+  - If permits exist for that doc: permit type, status badge, most recent issuance/expiration dates, permittee name and business
+- Remove scraper-related UI elements (withdrawal banner, `total_documents` reference)
+
+### Data Structure After Fix
+
 ```text
-DOB_PERMIT_ISSUANCE: "https://data.cityofnewyork.us/resource/ipu4-2q9a.json"
+raw_data: {
+  bis_documents: [
+    {
+      doc_number: "01",
+      applicant_name: "ISAAC-DANIEL ASTRACHAN",
+      applicant_professional_title: "RA",
+      applicant_license_number: "030631",
+      description: "NEW BUILDING - 12 STORY RESIDENTIAL...",
+      work_type: "GC & ZONING",
+      job_status: "X",
+      job_status_descrp: "SIGNED OFF",
+      permits: [
+        {
+          permit_type: "FO",
+          permit_status: "ISSUED",
+          filing_status: "INITIAL",
+          issuance_date: "04/07/2021",
+          expiration_date: "04/07/2022",
+          permittee_business_name: "J.E. LEVINE BUILDER INC",
+          ...
+        },
+        { ... 6 more permit records for doc 01 ... }
+      ]
+    },
+    {
+      doc_number: "02",
+      applicant_name: "VLADIMIR SIEJAS",
+      work_type: "FOUNDATION",
+      job_status: "X",
+      job_status_descrp: "SIGNED OFF",
+      permits: []   // no permits in ipu4-2q9a for doc 02
+    },
+    ... docs 03-06
+  ],
+  permits: [...]   // kept for backward compat
+}
 ```
 
-2. After the BIS jobs fetch (around line 930), add a parallel fetch for permit issuance data:
+## Technical Details
+
+### Why only 6 docs instead of 20?
+The BIS portal shows 20 documents, but the Open Data API (`ic3t-wcy2`) only has 6 (docs 01-06). The remaining 14 docs (likely sprinkler, fire suppression, elevator, fire alarm, standpipe, etc.) are only available through the BIS portal, not the public API. This is a known limitation of the Open Data datasets. We will display whatever docs the API provides accurately.
+
+### Deduplication logic
 ```text
-?bin__=${bin}&$limit=500&$order=issuance_date DESC
+For each BIS row:
+  key = job__ + "-" + doc__
+  If key already exists in Map:
+    Compare dobrundate -- keep the row with the later date
+  Else:
+    Add to Map
 ```
 
-3. Group the returned permit records into a Map keyed by `job__` (parent job number).
-
-4. When building each BIS `applicationRecords` entry, look up the job number in the permit map and attach matching records to `raw_data.permits` as an array. Each permit record captures:
-   - `job_doc` (from `job_doc___`) -- the document number (01, 02, 03...)
-   - `permit_type`, `permit_status`, `filing_status` (INITIAL vs SUBSEQUENT)
-   - `permit_sequence`, `issuance_date`, `expiration_date`, `job_start_date`
-   - `permittee_first_name`, `permittee_last_name`, `permittee_business_name`
-   - `permittee_license_type`, `permittee_license_number`
-   - `permittee_phone`
-   - `owner_first_name`, `owner_last_name`, `owner_business_name`
-
-### UI Changes
-
-**File:** `src/components/properties/detail/PropertyApplicationsTab.tsx`
-
-In `renderBisDetails()` (line 535), after the existing content (before the closing `</div>` at line 593), add a "Related Filings" section that checks for `app.raw_data?.permits`:
-
-- If permits exist, render a section titled "Related Filings (Doc 01, 02...)" with each permit as a compact row showing:
-  - Document number badge (01, 02, 03)
-  - Filing type (Initial / Subsequent)
-  - Permit type and status with color-coded badge
-  - Issuance and expiration dates
-  - Permittee name, business, and license info
-- Sorted by `job_doc` ascending (initial first, then subsequent filings)
-- Styled consistently with the existing DOB NOW related filings section
-
----
-
-## Part 2: Lightweight BIS Portal Scraper for Withdrawal Detection
-
-### New Edge Function
-
-**File:** `supabase/functions/fetch-nyc-violations/index.ts` (inline, not a separate function)
-
-Add a helper function `scrapeBisPortalStatus(jobNumber: string)` that:
-
-1. Fetches the BIS portal page at:
-```text
-https://a810-bisweb.nyc.gov/bisweb/JobsQueryByNumberServlet?passjobnumber={jobNumber}
-```
-
-2. Parses the HTML response (plain text parsing, no DOM library needed) looking for:
-   - **"JOB WITHDRAWN"** text -- if found, returns `{ withdrawn: true, withdrawal_date: extracted_date }`
-   - Any other portal-only status indicators we identify later
-
-3. Has a short timeout (5 seconds) and gracefully returns `null` on failure -- this is enrichment, not blocking.
-
-### Integration with Sync Flow
-
-After building each BIS application record:
-- If the API `withdrawal_flag` is `'0'` or empty (i.e., not withdrawn per the API), call the scraper as an optional enrichment step
-- If the scraper detects "JOB WITHDRAWN", override the status to `'Withdrawn'` and store the withdrawal date in `raw_data.withdrawal_date`
-- Rate-limit: add a 200ms delay between scraper calls to avoid hammering the BIS server
-- Only scrape jobs with active statuses (skip already-completed jobs like Sign-Off, Completed) to minimize requests
-
-### Scraper Implementation Details
-
-The BIS portal HTML is simple server-rendered HTML. The withdrawal text appears as:
-```text
-JOB WITHDRAWN: MM/DD/YYYY
-```
-
-The parser will:
-1. Search for the regex pattern `JOB WITHDRAWN[:\s]*(\d{2}/\d{2}/\d{4})?`
-2. Extract the date if present
-3. Return a simple result object
-
-### Safeguards
-- 5-second timeout per request
-- Only runs during full sync (not quick DOB sync)
-- Skips terminal-status jobs
-- Graceful failure -- if scraping fails, the API data stands as-is
-- Can be toggled off by removing the scraper call without any other changes
-
----
-
-## Files Changed Summary
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/fetch-nyc-violations/index.ts` | Add `DOB_PERMIT_ISSUANCE` endpoint, fetch + group permits by job, attach to `raw_data.permits`, add `scrapeBisPortalStatus()` helper for withdrawal detection |
-| `src/components/properties/detail/PropertyApplicationsTab.tsx` | Add "Related Filings" section in `renderBisDetails()` showing permit documents (01, 02...) with permittee info |
+| `supabase/functions/fetch-nyc-violations/index.ts` | Remove scraper, deduplicate BIS rows by latest `dobrundate`, group by job number, use Doc 01 as primary, merge permit data into `bis_documents` |
+| `src/components/properties/detail/PropertyApplicationsTab.tsx` | Display `bis_documents` in Related Filings with per-doc permits, remove scraper UI |
 
-## No Database Schema Changes
-
-All data stored in the existing `raw_data` JSONB column on the `applications` table.
-
-## Rollback
-
-Both changes are fully reversible via Lovable version history. The permit data in `raw_data` is additive and does not affect existing fields. The scraper is an optional enrichment that falls back gracefully.
+### No Database Schema Changes
+All data stored in existing `raw_data` JSONB column on `applications` table.
 
