@@ -1,89 +1,54 @@
 
-# NYC Building Data Sync — Comprehensive Plan
 
-## Summary
-Expand the property sync engine to achieve ZoLa-level data parity from PLUTO, add new data sources (E-Designations, LPC Landmarks), fix Professional Cert sourcing from DOB Jobs, and remove fields with no reliable Open Data source.
+## Fix Local Law Compliance "Learn More" URLs
 
-## Status: Steps 1–7 COMPLETE ✅
+### Problem
+Several `learn_more_url` values in `src/lib/local-law-engine.ts` are broken (return 404) or are guessed URLs that likely don't exist on NYC.gov. The long-term goal is to point these to your own site's blog/knowledge base, but for now we'll fix them to point to the best available official sources.
 
-## What's Actually Available (verified via API)
+### Confirmed Broken Links (404)
 
-| Dataset | API ID | Available Fields |
-|---------|--------|-----------------|
-| PLUTO | 64uk-42ks | `zonedist1`, `zonedist2`, `zonedist3`, `zonemap`, `overlay1`, `overlay2`, `spdist1-3`, `ltdheight`, `splitzone`, `histdist`, `landmark`, `lotfront`, `lotdepth`, `schooldist`, `policeprct`, `firecomp`, `sanitboro`, `sanitsub`, `landuse`, `unitstotal`, `numbldgs`, `numfloors`, `bldgarea`, `unitsres`, `lotarea`, `bldgclass`, `yearbuilt`, `assessland`, `assesstot`, `exempttot`, `builtfar`, `residfar`, `commfar` |
-| DOB Jobs | ic3t-wcy2 | `professional_cert`, `loft_board`, `adult_estab`, `landmarked`, `little_e`, `cluster`, `non_profit`, `site_fill`, `special_district_1`, `special_district_2` |
-| E-Designations | jsrs-ggnx | Environmental restriction records by BBL — `e_designation_number`, `description`, `zoning_map_changes` |
-| LPC Landmarks | gpmc-yuvp | Individual and historic district landmarks — `lpc_number`, `lm_name`, `lm_type`, `status`, `cal_date`, `most_recent` |
+| Law | Current (Broken) URL | Corrected URL |
+|-----|---------------------|---------------|
+| LL97 | `nyc.gov/.../codes/ll97.page` | `nyc.gov/.../codes/ll97-greenhouse-gas-emissions-reductions.page` |
+| DEP Grease | `nyc.gov/.../dep/water/grease.page` | `nyc.gov/.../dep/water/disposing-of-grease-as-a-business.page` |
+| LL126/08 PIPS | `nyc.gov/.../parking-structures.page` | `nyc.gov/.../parking-structure.page` (singular) |
 
-## What's NOT Available (no consistent Open Data source)
+### Likely Invalid Links (guessed FDNY/DOB paths with no confirmation)
 
-These fields are **removed from the UI** since they can't be reliably populated:
-- `cross_streets` (PAD returns 403)
-- `special_place_name` (BIS-only)
-- `building_remarks` (BIS-only)
-- `basement_code` (BIS-only)
-- `local_law` (LL 158/17 text with expiration — BIS-only)
-- `sro_restricted`, `ta_restricted`, `ub_restricted`, `grandfathered_sign` (not in DOB Jobs or PLUTO)
-- `special_status` (no direct source)
+These follow a pattern `fdny/business/all-businesses/...` that doesn't match FDNY's actual site structure. They'll be replaced with the closest verified alternatives:
 
-## Implementation
+| Law | Current (Guessed) URL | Replacement |
+|-----|----------------------|-------------|
+| FDNY Fire Alarm | `.../fire-alarm-systems.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
+| FDNY Standpipe | `.../standpipe-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
+| FDNY Sprinkler | `.../sprinkler-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
+| FDNY PA | `.../places-of-assembly.page` | `nyc.gov/assets/buildings/pdf/code_notes_place-of-assembly.pdf` |
+| FDNY Extinguisher | `.../portable-fire-extinguishers.page` | `nyc.gov/site/fdny/business/all-certifications/portable-fire-extinguishers-company-certificates.page` |
+| FDNY/DOB Emergency Lighting | `.../exit-signs-and-emergency-lighting.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
+| LL10/99 Fire Door | `.../fire-safety-education-notice.page` | `nyc.gov/site/fdny/business/inspections/request-inspection.page` |
+| LL26 Sprinkler Retrofit | `.../sprinkler-requirements.page` | `nyc.gov/site/buildings/industry/sprinklers-standpipes-requirements.page` |
 
-### Step 1: Add Missing PLUTO Fields ✅
+### File Changed
 
-In `fetchPLUTOData()`, added:
-- `zonedist2`, `zonedist3`, `lotFrontage`, `lotDepth`, `schoolDistrict`, `policePrecinct`, `fireCompany`, `sanitationBorough`, `sanitationSubsection`, `landUse`, `totalUnits`, `splitZone`, `limitedHeightDistrict`
-- Fixed `zoningMap`, `commercialOverlay`, `landmarkStatus` mappings
+`src/lib/local-law-engine.ts` -- update ~11 `learn_more_url` string values across various check functions.
 
-### Step 2: Fix Professional Cert from DOB Jobs ✅
+### Technical Details
 
-- Changed `$limit` from 1 to 10 (scans multiple filings)
-- `professionalCertRestricted = true` if ANY filing has `professional_cert = 'Y'`
+Each fix is a single string replacement on the `learn_more_url` property within the respective `check*()` function. No logic changes. Functions affected:
 
-### Step 3: Add E-Designations Fetch (`jsrs-ggnx`) ✅
+1. `checkLL97` (line 249)
+2. `checkLL126PIPS` (line 185)
+3. `checkGreaseTrap` (line 658)
+4. `checkLL26` (line 536)
+5. `checkFireAlarm` (line 816)
+6. `checkStandpipe` (line 835)
+7. `checkSprinklerMaintenance` (line 854)
+8. `checkPlaceOfAssembly` (line 872)
+9. `checkFireExtinguisher` (line 891)
+10. `checkEmergencyLighting` (line 910)
+11. `checkFireSafetyDoor` (line 575)
 
-- `fetchEDesignations(bbl)` queries environmental restriction records
-- Concatenates descriptions into `environmentalRestrictions` field
-- Called in parallel during `syncNYCBuildingDataByIdentifiers()`
+### Future
 
-### Step 4: Add LPC Landmark Details (`gpmc-yuvp`) ✅
+Long-term, all these URLs should be replaced with links to your own site's blog/knowledge base pages that explain each local law and link out to the official source.
 
-- `fetchLPCLandmarkDetails(bbl)` queries individual/historic district landmarks
-- Enriches `landmarkStatus` with LPC designation details (number, name, type, status)
-- Called in parallel during sync
-
-### Step 5: Database Migration ✅
-
-Added columns to `properties` table:
-- `zoning_district_2`, `zoning_district_3`, `lot_frontage`, `lot_depth`, `school_district`, `police_precinct`, `fire_company`, `sanitation_borough`, `sanitation_subsection`, `land_use`, `total_units`, `split_zone`, `limited_height_district`
-
-### Step 6: Update `NYCBuildingData` Interface & `toPropertyUpdate()` ✅
-
-- New fields added to interface and mapped in `toPropertyUpdate()`
-- Unavailable fields removed from interface
-
-### Step 7: Update UI — Property Overview Tab ✅
-
-- Added Neighborhood Information section (School District, Police Precinct, Fire Company, Sanitation)
-- Added Lot Frontage/Depth and Land Use to Building Details
-- Added Split Zone and Limited Height District to Zoning section
-- Removed unavailable fields from Status & Restrictions
-
-### Step 8: Update Property Settings Tab — TODO
-
-Remove settings fields for data with no source. Keep only user-editable feature flags.
-
-### Step 9: Integrate Building Sync into Sync Button ✅
-
-- `PropertyDetailPage.tsx` "Sync Data" button now runs both client-side building data sync (PLUTO/DOB/E-Designations/LPC) and server-side violation sync in parallel
-- Building data is persisted to the database immediately after fetch
-
-## Files Changed
-
-1. `src/lib/nyc-building-sync.ts` — Added PLUTO fields, fixed DOB Jobs professional_cert, added E-Designations + LPC fetchers, updated merge logic
-2. `src/components/properties/detail/PropertyOverviewTab.tsx` — Added Neighborhood Info section, lot dimensions, fixed zoning display, removed unavailable fields
-3. `src/pages/dashboard/PropertyDetailPage.tsx` — Integrated building sync into Sync Data button
-4. Database migration — Added new columns for neighborhood/lot data
-
-## After Deployment
-
-Users must click **Sync** on properties to fetch data with new mappings. All new PLUTO fields, E-Designations, and LPC data will populate after re-sync.
