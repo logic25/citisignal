@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useComplianceScore } from '@/hooks/useComplianceScore';
 import { ComplianceScoreCard } from '@/components/dashboard/ComplianceScoreCard';
@@ -18,6 +18,7 @@ import {
   Layers,
   Home,
   Landmark,
+  Scale,
   Ban,
   RefreshCw
 } from 'lucide-react';
@@ -52,6 +53,7 @@ interface Property {
   
   // Comprehensive fields
   zoning_district?: string | null;
+  zoning_map?: string | null;
   overlay_district?: string | null;
   special_district?: string | null;
   commercial_overlay?: string | null;
@@ -77,6 +79,9 @@ interface Property {
   is_landmark?: boolean | null;
   landmark_status?: string | null;
   historic_district?: string | null;
+  special_status?: string | null;
+  special_place_name?: string | null;
+  building_remarks?: string | null;
   
   loft_law?: boolean | null;
   sro_restricted?: boolean | null;
@@ -84,6 +89,11 @@ interface Property {
   ub_restricted?: boolean | null;
   is_city_owned?: boolean | null;
   professional_cert_restricted?: boolean | null;
+  local_law?: string | null;
+  environmental_restrictions?: string | null;
+  legal_adult_use?: boolean | null;
+  grandfathered_sign?: boolean | null;
+  hpd_multiple_dwelling?: boolean | null;
   
   assessed_land_value?: number | null;
   assessed_total_value?: number | null;
@@ -309,7 +319,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.owner_name || 'Not specified'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -317,7 +326,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.year_built || '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -325,7 +333,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.building_class || '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Home className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -333,7 +340,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.occupancy_group || property.primary_use_group || '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Building2 className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -341,7 +347,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.stories && property.stories > 0 ? property.stories : '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Ruler className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -349,7 +354,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.height_ft && property.height_ft > 0 ? `${property.height_ft} ft` : '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Layers className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -357,7 +361,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium text-sm">{property.gross_sqft && property.gross_sqft > 0 ? `${property.gross_sqft.toLocaleString()} sf` : '-'}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-2">
               <Home className="w-4 h-4 text-muted-foreground mt-0.5" />
               <div>
@@ -367,12 +370,10 @@ export const PropertyOverviewTab = ({
                 </p>
               </div>
             </div>
-
             <div>
               <p className="text-xs text-muted-foreground">BIN</p>
               <p className="font-medium text-sm font-mono">{property.bin || '-'}</p>
             </div>
-
             <div>
               <p className="text-xs text-muted-foreground">Borough / Block / Lot</p>
               <p className="font-medium text-sm font-mono">
@@ -383,87 +384,160 @@ export const PropertyOverviewTab = ({
                 ) : '-'}
               </p>
             </div>
-
-            {hasZoningData && (
-              <>
-                <div>
-                  <p className="text-xs text-muted-foreground">Zoning District</p>
-                  <p className="font-medium text-sm">{property.zoning_district || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Built FAR / Max FAR</p>
-                  <p className="font-medium text-sm">
-                    {property.floor_area_ratio?.toFixed(2) || '-'} / {property.max_floor_area_ratio?.toFixed(2) || '-'}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {property.lot_area_sqft && property.lot_area_sqft > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground">Cross Streets</p>
+              <p className="font-medium text-sm">{property.cross_streets || '-'}</p>
+            </div>
+            {property.special_place_name && (
               <div>
-                <p className="text-xs text-muted-foreground">Lot Area</p>
-                <p className="font-medium text-sm">{formatNumber(property.lot_area_sqft)} sf</p>
-              </div>
-            )}
-
-            {property.cross_streets && (
-              <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">Cross Streets</p>
-                <p className="font-medium text-sm">{property.cross_streets}</p>
+                <p className="text-xs text-muted-foreground">Special Place Name</p>
+                <p className="font-medium text-sm">{property.special_place_name}</p>
               </div>
             )}
           </div>
 
-          {/* Building Features + Status — inline row */}
-          <div className="pt-2 border-t border-border flex flex-wrap items-center gap-2">
-            {property.has_gas && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Flame className="w-3 h-3" /> Gas
-              </Badge>
-            )}
-            {property.has_boiler && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Droplets className="w-3 h-3" /> Boiler
-              </Badge>
-            )}
-            {property.has_elevator && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Cog className="w-3 h-3" /> Elevator
-              </Badge>
-            )}
-            {property.has_sprinkler && (
-              <Badge variant="outline" className="text-xs gap-1">
-                <Shield className="w-3 h-3" /> Sprinkler
-              </Badge>
-            )}
-            {property.is_landmark && (
-              <Badge className="text-xs bg-amber-500 text-white">
-                <Landmark className="w-3 h-3 mr-1" /> Landmark
-              </Badge>
-            )}
-            {property.loft_law && (
-              <Badge variant="destructive" className="text-xs gap-1">
-                <Ban className="w-3 h-3" /> Loft Law
-              </Badge>
-            )}
-            {property.sro_restricted && (
-              <Badge variant="destructive" className="text-xs gap-1">
-                <Ban className="w-3 h-3" /> SRO
-              </Badge>
-            )}
-            {property.ta_restricted && (
-              <Badge variant="destructive" className="text-xs gap-1">
-                <Ban className="w-3 h-3" /> TA
-              </Badge>
-            )}
-            {property.ub_restricted && (
-              <Badge variant="destructive" className="text-xs gap-1">
-                <Ban className="w-3 h-3" /> UB
-              </Badge>
-            )}
-            {!property.has_gas && !property.has_boiler && !property.has_elevator && !property.has_sprinkler && !property.is_landmark && !hasRestrictions && (
-              <span className="text-xs text-muted-foreground">No features or restrictions</span>
-            )}
+          {/* Zoning & Area */}
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+              <Scale className="w-3.5 h-3.5" /> Zoning & Area
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Zoning District</p>
+                <p className="font-medium">{property.zoning_district || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Zoning Map</p>
+                <p className="font-medium">{property.zoning_map || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Overlay District</p>
+                <p className="font-medium">{property.overlay_district || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Special District</p>
+                <p className="font-medium">{property.special_district || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Commercial Overlay</p>
+                <p className="font-medium">{property.commercial_overlay || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lot Area</p>
+                <p className="font-medium">{formatNumber(property.lot_area_sqft)} sf</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Building Area</p>
+                <p className="font-medium">{formatNumber(property.building_area_sqft || property.gross_sqft)} sf</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Built FAR / Max FAR</p>
+                <p className="font-medium">
+                  {property.floor_area_ratio?.toFixed(2) || '-'} / {property.max_floor_area_ratio?.toFixed(2) || '-'}
+                </p>
+              </div>
+              {property.air_rights_sqft && property.air_rights_sqft > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Unused Air Rights</p>
+                  <p className="font-medium">{formatNumber(property.air_rights_sqft)} sf</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status & Restrictions */}
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+              <Landmark className="w-3.5 h-3.5" /> Status & Restrictions
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Landmark Status</p>
+                <p className="font-medium">{property.is_landmark ? 'Landmark' : (property.landmark_status || 'Not Landmarked')}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Special Status</p>
+                <p className="font-medium">{property.special_status || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Historic District</p>
+                <p className="font-medium">{property.historic_district || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">City Owned</p>
+                <p className="font-medium">{property.is_city_owned ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Local Law</p>
+                <p className="font-medium">{property.local_law || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Loft Law</p>
+                <p className="font-medium">{property.loft_law ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">SRO Restricted</p>
+                <p className="font-medium">{property.sro_restricted ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">TA Restricted</p>
+                <p className="font-medium">{property.ta_restricted ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">UB Restricted</p>
+                <p className="font-medium">{property.ub_restricted ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pro Cert Restricted</p>
+                <p className="font-medium">{property.professional_cert_restricted ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Legal Adult Use</p>
+                <p className="font-medium">{property.legal_adult_use ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Grandfathered Sign</p>
+                <p className="font-medium">{property.grandfathered_sign ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">HPD Multiple Dwelling</p>
+                <p className="font-medium">{property.hpd_multiple_dwelling ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Environmental Restrictions</p>
+                <p className="font-medium">{property.environmental_restrictions || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Building Features — badge row */}
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Building Features</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {property.has_gas && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Flame className="w-3 h-3" /> Gas
+                </Badge>
+              )}
+              {property.has_boiler && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Droplets className="w-3 h-3" /> Boiler
+                </Badge>
+              )}
+              {property.has_elevator && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Cog className="w-3 h-3" /> Elevator
+                </Badge>
+              )}
+              {property.has_sprinkler && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Shield className="w-3 h-3" /> Sprinkler
+                </Badge>
+              )}
+              {!property.has_gas && !property.has_boiler && !property.has_elevator && !property.has_sprinkler && (
+                <span className="text-xs text-muted-foreground">None specified</span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
