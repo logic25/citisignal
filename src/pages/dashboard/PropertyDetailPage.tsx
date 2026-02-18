@@ -148,12 +148,12 @@ const PropertyDetailPage = () => {
       if (!workOrdersRes.error) setWorkOrders(workOrdersRes.data as WorkOrder[] || []);
       if (!documentsRes.error) setDocuments(documentsRes.data as Document[] || []);
       if (!applicationsRes.error) {
-        const TERMINAL = ['signed off', 'completed', 'complete', 'co issued', 'letter of completion', 'loc issued', 'signed off / completed', 'cancel', 'cancelled'];
+        const TERMINAL = ['signed off', 'completed', 'complete', 'co issued', 'letter of completion', 'loc issued', 'signed off / completed', 'cancel', 'cancelled', 'withdrawn', 'filing withdrawn', 'disapproved', 'suspended'];
         const active = (applicationsRes.data || []).filter((a: { status: string | null; source: string }) => {
           const s = (a.status || '').toLowerCase();
           // For BIS single-char codes, decode
           if (a.source === 'DOB BIS' && s.length <= 2) {
-            const decoded = ({ h: 'completed', i: 'signed off', j: 'letter of completion', k: 'co issued', x: 'signed off / completed', l: 'withdrawn', m: 'disapproved' } as Record<string, string>)[s] || '';
+            const decoded = ({ h: 'completed', i: 'signed off', j: 'disapproved', k: 'co issued', x: 'signed off / completed', l: 'withdrawn', m: 'disapproved', u: 'completed', '3': 'suspended' } as Record<string, string>)[s] || '';
             return !TERMINAL.some(c => decoded.includes(c));
           }
           return !TERMINAL.some(c => s.includes(c));
