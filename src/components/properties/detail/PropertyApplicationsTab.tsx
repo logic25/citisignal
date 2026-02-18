@@ -75,7 +75,7 @@ const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Complete', '
 const normalizeCompletionLabel = (label: string): string => {
   const lower = label.toLowerCase();
   if (lower === 'loc issued' || lower === 'letter of completion') return 'Signed Off';
-  if (lower === 'sign-off' || lower === 'signed-off') return 'Signed Off';
+  if (lower === 'sign-off' || lower === 'signed-off' || lower === 'signed off') return 'Signed Off';
   return label;
 };
 

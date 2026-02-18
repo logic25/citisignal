@@ -961,9 +961,13 @@ Deno.serve(async (req) => {
         const key = `${jobNum}-${docNum}`;
         const existing = bisDeduped.get(key);
         if (existing) {
-          const existingDate = String(existing.dobrundate || '');
-          const newDate = String(j.dobrundate || '');
-          if (newDate > existingDate) {
+          // Parse MM/DD/YYYY dates properly — string comparison fails for this format
+          const parseRunDate = (d: unknown): number => {
+            const s = String(d || '');
+            const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+            return m ? new Date(+m[3], +m[1] - 1, +m[2]).getTime() : 0;
+          };
+          if (parseRunDate(j.dobrundate) > parseRunDate(existing.dobrundate)) {
             bisDeduped.set(key, j);
           }
         } else {
