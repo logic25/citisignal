@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { syncNYCBuildingDataByIdentifiers, toPropertyUpdate } from '@/lib/nyc-building-sync';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -173,26 +174,47 @@ const PropertyDetailPage = () => {
 
   const syncViolations = async () => {
     if (!property?.bin && !property?.bbl) {
-      toast.error('Property needs a BIN or BBL to sync violations');
+      toast.error('Property needs a BIN or BBL to sync');
       return;
     }
 
     setIsSyncing(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-nyc-violations', {
-        body: { 
-          bin: property.bin, 
-          bbl: property.bbl,
-          property_id: property.id,
-          applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY']
+      // Run building data sync (PLUTO/DOB/E-Designations/LPC) and violation sync in parallel
+      const [buildingData, violationResult] = await Promise.all([
+        property.jurisdiction === 'NYC' 
+          ? syncNYCBuildingDataByIdentifiers(property.bin, property.bbl)
+          : Promise.resolve(null),
+        supabase.functions.invoke('fetch-nyc-violations', {
+          body: { 
+            bin: property.bin, 
+            bbl: property.bbl,
+            property_id: property.id,
+            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY']
+          }
+        }),
+      ]);
+
+      // Save building data if fetched
+      if (buildingData) {
+        const updateData = toPropertyUpdate(buildingData);
+        const { error: updateError } = await supabase
+          .from('properties')
+          .update(updateData)
+          .eq('id', property.id);
+        
+        if (updateError) {
+          console.error('Error saving building data:', updateError);
         }
-      });
+      }
 
-      if (error) throw error;
+      if (violationResult.error) throw violationResult.error;
 
-      if (data?.total_found > 0 || data?.new_applications > 0) {
+      const data = violationResult.data;
+      if (data?.total_found > 0 || data?.new_applications > 0 || buildingData) {
         const parts = [];
+        if (buildingData) parts.push('building data');
         if (data?.total_found > 0) parts.push(`${data.total_found} violations`);
         if (data?.applications_found > 0) parts.push(`${data.applications_found} applications`);
         toast.success(`Synced: ${parts.join(', ')}`);
@@ -203,7 +225,7 @@ const PropertyDetailPage = () => {
       await fetchPropertyData();
     } catch (error) {
       console.error('Error syncing:', error);
-      toast.error('Failed to sync violations');
+      toast.error('Failed to sync data');
     } finally {
       setIsSyncing(false);
     }
