@@ -148,7 +148,7 @@ const PropertyDetailPage = () => {
       if (!workOrdersRes.error) setWorkOrders(workOrdersRes.data as WorkOrder[] || []);
       if (!documentsRes.error) setDocuments(documentsRes.data as Document[] || []);
       if (!applicationsRes.error) {
-        const TERMINAL = ['signed off', 'completed', 'complete', 'co issued', 'letter of completion', 'loc issued', 'signed off / completed'];
+        const TERMINAL = ['signed off', 'completed', 'complete', 'co issued', 'letter of completion', 'loc issued', 'signed off / completed', 'cancel', 'cancelled'];
         const active = (applicationsRes.data || []).filter((a: { status: string | null; source: string }) => {
           const s = (a.status || '').toLowerCase();
           // For BIS single-char codes, decode

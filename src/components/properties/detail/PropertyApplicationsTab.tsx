@@ -69,7 +69,7 @@ const BIS_STATUS_CODES: Record<string, string> = {
   '3': 'Suspended',
 };
 
-const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Complete', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn'];
+const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Complete', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn', 'Cancel', 'Cancelled'];
 
 // Normalize similar status labels to a single canonical form
 const normalizeCompletionLabel = (label: string): string => {
@@ -77,6 +77,7 @@ const normalizeCompletionLabel = (label: string): string => {
   if (lower === 'loc issued' || lower === 'letter of completion') return 'Signed Off';
   if (lower === 'sign-off' || lower === 'signed-off' || lower === 'signed off') return 'Signed Off';
   if (lower === 'complete') return 'Completed';
+  if (lower === 'cancel') return 'Cancelled';
   return label;
 };
 
