@@ -49,15 +49,28 @@ interface Application {
 
 // DOB BIS job status codes decoded
 const BIS_STATUS_CODES: Record<string, string> = {
-  'A': 'Pre-Filing', 'B': 'Plan Examination', 'C': 'Plan Exam Approval Pending',
-  'D': 'Plan Approved', 'E': 'Partial Permit Issued', 'F': 'Permit Issued - Entire',
-  'G': 'Permit Renewed', 'H': 'Completed', 'I': 'Signed Off',
-  'J': 'Letter of Completion', 'K': 'CO Issued', 'L': 'Withdrawn',
-  'M': 'Disapproved', 'N': 'Suspended', 'P': 'Permit Expired',
-  'Q': 'Partial Permit', 'R': 'Plan Exam - Incomplete', 'X': 'Signed Off / Completed',
+  'A': 'Pre-Filed',
+  'B': 'Application Processing (Unpaid)',
+  'C': 'Application Processing (Payment Only)',
+  'D': 'Application Processed (Entire)',
+  'E': 'Application Processed - No Plan Exam',
+  'F': 'Assigned to Plan Examiner',
+  'G': 'PAA Fee Due',
+  'H': 'Plan Exam In Process',
+  'I': 'Sign-Off',
+  'J': 'Plan Exam Disapproved',
+  'K': 'Plan Exam Partial Approval',
+  'L': 'PAA Fee Pending',
+  'M': 'PAA Fee Resolved',
+  'P': 'Approved',
+  'Q': 'Permit Issued - Partial',
+  'R': 'Permit Issued - Entire',
+  'U': 'Completed',
+  'X': 'Signed-Off',
+  '3': 'Suspended',
 };
 
-const COMPLETED_STATUSES = ['Signed Off', 'Signed Off / Completed', 'Completed', 'CO Issued', 'Letter of Completion'];
+const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn'];
 
 const normalizeStatusLabel = (status: string): string => {
   const cleanups: [RegExp, string][] = [
@@ -81,9 +94,9 @@ const decodeStatus = (status: string | null, source: string): string => {
 
 const getStatusVariant = (status: string | null, source: string) => {
   const decoded = decodeStatus(status, source).toLowerCase();
-  if (['loc issued', 'letter of completion'].some(s => decoded.includes(s))) return 'secondary' as const;
-  if (['signed off', 'completed', 'co issued', 'permit issued', 'issued', 'permit entire'].some(s => decoded.includes(s))) return 'default' as const;
-  if (['pre-filing', 'plan exam', 'partial permit', 'pending', 'filed', 'in review', 'plan approved'].some(s => decoded.includes(s))) return 'secondary' as const;
+  if (['sign-off', 'signed-off', 'completed'].some(s => decoded.includes(s))) return 'default' as const;
+  if (['permit issued', 'approved'].some(s => decoded.includes(s))) return 'default' as const;
+  if (['pre-filed', 'application process', 'plan exam', 'assigned', 'paa fee', 'partial approval'].some(s => decoded.includes(s))) return 'secondary' as const;
   if (['disapproved', 'withdrawn', 'suspended', 'expired', 'denied', 'cancelled'].some(s => decoded.includes(s))) return 'destructive' as const;
   return 'outline' as const;
 };

@@ -956,7 +956,7 @@ Deno.serve(async (req) => {
           application_type: jobTypeLabel,
           agency: 'DOB',
           source: 'DOB BIS',
-          status: (j.job_status as string) || (j.latest_action_date ? 'Filed' : null),
+          status: j.withdrawal_flag ? 'Withdrawn' : (j.job_status as string) || (j.latest_action_date ? 'Filed' : null),
           filing_date: j.pre__filing_date ? (j.pre__filing_date as string).split('T')[0] :
                        j.latest_action_date ? (j.latest_action_date as string).split('T')[0] : null,
           approval_date: j.approved_date ? (j.approved_date as string).split('T')[0] :

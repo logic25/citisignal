@@ -159,26 +159,31 @@ NYC building applications follow a family structure:
 
 ## 5. BIS Job Status Reference
 
-| Code | Status | Active? |
-|------|--------|---------|
-| A | Pre-Filing | No |
-| B | Plan Examination | No |
-| C | Plan Exam Approval Pending | No |
-| D | Plan Approved / Partial Permit | ✅ Yes |
-| E | Permit Issued - Entire | ✅ Yes |
-| F | Job Closeout in Progress | ✅ Yes |
-| G | Permit Renewed | ❓ TBD |
-| H | Completed | No |
-| I | Signed Off | No |
-| J | Letter of Completion | No |
-| K | CO Issued | No |
-| L | Withdrawn | No |
-| M | Disapproved | No |
-| N | Suspended | No |
-| P | Permit Expired | No |
-| Q | Partial Permit | ❓ TBD |
-| R | Permit Entire | ✅ Yes |
-| X | Signed Off / Completed | No |
+| Code | Status | Terminal? |
+|------|--------|-----------|
+| A | Pre-Filed | No |
+| B | Application Processing (Unpaid) | No |
+| C | Application Processing (Payment Only) | No |
+| D | Application Processed (Entire) | No |
+| E | Application Processed - No Plan Exam | No |
+| F | Assigned to Plan Examiner | No |
+| G | PAA Fee Due | No |
+| H | Plan Exam In Process | No |
+| I | Sign-Off | ✅ Yes |
+| J | Plan Exam Disapproved | ✅ Yes |
+| K | Plan Exam Partial Approval | No |
+| L | PAA Fee Pending | No |
+| M | PAA Fee Resolved | No |
+| P | Approved | No |
+| Q | Permit Issued - Partial | No |
+| R | Permit Issued - Entire | No |
+| U | Completed | ✅ Yes |
+| X | Signed-Off | ✅ Yes |
+| 3 | Suspended | ✅ Yes |
+
+### Withdrawn Detection
+
+The BIS dataset (`ic3t-wcy2`) includes a `withdrawal_flag` column. During sync, if this flag is set (truthy), the application status is stored as **"Withdrawn"** regardless of the `job_status` letter code. Withdrawn is treated as a terminal status.
 
 ---
 
