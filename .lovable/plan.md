@@ -1,121 +1,147 @@
 
 
-# Fix BIS Job Grouping, Deduplication, and Permit Merge
+# Revised Feature Expansion Plan
 
-## Problem
+## What We Already Have (No Duplication)
 
-Three issues with BIS job 210179732:
+The current codebase already has tenant-level features scattered across modules:
+- **Tenant tagging** on applications (name + notes via `TenantTagEditor`)
+- **Tenant tracking** on property taxes (tenant responsible, tenant name)
+- **Lease AI Q&A** with document-specific conversations and citations
+- **Property AI chat** as a collaborative team notebook (with Telegram cross-posting)
+- **Telegram bot** for property queries, violation lookups, and lease Q&A
+- **SMS webhook** for inbound property queries via Twilio
 
-1. **Wrong status ("Permit Entire" instead of "Signed Off")**: The BIS Jobs API returns duplicate rows per document -- old rows with status `R` (Permit Entire) and newer rows with status `X` (Signed Off). The code must pick the row with the latest `dobrundate` per document to get the current status.
+Phase 1 from the previous plan overlaps with these. Instead of building a separate "tenant management" system, we should **elevate the existing tenant tags into a proper tenant directory** and add lease date tracking directly onto what we have.
 
-2. **Wrong applicant ("Marc Robbins")**: Without grouping by job number, the last document row overwrites the primary applicant. Doc 01 (the primary filing) has applicant Isaac-Daniel Astrachan; docs 03/04 have Marc Robbins.
+---
 
-3. **Missing documents**: The BIS Jobs API only returns 6 docs (01-06) for this job. The remaining docs (07-20 visible on the BIS portal) are not in either Open Data dataset. We will display all docs we have and note how many are available.
+## Revised Phase 1: Tenant Directory + Lease Dates (Upgrade, Not Rebuild)
 
-## Solution
+Instead of new `units`, `tenants`, `leases`, and `rent_roll` tables, we take a lighter approach:
 
-### Edge Function: `supabase/functions/fetch-nyc-violations/index.ts`
+### Database Changes
+- **`tenants` table**: company_name, contact_name, contact_email, contact_phone, property_id, unit_number, lease_start, lease_end, rent_amount, escalation_notes, renewal_option_date, security_deposit, lease_type (gross/NNN/modified gross), status (active/expired/pending), notes
+- **No separate `units` or `leases` tables** -- for CRE, the tenant IS the unit occupant. Keep it flat until complexity demands otherwise.
 
-**Step 1 -- Remove the scraper** (paused per request)
-- Delete the `scrapeBisPortalStatus` helper function and all calls to it
-- Remove the 200ms delay logic and scraper-related variables
+### UI Changes
+- New "Tenants" tab on PropertyDetailPage (alongside Violations, Applications, etc.)
+- Tenant list with lease expiration countdown badges
+- Existing `TenantTagEditor` on applications links to the tenant record
+- Lease expiration alerts reuse the existing notification system (7/3/1 day pattern from `generate_deadline_reminders`)
 
-**Step 2 -- Deduplicate BIS rows by doc number**
-- When the BIS Jobs API returns multiple rows for the same `job__` + `doc__` combination, keep only the row with the **latest `dobrundate`** (this ensures we get status `X` instead of stale `R`)
+---
 
-**Step 3 -- Group deduplicated docs by job number**
-- Group all deduplicated rows by `job__` into a Map
-- For each job group:
-  - Sort docs by `doc__` ascending
-  - Use **Doc 01** (or lowest doc number) as the primary record for: applicant name, professional title, license number, job description, status, owner info, proposed stories/units/height
-  - Build a `bis_documents` array from all docs, each containing:
-    - `doc_number` (from `doc__`)
-    - `applicant_name`, `applicant_professional_title`, `applicant_license_number`
-    - `description` (from `job_description`)
-    - `work_type` (derived from the `other_description`, `plumbing`, `mechanical`, `sprinkler` flag fields)
-    - `job_status`, `job_status_descrp`
-  - Create one application record per unique job (not per doc)
+## Revised Phase 2: WhatsApp Integration
 
-**Step 4 -- Merge permit data into BIS documents**
-- After fetching permit issuance data (`ipu4-2q9a`), group permits by `job__` + `job_doc___`
-- For each BIS document in `bis_documents`, attach matching permit records as a `permits` sub-array
-- Each permit entry includes: `permit_type`, `permit_status`, `filing_status`, `permit_sequence`, `issuance_date`, `expiration_date`, `permittee_first_name`, `permittee_last_name`, `permittee_business_name`, `permittee_license_type`, `permittee_license_number`
+WhatsApp follows the exact same architecture as the existing Telegram bot. The pattern:
 
-### UI: `src/components/properties/detail/PropertyApplicationsTab.tsx`
+### Infrastructure
+- **New edge function**: `whatsapp-webhook/index.ts` -- mirrors `telegram-webhook/index.ts`
+- **New edge function**: `send-whatsapp/index.ts` -- mirrors `send-telegram/index.ts`
+- Uses **Twilio WhatsApp API** (same Twilio credentials already configured: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`)
+- Need one new secret: `TWILIO_WHATSAPP_NUMBER` (the Twilio WhatsApp-enabled number)
 
-**Step 5 -- Update Related Filings section**
-- Read from `raw_data.bis_documents` as the primary source
-- Fall back to `raw_data.permits` if `bis_documents` is not present (backward compatibility)
-- Each document row displays:
-  - Doc number badge (01, 02, etc.)
-  - Work type / description
-  - Doc-specific applicant name and title
-  - If permits exist for that doc: permit type, status badge, most recent issuance/expiration dates, permittee name and business
-- Remove scraper-related UI elements (withdrawal banner, `total_documents` reference)
+### How It Works
+- Twilio routes WhatsApp messages to the `whatsapp-webhook` edge function
+- Same Gemini-powered AI assistant answers property queries
+- Messages logged to `property_ai_messages` with a "WhatsApp" badge (same pattern as Telegram's badge)
+- Account linking via `/start` deep link or manual `/link` command
 
-### Data Structure After Fix
+### Database Changes
+- **`whatsapp_users` table**: user_id, phone_number, is_active, linked_at (mirrors `telegram_users`)
 
-```text
-raw_data: {
-  bis_documents: [
-    {
-      doc_number: "01",
-      applicant_name: "ISAAC-DANIEL ASTRACHAN",
-      applicant_professional_title: "RA",
-      applicant_license_number: "030631",
-      description: "NEW BUILDING - 12 STORY RESIDENTIAL...",
-      work_type: "GC & ZONING",
-      job_status: "X",
-      job_status_descrp: "SIGNED OFF",
-      permits: [
-        {
-          permit_type: "FO",
-          permit_status: "ISSUED",
-          filing_status: "INITIAL",
-          issuance_date: "04/07/2021",
-          expiration_date: "04/07/2022",
-          permittee_business_name: "J.E. LEVINE BUILDER INC",
-          ...
-        },
-        { ... 6 more permit records for doc 01 ... }
-      ]
-    },
-    {
-      doc_number: "02",
-      applicant_name: "VLADIMIR SIEJAS",
-      work_type: "FOUNDATION",
-      job_status: "X",
-      job_status_descrp: "SIGNED OFF",
-      permits: []   // no permits in ipu4-2q9a for doc 02
-    },
-    ... docs 03-06
-  ],
-  permits: [...]   // kept for backward compat
-}
-```
+### Settings UI
+- New "WhatsApp" section in Settings page alongside existing Telegram tab
+- Shows linking status, phone number, and unlink button
 
-## Technical Details
+---
 
-### Why only 6 docs instead of 20?
-The BIS portal shows 20 documents, but the Open Data API (`ic3t-wcy2`) only has 6 (docs 01-06). The remaining 14 docs (likely sprinkler, fire suppression, elevator, fire alarm, standpipe, etc.) are only available through the BIS portal, not the public API. This is a known limitation of the Open Data datasets. We will display whatever docs the API provides accurately.
+## Revised Phase 3: Financial Tracking with QuickBooks
 
-### Deduplication logic
-```text
-For each BIS row:
-  key = job__ + "-" + doc__
-  If key already exists in Map:
-    Compare dobrundate -- keep the row with the later date
-  Else:
-    Add to Map
-```
+For CRE financial tracking, **QuickBooks integration is the right move** rather than building a full accounting system. Two options:
 
-### Files Changed
+### Option A: QBO (QuickBooks Online) API -- Recommended
+- Direct API integration via OAuth2
+- Real-time sync of income/expenses
+- Automatic categorization by property
+- Requires: QBO API credentials (Client ID + Client Secret)
+- **New edge function**: `qbo-sync/index.ts` for fetching transactions
+- **New table**: `qbo_connections` (user_id, realm_id, access_token, refresh_token)
+- **New table**: `transactions` (property_id, amount, category, date, qbo_reference_id, description, vendor)
+- UI: Financial tab on PropertyDetailPage showing synced transactions, P&L summary
 
-| File | Change |
-|------|--------|
-| `supabase/functions/fetch-nyc-violations/index.ts` | Remove scraper, deduplicate BIS rows by latest `dobrundate`, group by job number, use Doc 01 as primary, merge permit data into `bis_documents` |
-| `src/components/properties/detail/PropertyApplicationsTab.tsx` | Display `bis_documents` in Related Filings with per-doc permits, remove scraper UI |
+### Option B: CSV/IIF Import (QuickBooks Desktop)
+- Manual upload workflow: user exports CSV/IIF from QBD, uploads to the app
+- **New edge function**: `parse-qbd-export/index.ts` to parse CSV/IIF format
+- Same `transactions` table as above, but `source: 'qbd_import'` instead of `'qbo_sync'`
+- UI: Import button on Financials page with drag-and-drop upload
 
-### No Database Schema Changes
-All data stored in existing `raw_data` JSONB column on `applications` table.
+### Recommendation
+Support **both** -- QBO as primary with live sync, plus CSV import as fallback for QBD users. Many CRE managers use QBD, so CSV import is essential. The `transactions` table is the same either way; only the data source differs.
+
+---
+
+## Revised Pricing (Adjusted for Overlap)
+
+### Starter -- $49/month
+- Up to 5 properties
+- Violation monitoring (DOB, ECB, HPD, FDNY, DEP, DOT, DSNY, DCA, SBS)
+- Compliance scoring and calendar
+- Application/permit tracking
+- Document uploads (5 GB)
+- Email notifications
+- 1 user
+
+### Professional -- $149/month
+- Up to 25 properties
+- Everything in Starter plus:
+- Tenant directory with lease tracking
+- Lease AI Q&A (50 questions/month)
+- Work orders and vendor management
+- SMS + Telegram + WhatsApp alerts
+- Due diligence reports (10/month)
+- 25 GB document storage
+- 3 users
+
+### Enterprise -- $349/month
+- Unlimited properties
+- Everything in Professional plus:
+- QuickBooks sync (QBO or CSV import)
+- Portfolio analytics dashboard
+- Insurance policy tracking
+- Property AI assistant (unlimited)
+- Lease AI Q&A (unlimited)
+- 100 GB document storage
+- Unlimited users
+- Priority support
+
+### Add-ons
+- Additional properties: $5/property/month (Starter), $3/property/month (Pro)
+- Additional AI questions: $0.10/question
+- Additional storage: $5 per 10 GB/month
+- White-label branding: $99/month
+
+---
+
+## Implementation Order
+
+| Order | Feature | Effort | Why This Order |
+|-------|---------|--------|----------------|
+| 1 | Tenant directory + lease dates | Medium | Upgrades existing data, unlocks Pro tier |
+| 2 | WhatsApp integration | Medium | Mirrors Telegram pattern, high user demand |
+| 3 | QBO sync + CSV import | Large | Justifies Enterprise tier |
+| 4 | Stripe subscription billing | Medium | Monetizes the tiers |
+| 5 | Portfolio analytics | Medium | Enterprise differentiator |
+| 6 | Insurance tracking | Small | Completeness |
+
+---
+
+## Technical Notes
+
+- WhatsApp webhook reuses the same Gemini AI pipeline and `property_ai_messages` logging as Telegram
+- Twilio WhatsApp API uses the same account credentials already stored -- only need the WhatsApp-specific phone number
+- QBO OAuth2 tokens need refresh handling in a scheduled edge function
+- CSV/IIF parsing runs entirely in an edge function with no external dependencies
+- All new tables follow existing RLS pattern (user_id ownership or property_id join check)
 
