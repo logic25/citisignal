@@ -1470,6 +1470,77 @@ export type Database = {
         }
         Relationships: []
       }
+      tenants: {
+        Row: {
+          company_name: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          escalation_notes: string | null
+          id: string
+          lease_end: string | null
+          lease_start: string | null
+          lease_type: string | null
+          notes: string | null
+          property_id: string
+          renewal_option_date: string | null
+          rent_amount: number | null
+          security_deposit: number | null
+          status: string
+          unit_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_name: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          escalation_notes?: string | null
+          id?: string
+          lease_end?: string | null
+          lease_start?: string | null
+          lease_type?: string | null
+          notes?: string | null
+          property_id: string
+          renewal_option_date?: string | null
+          rent_amount?: number | null
+          security_deposit?: number | null
+          status?: string
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          escalation_notes?: string | null
+          id?: string
+          lease_end?: string | null
+          lease_start?: string | null
+          lease_type?: string | null
+          notes?: string | null
+          property_id?: string
+          renewal_option_date?: string | null
+          rent_amount?: number | null
+          security_deposit?: number | null
+          status?: string
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

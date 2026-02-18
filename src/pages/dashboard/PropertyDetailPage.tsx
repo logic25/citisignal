@@ -21,6 +21,7 @@ import { PropertyDocumentsTab } from '@/components/properties/detail/PropertyDoc
 import { PropertyWorkOrdersTab } from '@/components/properties/detail/PropertyWorkOrdersTab';
 import { PropertyActivityTab } from '@/components/properties/detail/PropertyActivityTab';
 import { PropertyTaxesTab } from '@/components/properties/detail/PropertyTaxesTab';
+import { PropertyTenantsTab } from '@/components/properties/detail/PropertyTenantsTab';
 import { PropertySettingsTab } from '@/components/properties/PropertySettingsTab';
 import { EditPropertyDialog } from '@/components/properties/EditPropertyDialog';
 import { getBoroughName } from '@/lib/property-utils';
@@ -408,7 +409,7 @@ const PropertyDetailPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8 max-w-5xl">
+        <TabsList className="grid w-full grid-cols-9 max-w-5xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="violations">
             Violations {openViolations > 0 && `(${openViolations})`}
@@ -416,6 +417,7 @@ const PropertyDetailPage = () => {
           <TabsTrigger value="applications">
             Applications {activeAppCount > 0 && `(${activeAppCount})`}
           </TabsTrigger>
+          <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="documents">
             Docs {documents.length > 0 && `(${documents.length})`}
           </TabsTrigger>
@@ -448,6 +450,10 @@ const PropertyDetailPage = () => {
 
         <TabsContent value="applications" className="mt-6">
           <PropertyApplicationsTab propertyId={property.id} />
+        </TabsContent>
+
+        <TabsContent value="tenants" className="mt-6">
+          <PropertyTenantsTab propertyId={property.id} />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6">
