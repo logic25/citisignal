@@ -29,6 +29,7 @@ const NYC_OPEN_DATA_ENDPOINTS = {
   DOB_NOW_LIMITED_ALT: "https://data.cityofnewyork.us/resource/xxbr-ypig.json",
   DOB_NOW_ELECTRICAL: "https://data.cityofnewyork.us/resource/dm9a-ab7w.json",
   DOB_NOW_ELEVATOR: "https://data.cityofnewyork.us/resource/kfp4-dz4h.json",
+  DOB_PERMIT_ISSUANCE: "https://data.cityofnewyork.us/resource/ipu4-2q9a.json",
 };
 
 // Agency name mappings for OATH dataset
@@ -200,6 +201,39 @@ const CLOSED_STATUSES = [
   'WRITTEN OFF', 'CLOSED', 'DISMISSED', 'PAID', 'RESOLVED', 'COMPLIED',
   'SETTLED', 'SATISFIED', 'VACATED', 'WAIVED', 'NO PENALTY', 'DEFAULT - PAID'
 ];
+
+// BIS Portal scraper for withdrawal detection (portal-only data)
+const TERMINAL_BIS_STATUSES = ['I', 'U', 'X', '3']; // Sign-Off, Completed, Signed-Off, Suspended
+
+async function scrapeBisPortalStatus(jobNumber: string): Promise<{ withdrawn: boolean; withdrawal_date: string | null } | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(
+      `https://a810-bisweb.nyc.gov/bisweb/JobsQueryByNumberServlet?passjobnumber=${jobNumber}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const withdrawnMatch = html.match(/JOB\s+WITHDRAWN[:\s]*(\d{2}\/\d{2}\/\d{4})?/i);
+
+    if (withdrawnMatch) {
+      return {
+        withdrawn: true,
+        withdrawal_date: withdrawnMatch[1] || null,
+      };
+    }
+
+    return { withdrawn: false, withdrawal_date: null };
+  } catch {
+    // Timeout or network error — graceful fallback
+    return null;
+  }
+}
 
 async function sendSMSAlert(
   supabaseUrl: string,
@@ -927,15 +961,28 @@ Deno.serve(async (req) => {
 
     // Fetch DOB BIS Job Application Filings
     if (bin) {
-      const [bisJobs, dobNowBuild, dobNowLimitedAlt, dobNowElectrical, dobNowElevator] = await Promise.all([
+      const [bisJobs, dobNowBuild, dobNowLimitedAlt, dobNowElectrical, dobNowElevator, permitIssuanceData] = await Promise.all([
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_BIS_JOBS}?bin__=${bin}&$limit=200&$order=latest_action_date DESC`, "DOB_BIS_JOBS"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_BUILD}?bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_BUILD"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_LIMITED_ALT}?location_bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_LIMITED_ALT"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_ELECTRICAL}?bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_ELECTRICAL"),
         safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NOW_ELEVATOR}?bin=${bin}&$limit=200&$order=filing_date DESC`, "DOB_NOW_ELEVATOR"),
+        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_PERMIT_ISSUANCE}?bin__=${bin}&$limit=500&$order=issuance_date DESC`, "DOB_PERMIT_ISSUANCE"),
       ]);
 
-      console.log(`Found ${bisJobs.length} BIS jobs, ${dobNowBuild.length} Build, ${dobNowLimitedAlt.length} Limited Alt, ${dobNowElectrical.length} Electrical, ${dobNowElevator.length} Elevator apps`);
+      console.log(`Found ${bisJobs.length} BIS jobs, ${dobNowBuild.length} Build, ${dobNowLimitedAlt.length} Limited Alt, ${dobNowElectrical.length} Electrical, ${dobNowElevator.length} Elevator apps, ${permitIssuanceData.length} permit issuance records`);
+
+      // Group permit issuance records by parent job number
+      const permitsByJob = new Map<string, Array<Record<string, unknown>>>();
+      for (const p of permitIssuanceData as Record<string, unknown>[]) {
+        const jobKey = String(p.job__ || '');
+        if (!jobKey) continue;
+        if (!permitsByJob.has(jobKey)) permitsByJob.set(jobKey, []);
+        permitsByJob.get(jobKey)!.push(p);
+      }
+
+      // Determine if this is a full sync (not dob_quick) for scraper usage
+      const isFullSync = !agenciesToSync || agenciesToSync.length !== 1 || agenciesToSync[0] !== 'DOB';
 
       for (const j of bisJobs as Record<string, unknown>[]) {
         const jobNum = j.job__ as string;
@@ -950,13 +997,59 @@ Deno.serve(async (req) => {
                             jobType === 'SG' ? 'Sign' :
                             jobType || 'Job Filing';
 
+        // Determine initial status
+        let appStatus: string | null = (j.withdrawal_flag && j.withdrawal_flag !== '0' && j.withdrawal_flag !== 'N')
+          ? 'Withdrawn'
+          : (j.job_status as string) || (j.latest_action_date ? 'Filed' : null);
+
+        // Build raw_data with permit sub-filings
+        const rawData: Record<string, unknown> = {};
+        const jobPermits = permitsByJob.get(String(jobNum));
+        if (jobPermits && jobPermits.length > 0) {
+          rawData.permits = jobPermits
+            .sort((a, b) => String(a.job_doc___ || '').localeCompare(String(b.job_doc___ || '')))
+            .map(p => ({
+              job_doc: String(p.job_doc___ || ''),
+              permit_type: p.permit_type || null,
+              permit_status: p.permit_status || null,
+              filing_status: p.filing_status || null,
+              permit_sequence: p.permit_sequence___ || null,
+              issuance_date: p.issuance_date ? String(p.issuance_date).split('T')[0] : null,
+              expiration_date: p.expiration_date ? String(p.expiration_date).split('T')[0] : null,
+              job_start_date: p.job_start_date ? String(p.job_start_date).split('T')[0] : null,
+              permittee_first_name: p.permittee_s_first_name || null,
+              permittee_last_name: p.permittee_s_last_name || null,
+              permittee_business_name: p.permittee_s_business_name || null,
+              permittee_license_type: p.permittee_s_license_type || null,
+              permittee_license_number: p.permittee_s_license__ || null,
+              permittee_phone: p.permittee_s_phone__ || null,
+              owner_first_name: p.owner_s_first_name || null,
+              owner_last_name: p.owner_s_last_name || null,
+              owner_business_name: p.owner_s_business_name || null,
+            }));
+        }
+
+        // BIS Portal scraper: check for withdrawal on active jobs during full sync
+        const jobStatusCode = (j.job_status as string) || '';
+        if (isFullSync && appStatus !== 'Withdrawn' && !TERMINAL_BIS_STATUSES.includes(jobStatusCode.toUpperCase())) {
+          const scraperResult = await scrapeBisPortalStatus(String(jobNum));
+          if (scraperResult?.withdrawn) {
+            appStatus = 'Withdrawn';
+            rawData.withdrawal_date = scraperResult.withdrawal_date;
+            rawData.withdrawal_source = 'bis_portal_scraper';
+            console.log(`  BIS scraper: Job ${jobNum} detected as WITHDRAWN (date: ${scraperResult.withdrawal_date || 'unknown'})`);
+          }
+          // Rate-limit: 200ms delay between scraper calls
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
         applicationRecords.push({
           property_id,
           application_number: String(jobNum),
           application_type: jobTypeLabel,
           agency: 'DOB',
           source: 'DOB BIS',
-          status: (j.withdrawal_flag && j.withdrawal_flag !== '0' && j.withdrawal_flag !== 'N') ? 'Withdrawn' : (j.job_status as string) || (j.latest_action_date ? 'Filed' : null),
+          status: appStatus,
           filing_date: j.pre__filing_date ? (j.pre__filing_date as string).split('T')[0] :
                        j.latest_action_date ? (j.latest_action_date as string).split('T')[0] : null,
           approval_date: j.approved_date ? (j.approved_date as string).split('T')[0] :
@@ -979,6 +1072,7 @@ Deno.serve(async (req) => {
           stories: j.proposed_no_of_stories ? parseInt(j.proposed_no_of_stories as string) : null,
           dwelling_units: j.proposed_dwelling_units ? parseInt(j.proposed_dwelling_units as string) : null,
           floor_area: j.proposed_zoning_sqft ? parseFloat(j.proposed_zoning_sqft as string) : null,
+          raw_data: Object.keys(rawData).length > 0 ? rawData : null,
         });
       }
 
