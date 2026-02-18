@@ -1,136 +1,102 @@
 
 
-# Expand Local Law Engine to 43 NYC Compliance Obligations
+# Fix Data Mapping and Remove Unavailable Fields
 
-## Overview
-The current engine tracks 11 laws. This plan expands it to cover all 43 violation-generating compliance obligations you've documented, fixes the LL126 misidentification, and adds the necessary database columns and UI toggles.
+## Summary
+Several property fields are hardcoded to false/null when Open Data actually has the data, some PLUTO fields are incorrectly mapped, and several fields shown in the UI have no consistent Open Data source and should be removed.
 
-## Phase 1: Database Migration
+## What's Actually Available (verified via API)
 
-Add new boolean feature columns to the `properties` table to drive applicability logic for laws that depend on building characteristics we don't currently track:
+| Dataset | Available Fields |
+|---------|-----------------|
+| PLUTO | `zonemap`, `overlay1`, `overlay2`, `spdist1`, `spdist2`, `spdist3`, `ltdheight`, `splitzone`, `histdist`, `landmark` |
+| DOB Jobs | `professional_cert`, `loft_board`, `adult_estab`, `landmarked`, `little_e`, `cluster`, `non_profit`, `site_fill`, `special_district_1`, `special_district_2` |
 
-| Column | Default | Drives |
-|--------|---------|--------|
-| `has_retaining_wall` | false | LL37 |
-| `has_parking_structure` | false | LL126/08 (PIPS) |
-| `has_cooling_tower` | false | LL77/15 Cooling Tower |
-| `has_water_tank` | false | LL76 Water Tank |
-| `has_fire_alarm` | false | FDNY Fire Alarm |
-| `has_standpipe` | false | FDNY Standpipe |
-| `has_place_of_assembly` | false | FDNY PA Certificate |
-| `is_food_establishment` | false | DEP Grease Trap |
-| `has_backflow_device` | false | DEP Backflow Prevention |
-| `burns_no4_oil` | false | LL32 Oil Phaseout |
+## What's NOT Available (no consistent Open Data source)
 
-That's 10 new boolean columns on `properties`.
+These fields will be **removed from the UI** since they can't be reliably populated:
+- `cross_streets` (PAD returns 403)
+- `special_place_name` (BIS-only)
+- `building_remarks` (BIS-only)
+- `basement_code` (BIS-only)
+- `local_law` (LL 158/17 text with expiration -- BIS-only)
+- `sro_restricted` (not in DOB Jobs or PLUTO)
+- `ta_restricted` (not in DOB Jobs or PLUTO)
+- `ub_restricted` (not in DOB Jobs or PLUTO)
+- `grandfathered_sign` (not in DOB Jobs or PLUTO)
+- `special_status` (no direct source)
+- `environmental_restrictions` (requires separate E-Designations dataset query by BBL -- could add later)
 
-## Phase 2: Fix Existing Laws
+## Implementation
 
-1. **LL126 -> Parapet Inspection**: Rename the current `checkLL126` to `checkLL126Parapet`. Change applicability to `applies = true` for all buildings (parapets are nearly universal). Annual cycle, due Dec 31, penalty up to $10,000.
+### Step 1: Fix PLUTO Mapping (`src/lib/nyc-building-sync.ts`)
 
-2. **Add LL157**: New function `checkLL157` for Natural Gas Detectors using the gas-service logic that LL126 currently has. Residential buildings with gas, deadline May 1, 2025.
+In `fetchPLUTOData()`:
+- Add `zoningMap: p.zonemap || null` (currently missing)
+- Fix `commercialOverlay`: change from `p.ltdheight` to `p.overlay2` (ltdheight is "limited height district", not commercial overlay)
+- Add `landmarkStatus: p.landmark || null` (PLUTO has `landmark` column with status text)
+- Add `specialDistrict`: combine `p.spdist1`, `p.spdist2`, `p.spdist3`
+- Add `splitZone` handling via `p.splitzone`
 
-3. **Fix LL88**: Currently only applies to non-residential. Per your doc, it applies to all buildings >= 25,000 SF (commercial spaces AND common areas of residential). Update the applicability check.
+### Step 2: Fix DOB Jobs Mapping (`src/lib/nyc-building-sync.ts`)
 
-4. **Fix LL11**: Update description to reference 5-year cycle within Cycle 10 (not 9-year). Update penalty to "$1,000/month for late filing."
+In `fetchDOBJobsByBin()`:
+- Add `professionalCertRestricted: parseYesNo(d.professional_cert)` (currently missing -- this is the bug)
+- Add `specialDistrict: d.special_district_1 || null` as fallback
 
-5. **Fix PropertySettingsTab labels**: The elevator toggle currently says "LL126 elevator inspections" -- should say "LL62 elevator inspections." The boiler toggle says "LL62 boiler inspections" -- should say "Boiler Inspection (Admin Code)."
+### Step 3: Fix Merge Logic (`src/lib/nyc-building-sync.ts`)
 
-## Phase 3: Add New Law Check Functions (32 new functions)
+In both `syncNYCBuildingDataByIdentifiers()` and `syncNYCBuildingData()`:
+- Change `professionalCertRestricted` from hardcoded `false` to `dobJobsData?.professionalCertRestricted ?? false`
+- Change `landmarkStatus` from generic `'LANDMARK'` string to actual PLUTO `landmark` field value
+- Remove always-null/false fields from merge: `sroRestricted`, `taRestricted`, `ubRestricted`, `grandfatheredSign`, `specialStatus`, `localLaw`, `crossStreets`, `specialPlaceName`, `buildingRemarks`, `basementCode`
 
-Organized by category from your document:
+### Step 4: Clean Up Interface (`src/lib/nyc-building-sync.ts`)
 
-### Category 1: Facade, Exterior & Structural (2 new)
-- **LL126/08 -- Parking Structure (PIPS)**: `has_parking_structure` flag, 6-year cycle
-- **LL37 -- Retaining Wall**: `has_retaining_wall` flag, 5-year cycle
+Remove fields from `NYCBuildingData` interface that have no data source:
+- `crossStreets`, `specialPlaceName`, `buildingRemarks`, `basementCode`
+- `sroRestricted`, `taRestricted`, `ubRestricted`, `grandfatheredSign`
+- `localLaw`, `specialStatus`
+- `environmentalRestrictions` (can add back later with E-Designations)
 
-### Category 2: Energy & Emissions (6 new)
-- **LL33/95 -- Energy Grade Posting**: >= 25,000 SF, annual (Oct 31)
-- **LL32 -- No. 4 Oil Phaseout**: `burns_no4_oil` flag, deadline July 2027
-- **LL92/94 -- Green Roof/Solar**: New construction/major roof only (event-triggered, default exempt)
-- **LL85 -- Energy Code Compliance**: At renovation (event-triggered, default exempt)
-- **LL154 -- All-Electric Law**: New construction (event-triggered, default exempt)
-- (LL84, LL97, LL87, LL88 already exist -- just fixes)
+Update `toPropertyUpdate()` to stop writing nulls/false for these removed fields.
 
-### Category 3: Gas Safety (2 new)
-- **LL157 -- Gas Detectors**: Residential with gas, deadline May 2025
-- **LL159 -- Gas Leak Notice**: All buildings with gas, ongoing
-- (LL152, LL33/95 post-incident already exist)
+### Step 5: Update UI (`PropertyOverviewTab.tsx`)
 
-### Category 4: Elevators & Mechanical (1 new)
-- **Boiler Inspection**: `has_boiler` flag, annual (Dec 31)
-- (LL62 already exists)
+**Remove from Status and Restrictions section:**
+- Cross Streets row
+- Special Place Name row
+- Local Law row
+- SRO Restricted row
+- TA Restricted row
+- UB Restricted row
+- Grandfathered Sign row
+- Special Status row
+- Environmental Restrictions row
 
-### Category 5: Fire Safety & Sprinklers (2 new)
-- **LL77/17 -- Crane Wind Plan**: Already exists, keep as-is
-- **Fire Safety Door Notice (LL10/99)**: All residential, annual
+**Keep and fix:**
+- Landmark Status -- show actual PLUTO value
+- Historic District -- already works
+- Pro Cert Restricted -- will now show correct data after Step 2
+- Loft Law -- already works from DOB Jobs
+- Legal Adult Use -- already works
+- City Owned -- already works from DOB Jobs
+- HPD Multiple Dwelling -- keep (can be manually set)
 
-### Category 6: DOHMH (2 new)
-- **LL77/15 -- Cooling Tower**: `has_cooling_tower` flag, annual cert Nov 1
-- **LL76 -- Water Tank**: `has_water_tank` flag, annual Jan 15
+**Zoning section -- fix display:**
+- Zoning Map will now populate from PLUTO `zonemap`
+- Commercial Overlay will show correct data (was showing limited height district)
 
-### Category 7: DEP (2 new)
-- **Backflow Prevention**: `has_backflow_device` flag, annual
-- **Grease Trap**: `is_food_establishment` flag, ongoing
+### Step 6: Clean Up Property Settings Tab
 
-### Category 8: HPD Residential (7 new)
-- **LL1 -- Lead Paint**: Pre-1960 residential, annual inquiry
-- **LL55 -- Indoor Allergens**: 3+ units, annual
-- **Bedbug Reporting**: Multiple dwellings, annual (Dec)
-- **Window Guard Notice**: 3+ apartments, annual (Jan)
-- **HPD Registration**: Multiple dwellings, annual
-- **Heat/Hot Water**: All residential, ongoing (Oct-May)
-- **Smoke/CO Detectors**: All residential, ongoing
+Remove settings fields for data that can't be sourced, keeping only fields the user would manually enter.
 
-### Category 9: FDNY (6 new)
-- **Fire Alarm Inspection**: `has_fire_alarm` flag, annual
-- **Standpipe Inspection**: `has_standpipe` flag, annual + 5-year
-- **Sprinkler Maintenance**: `has_sprinkler` flag, annual (separate from LL26 retrofit)
-- **Place of Assembly (PA)**: `has_place_of_assembly` flag, ongoing
-- **Fire Extinguisher**: Commercial buildings, annual
-- **Emergency/Exit Lighting**: All buildings, ongoing
+## Files Changed
 
-### Category 10: Multi-Agency (4 new)
-- **LL196 -- SST Training**: Construction sites (event-triggered, default exempt)
-- **Grease Trap**: (covered under DEP above)
-- **Asbestos (ACP5/ACP7)**: Per project (event-triggered, default exempt)
-- **Construction Noise**: Per project (event-triggered, default exempt)
-- **CO Compliance**: All buildings, ongoing
+1. `src/lib/nyc-building-sync.ts` -- Fix PLUTO mapping (zonemap, overlay2, landmark), fix DOB Jobs mapping (professional_cert), fix merge logic, remove unavailable fields
+2. `src/components/properties/detail/PropertyOverviewTab.tsx` -- Remove UI rows for unavailable fields, keep only fields with real data sources
 
-## Phase 4: Update PropertyForCompliance Interface
+## After Deployment
 
-Add all new boolean fields to the TypeScript interface so the engine can read them from property data.
-
-## Phase 5: Update Property Settings Tab
-
-Expand the Building Features card to show all new toggleable features, organized into logical groups:
-
-- **Mechanical Systems**: Gas, Boiler, Elevator, Sprinkler, Standpipe, Fire Alarm
-- **Structural Features**: Retaining Wall, Parking Structure, Cooling Tower, Water Tank
-- **Use & Operations**: Place of Assembly, Food Establishment, Backflow Device, Burns No. 4 Oil
-
-## Phase 6: Update getApplicableLaws
-
-Wire all ~43 check functions into the main `getApplicableLaws` array. Add a `category` field to `LocalLawRequirement` interface so the compliance grid can group laws by category (DOB Facade, DOB Energy, Gas Safety, HPD, FDNY, etc.).
-
-## Phase 7: Update Compliance Grid UI
-
-Modify `LocalLawComplianceGrid.tsx` to group laws by category with collapsible sections, making the 43-law list navigable rather than one long scroll.
-
-## Technical Notes
-
-- Event-triggered laws (LL92/94, LL85, LL154, LL196, Asbestos, Construction Noise) will default to `exempt` status with a note explaining they apply only during specific project activities. Users can't toggle these -- they're informational.
-- The `LocalLawRequirement` interface gets a new optional `category` field (string) for grouping in the UI.
-- All penalty amounts and learn_more_urls come directly from your reference document.
-- The compliance scoring engine (`calculate_compliance_score` DB function) already reads from `compliance_requirements` table, so no changes needed there -- the local law engine feeds the UI display, not the scoring directly.
-
-## Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| Database migration | Add 10 boolean columns to `properties` |
-| `src/lib/local-law-engine.ts` | Rewrite: fix LL126, add 32 new check functions, add category field |
-| `src/components/properties/PropertySettingsTab.tsx` | Add new feature toggles in organized groups |
-| `src/components/properties/detail/LocalLawComplianceGrid.tsx` | Add category grouping for 43 laws |
-| `src/integrations/supabase/types.ts` | Auto-updated after migration |
+Users will need to click **Sync** on their properties to re-fetch data with the corrected mappings. The Pro Cert, Zoning Map, and Commercial Overlay fields will populate correctly after re-sync.
 
