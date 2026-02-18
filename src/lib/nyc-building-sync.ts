@@ -47,9 +47,6 @@ export interface NYCBuildingData {
   yearAltered2: number | null;
 
   // Location
-  crossStreets: string | null;
-  specialPlaceName: string | null;
-  buildingRemarks: string | null;
   latitude: number | null;
   longitude: number | null;
   communityBoard: string | null;
@@ -60,17 +57,10 @@ export interface NYCBuildingData {
   // Landmark & special status
   isLandmark: boolean;
   landmarkStatus: string | null;
-  specialStatus: string | null;
   historicDistrict: string | null;
 
   // Regulatory restrictions
-  localLaw: string | null;
   loftLaw: boolean;
-  sroRestricted: boolean;
-  taRestricted: boolean;
-  ubRestricted: boolean;
-  environmentalRestrictions: string | null;
-  grandfatheredSign: boolean;
   legalAdultUse: boolean;
   isCityOwned: boolean;
   professionalCertRestricted: boolean;
@@ -80,7 +70,6 @@ export interface NYCBuildingData {
   hpdMultipleDwelling: boolean;
   numberOfBuildings: number | null;
   numberOfFloors: number | null;
-  basementCode: string | null;
   assessedLandValue: number | null;
   assessedTotalValue: number | null;
   exemptLandValue: number | null;
@@ -151,6 +140,8 @@ async function fetchDOBJobsByBin(bin: string): Promise<Partial<NYCBuildingData> 
       loftLaw: parseYesNo(d.loft_board),
       isCityOwned: false,
       legalAdultUse: parseYesNo(d.adult_estab),
+      professionalCertRestricted: parseYesNo(d.professional_cert),
+      specialDistrict: d.special_district_1 || null,
     };
   } catch (error) {
     console.error('Error fetching DOB Jobs data:', error);
@@ -211,9 +202,10 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
     return {
       // Zoning
       zoningDistrict: p.zonedist1 || null,
+      zoningMap: p.zonemap || null,
       overlayDistrict: p.overlay1 || null,
-      specialDistrict: p.spdist1 || null,
-      commercialOverlay: p.ltdheight || null,
+      specialDistrict: [p.spdist1, p.spdist2, p.spdist3].filter(Boolean).join(', ') || null,
+      commercialOverlay: p.overlay2 || null,
       lotAreaSqft: parseInt_(p.lotarea),
       buildingAreaSqft: parseInt_(p.bldgarea),
       residentialAreaSqft: parseInt_(p.resarea),
@@ -248,7 +240,8 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
       heightFt: parseInt_(p.heightroof),
 
       // Landmark & historic
-      isLandmark: parseYesNo(p.landmark),
+      isLandmark: !!p.landmark,
+      landmarkStatus: p.landmark || null,
       historicDistrict: p.histdist || null,
 
       // Assessed values
@@ -320,6 +313,8 @@ export async function fetchDOBData(
       isCityOwned: parseYesNo(d.city_owned),
       isLandmark: parseYesNo(d.landmarked),
       legalAdultUse: parseYesNo(d.adult_estab),
+      professionalCertRestricted: parseYesNo(d.professional_cert),
+      specialDistrict: d.special_district_1 || null,
 
       // Location
       latitude: parseNumber(d.gis_latitude),
@@ -342,16 +337,14 @@ export async function syncNYCBuildingDataByIdentifiers(
 ): Promise<NYCBuildingData | null> {
   console.log('Syncing by identifiers - BIN:', bin, 'BBL:', bbl);
   
-  // Fetch PLUTO data, DOB Jobs data, and cross streets in parallel
-  const [plutoData, dobJobsData, crossStreets] = await Promise.all([
+  // Fetch PLUTO data and DOB Jobs data in parallel
+  const [plutoData, dobJobsData] = await Promise.all([
     bbl ? fetchPLUTOData(bbl) : Promise.resolve(null),
     bin ? fetchDOBJobsByBin(bin) : Promise.resolve(null),
-    bin ? fetchCrossStreets(bin) : Promise.resolve(null),
   ]);
   
   console.log('PLUTO data result:', plutoData);
   console.log('DOB Jobs data result:', dobJobsData);
-  console.log('Cross streets result:', crossStreets);
 
   // If neither PLUTO nor DOB Jobs returned data, we can't sync
   if (!plutoData && !dobJobsData) {
@@ -413,9 +406,6 @@ export async function syncNYCBuildingDataByIdentifiers(
     yearAltered2: plutoData?.yearAltered2 ?? null,
 
     // Location - merge sources, preferring PLUTO
-    crossStreets: crossStreets || null,
-    specialPlaceName: null,
-    buildingRemarks: null,
     latitude: plutoData?.latitude ?? dobJobsData?.latitude ?? null,
     longitude: plutoData?.longitude ?? dobJobsData?.longitude ?? null,
     communityBoard: plutoData?.communityBoard ?? dobJobsData?.communityBoard ?? null,
@@ -425,28 +415,20 @@ export async function syncNYCBuildingDataByIdentifiers(
 
     // Landmark & special status
     isLandmark: plutoData?.isLandmark ?? dobJobsData?.isLandmark ?? false,
-    landmarkStatus: (plutoData?.isLandmark || dobJobsData?.isLandmark) ? 'LANDMARK' : null,
-    specialStatus: null,
+    landmarkStatus: plutoData?.landmarkStatus ?? (dobJobsData?.isLandmark ? 'LANDMARK' : null),
     historicDistrict: plutoData?.historicDistrict ?? null,
 
     // Regulatory restrictions - use DOB Jobs data where available
-    localLaw: null,
     loftLaw: dobJobsData?.loftLaw ?? false,
-    sroRestricted: false,
-    taRestricted: false,
-    ubRestricted: false,
-    environmentalRestrictions: null,
-    grandfatheredSign: false,
     legalAdultUse: dobJobsData?.legalAdultUse ?? false,
     isCityOwned: dobJobsData?.isCityOwned ?? false,
-    professionalCertRestricted: false,
+    professionalCertRestricted: dobJobsData?.professionalCertRestricted ?? false,
 
     // Additional info
     additionalBins: [],
     hpdMultipleDwelling: false,
     numberOfBuildings: plutoData?.numberOfBuildings ?? 1,
     numberOfFloors: plutoData?.stories ?? dobJobsData?.stories ?? null,
-    basementCode: null,
     assessedLandValue: plutoData?.assessedLandValue ?? null,
     assessedTotalValue: plutoData?.assessedTotalValue ?? null,
     exemptLandValue: plutoData?.exemptLandValue ?? null,
@@ -536,9 +518,6 @@ export async function syncNYCBuildingData(address: string): Promise<NYCBuildingD
     yearAltered2: plutoData?.yearAltered2 ?? null,
 
     // Location
-    crossStreets: null, // Would need geocoding or separate lookup
-    specialPlaceName: null,
-    buildingRemarks: null,
     latitude: plutoData?.latitude ?? dobData.latitude ?? null,
     longitude: plutoData?.longitude ?? dobData.longitude ?? null,
     communityBoard: plutoData?.communityBoard ?? dobData.communityBoard ?? null,
@@ -548,28 +527,20 @@ export async function syncNYCBuildingData(address: string): Promise<NYCBuildingD
 
     // Landmark & special status
     isLandmark: plutoData?.isLandmark ?? dobData.isLandmark ?? false,
-    landmarkStatus: plutoData?.isLandmark ? 'LANDMARK' : null,
-    specialStatus: null,
+    landmarkStatus: plutoData?.landmarkStatus ?? (dobData.isLandmark ? 'LANDMARK' : null),
     historicDistrict: plutoData?.historicDistrict ?? null,
 
     // Regulatory restrictions
-    localLaw: null,
     loftLaw: dobData.loftLaw ?? false,
-    sroRestricted: false,
-    taRestricted: false,
-    ubRestricted: false,
-    environmentalRestrictions: null,
-    grandfatheredSign: false,
     legalAdultUse: dobData.legalAdultUse ?? false,
     isCityOwned: dobData.isCityOwned ?? false,
-    professionalCertRestricted: false,
+    professionalCertRestricted: dobData.professionalCertRestricted ?? false,
 
     // Additional info
     additionalBins: [],
     hpdMultipleDwelling: false,
     numberOfBuildings: plutoData?.numberOfBuildings ?? 1,
     numberOfFloors: plutoData?.stories ?? dobData.stories ?? null,
-    basementCode: null,
     assessedLandValue: plutoData?.assessedLandValue ?? null,
     assessedTotalValue: plutoData?.assessedTotalValue ?? null,
     exemptLandValue: plutoData?.exemptLandValue ?? null,
@@ -657,9 +628,6 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     year_altered_2: data.yearAltered2,
 
     // Location
-    cross_streets: data.crossStreets,
-    special_place_name: data.specialPlaceName,
-    building_remarks: data.buildingRemarks,
     latitude: data.latitude,
     longitude: data.longitude,
     community_board: data.communityBoard,
@@ -670,17 +638,10 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     // Landmark & special status
     is_landmark: data.isLandmark,
     landmark_status: data.landmarkStatus,
-    special_status: data.specialStatus,
     historic_district: data.historicDistrict,
 
     // Regulatory restrictions
-    local_law: data.localLaw,
     loft_law: data.loftLaw,
-    sro_restricted: data.sroRestricted,
-    ta_restricted: data.taRestricted,
-    ub_restricted: data.ubRestricted,
-    environmental_restrictions: data.environmentalRestrictions,
-    grandfathered_sign: data.grandfatheredSign,
     legal_adult_use: data.legalAdultUse,
     is_city_owned: data.isCityOwned,
     professional_cert_restricted: data.professionalCertRestricted,
@@ -690,7 +651,6 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     hpd_multiple_dwelling: data.hpdMultipleDwelling,
     number_of_buildings: data.numberOfBuildings,
     number_of_floors: data.numberOfFloors,
-    basement_code: data.basementCode,
     assessed_land_value: data.assessedLandValue,
     assessed_total_value: data.assessedTotalValue,
     exempt_land_value: data.exemptLandValue,
