@@ -560,10 +560,6 @@ export const PropertyOverviewTab = ({
                 <p className="font-medium">{property.loft_law ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Pro Cert Restricted</p>
-                <p className="font-medium">{property.professional_cert_restricted ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">Legal Adult Use</p>
                 <p className="font-medium">{property.legal_adult_use ? 'Yes' : 'No'}</p>
               </div>
