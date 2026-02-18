@@ -149,12 +149,17 @@ const PropertyDetailPage = () => {
       if (!documentsRes.error) setDocuments(documentsRes.data as Document[] || []);
       if (!applicationsRes.error) {
         const TERMINAL = ['signed off', 'completed', 'complete', 'co issued', 'letter of completion', 'loc issued', 'signed off / completed', 'cancel', 'cancelled', 'withdrawn', 'filing withdrawn', 'disapproved', 'suspended'];
-        const active = (applicationsRes.data || []).filter((a: { status: string | null; source: string }) => {
+        const active = (applicationsRes.data || []).filter((a: { status: string | null; source: string; application_number: string }) => {
           const s = (a.status || '').toLowerCase();
           // For BIS single-char codes, decode
           if (a.source === 'DOB BIS' && s.length <= 2) {
             const decoded = ({ h: 'completed', i: 'signed off', j: 'disapproved', k: 'co issued', x: 'signed off / completed', l: 'withdrawn', m: 'disapproved', u: 'completed', '3': 'suspended' } as Record<string, string>)[s] || '';
             return !TERMINAL.some(c => decoded.includes(c));
+          }
+          // "Approved" only counts as active for initial filings (P1 / Doc 01)
+          if (s === 'approved') {
+            const match = a.application_number.match(/-P(\d+)$/i);
+            if (match && parseInt(match[1], 10) > 1) return false;
           }
           return !TERMINAL.some(c => s.includes(c));
         });
