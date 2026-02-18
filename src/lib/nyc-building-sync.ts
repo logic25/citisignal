@@ -1,5 +1,5 @@
 // NYC Building Data Sync Service
-// Fetches comprehensive building data from PLUTO and BIS datasets
+// Fetches comprehensive building data from PLUTO, DOB Jobs, E-Designations, and LPC datasets
 import { loggedFetch } from '@/lib/api-logger';
 
 export interface NYCBuildingData {
@@ -29,6 +29,8 @@ export interface NYCBuildingData {
 
   // Zoning
   zoningDistrict: string | null;
+  zoningDistrict2: string | null;
+  zoningDistrict3: string | null;
   zoningMap: string | null;
   overlayDistrict: string | null;
   specialDistrict: string | null;
@@ -37,6 +39,12 @@ export interface NYCBuildingData {
   maxFloorAreaRatio: number | null;
   airRightsSqft: number | null;
   unusedFar: number | null;
+  splitZone: boolean;
+  limitedHeightDistrict: string | null;
+
+  // Lot dimensions
+  lotFrontage: number | null;
+  lotDepth: number | null;
 
   // Building classification
   buildingClass: string | null;
@@ -45,6 +53,8 @@ export interface NYCBuildingData {
   yearBuilt: number | null;
   yearAltered1: number | null;
   yearAltered2: number | null;
+  landUse: string | null;
+  totalUnits: number | null;
 
   // Location
   latitude: number | null;
@@ -53,6 +63,13 @@ export interface NYCBuildingData {
   councilDistrict: string | null;
   censusTract: string | null;
   ntaName: string | null;
+
+  // Neighborhood info
+  schoolDistrict: string | null;
+  policePrecinct: string | null;
+  fireCompany: string | null;
+  sanitationBorough: string | null;
+  sanitationSubsection: string | null;
 
   // Landmark & special status
   isLandmark: boolean;
@@ -64,6 +81,7 @@ export interface NYCBuildingData {
   legalAdultUse: boolean;
   isCityOwned: boolean;
   professionalCertRestricted: boolean;
+  environmentalRestrictions: string | null;
 
   // Additional info
   additionalBins: string[];
@@ -82,14 +100,13 @@ const PLUTO_API = 'https://data.cityofnewyork.us/resource/64uk-42ks.json';
 // DOB Job Application Filings (for building info)
 const DOB_JOBS_API = 'https://data.cityofnewyork.us/resource/ic3t-wcy2.json';
 
-// NYC Property Address Directory (PAD) - authoritative for BIN/BBL lookups
-const PAD_API = 'https://data.cityofnewyork.us/resource/bc8t-ecyu.json';
+// E-Designations dataset
+const E_DESIGNATIONS_API = 'https://data.cityofnewyork.us/resource/jsrs-ggnx.json';
 
-// NYC Geoclient API for cross streets (requires BBL)
-const GEOCLIENT_PLACE_API = 'https://data.cityofnewyork.us/resource/ahrc-nbvq.json';
+// LPC Landmarks dataset
+const LPC_LANDMARKS_API = 'https://data.cityofnewyork.us/resource/gpmc-yuvp.json';
 
 // PAD dataset is no longer accessible (403 Forbidden as of Feb 2026)
-// BIN/BBL is now resolved from DOB Jobs + PLUTO directly
 export async function fetchPADData(houseNumber: string, streetName: string, borough: string): Promise<{
   bin: string;
   bbl: string;
@@ -98,12 +115,12 @@ export async function fetchPADData(houseNumber: string, streetName: string, boro
   return null;
 }
 
-// Fetch building data from DOB Jobs by BIN
+// Fetch building data from DOB Jobs by BIN — check multiple filings for Pro Cert
 async function fetchDOBJobsByBin(bin: string): Promise<Partial<NYCBuildingData> | null> {
   try {
     const url = new URL(DOB_JOBS_API);
     url.searchParams.set('bin__', bin);
-    url.searchParams.set('$limit', '1');
+    url.searchParams.set('$limit', '10');
     url.searchParams.set('$order', 'latest_action_date DESC');
 
     console.log('Fetching DOB Jobs data for BIN:', bin);
@@ -119,8 +136,14 @@ async function fetchDOBJobsByBin(bin: string): Promise<Partial<NYCBuildingData> 
       return null;
     }
 
+    // Use first (most recent) for building data
     const d = results[0] as Record<string, any>;
-    console.log('DOB Jobs data found:', d);
+    console.log('DOB Jobs data found, records:', results.length);
+
+    // Check ALL filings for professional cert (any Y = restricted)
+    const professionalCertRestricted = results.some(
+      (r: Record<string, any>) => parseYesNo(r.professional_cert)
+    );
 
     return {
       stories: parseInt_(d.existingno_of_stories) || parseInt_(d.proposed_no_of_stories),
@@ -140,7 +163,7 @@ async function fetchDOBJobsByBin(bin: string): Promise<Partial<NYCBuildingData> 
       loftLaw: parseYesNo(d.loft_board),
       isCityOwned: false,
       legalAdultUse: parseYesNo(d.adult_estab),
-      professionalCertRestricted: parseYesNo(d.professional_cert),
+      professionalCertRestricted,
       specialDistrict: d.special_district_1 || null,
     };
   } catch (error) {
@@ -170,14 +193,87 @@ const parseInt_ = (value: string | number | undefined | null): number | null => 
   return isNaN(num) ? null : num;
 };
 
+// Fetch E-Designation (environmental restriction) records by BBL
+async function fetchEDesignations(bbl: string): Promise<string | null> {
+  try {
+    const cleanBbl = bbl.replace(/\D/g, '');
+    const url = new URL(E_DESIGNATIONS_API);
+    url.searchParams.set('$where', `bbl='${cleanBbl}'`);
+    url.searchParams.set('$limit', '10');
+
+    console.log('Fetching E-Designations for BBL:', cleanBbl);
+    const response = await loggedFetch(url.toString());
+    if (!response.ok) {
+      console.error('E-Designations API error:', response.status);
+      return null;
+    }
+
+    const results = await response.json();
+    if (!Array.isArray(results) || results.length === 0) {
+      return null;
+    }
+
+    // Concatenate descriptions
+    const descriptions = results
+      .map((r: Record<string, any>) => {
+        const num = r.e_designation_number || r.enumber || '';
+        const desc = r.description || r.zoning_map_changes || '';
+        return num && desc ? `${num}: ${desc}` : desc || num;
+      })
+      .filter(Boolean);
+
+    return descriptions.length > 0 ? descriptions.join('; ') : null;
+  } catch (error) {
+    console.error('Error fetching E-Designations:', error);
+    return null;
+  }
+}
+
+// Fetch LPC Landmark details by BBL
+async function fetchLPCLandmarkDetails(bbl: string): Promise<{ landmarkStatus: string | null; isLandmark: boolean } | null> {
+  try {
+    const cleanBbl = bbl.replace(/\D/g, '');
+    const url = new URL(LPC_LANDMARKS_API);
+    url.searchParams.set('$where', `bbl='${cleanBbl}'`);
+    url.searchParams.set('$limit', '5');
+
+    console.log('Fetching LPC Landmark details for BBL:', cleanBbl);
+    const response = await loggedFetch(url.toString());
+    if (!response.ok) {
+      console.error('LPC API error:', response.status);
+      return null;
+    }
+
+    const results = await response.json();
+    if (!Array.isArray(results) || results.length === 0) {
+      return null;
+    }
+
+    const r = results[0] as Record<string, any>;
+    const lmType = r.lm_type || r.type || '';
+    const lmName = r.lm_name || r.name || '';
+    const status = r.status || '';
+    const lpcNumber = r.lpc_number || r.lp_number || '';
+
+    let landmarkStatus = '';
+    if (lmType) landmarkStatus += lmType;
+    if (lmName) landmarkStatus += (landmarkStatus ? ' — ' : '') + lmName;
+    if (lpcNumber) landmarkStatus += ` (${lpcNumber})`;
+
+    return {
+      landmarkStatus: landmarkStatus || status || 'Designated',
+      isLandmark: true,
+    };
+  } catch (error) {
+    console.error('Error fetching LPC Landmark details:', error);
+    return null;
+  }
+}
+
 // Fetch building data from PLUTO by BBL
-// BBL format in PLUTO is numeric: e.g., 3036140041 (borough 3, block 03614, lot 0041)
 export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingData> | null> {
   try {
-    // Clean BBL - remove any non-numeric characters
     const cleanBbl = bbl.replace(/\D/g, '');
-    
-    // PLUTO accepts BBL in different formats, try numeric first
     const url = new URL(PLUTO_API);
     url.searchParams.set('bbl', cleanBbl);
     url.searchParams.set('$limit', '1');
@@ -190,8 +286,6 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
     }
 
     const results = await response.json();
-    console.log('PLUTO results:', results);
-    
     if (!Array.isArray(results) || results.length === 0) {
       console.log('No PLUTO results found for BBL:', cleanBbl);
       return null;
@@ -200,12 +294,18 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
     const p = results[0] as Record<string, any>;
 
     return {
-      // Zoning
+      // Zoning — all districts
       zoningDistrict: p.zonedist1 || null,
+      zoningDistrict2: p.zonedist2 || null,
+      zoningDistrict3: p.zonedist3 || null,
       zoningMap: p.zonemap || null,
       overlayDistrict: p.overlay1 || null,
       specialDistrict: [p.spdist1, p.spdist2, p.spdist3].filter(Boolean).join(', ') || null,
       commercialOverlay: p.overlay2 || null,
+      splitZone: p.splitzone === 'Y',
+      limitedHeightDistrict: p.ltdheight || null,
+
+      // Area fields
       lotAreaSqft: parseInt_(p.lotarea),
       buildingAreaSqft: parseInt_(p.bldgarea),
       residentialAreaSqft: parseInt_(p.resarea),
@@ -220,11 +320,17 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
       maxFloorAreaRatio: parseNumber(p.residfar) || parseNumber(p.commfar),
       unusedFar: parseNumber(p.residfar) ? parseNumber(p.residfar)! - (parseNumber(p.builtfar) || 0) : null,
 
+      // Lot dimensions
+      lotFrontage: parseNumber(p.lotfront),
+      lotDepth: parseNumber(p.lotdepth),
+
       // Building classification
       buildingClass: p.bldgclass || null,
       yearBuilt: parseInt_(p.yearbuilt),
       yearAltered1: parseInt_(p.yearalter1),
       yearAltered2: parseInt_(p.yearalter2),
+      landUse: p.landuse || null,
+      totalUnits: parseInt_(p.unitstotal),
 
       // Location
       latitude: parseNumber(p.latitude),
@@ -232,6 +338,13 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
       communityBoard: p.cd || null,
       councilDistrict: p.council || null,
       censusTract: p.ct2010 || null,
+
+      // Neighborhood
+      schoolDistrict: p.schooldist || null,
+      policePrecinct: p.policeprct || null,
+      fireCompany: p.firecomp || null,
+      sanitationBorough: p.sanitboro || null,
+      sanitationSubsection: p.sanitsub || null,
 
       // Building dimensions from PLUTO
       stories: parseInt_(p.numfloors),
@@ -264,7 +377,6 @@ export async function fetchPLUTOData(bbl: string): Promise<Partial<NYCBuildingDa
 
 // Cross streets lookup - PAD no longer accessible
 export async function fetchCrossStreets(bin: string): Promise<string | null> {
-  // PAD dataset returns 403 as of Feb 2026
   console.warn('Cross streets lookup unavailable - PAD dataset inaccessible');
   return null;
 }
@@ -330,45 +442,29 @@ export async function fetchDOBData(
   }
 }
 
-// Sync using existing BIN and BBL (preferred method when we already have identifiers)
-export async function syncNYCBuildingDataByIdentifiers(
-  bin: string | null,
-  bbl: string | null
-): Promise<NYCBuildingData | null> {
-  console.log('Syncing by identifiers - BIN:', bin, 'BBL:', bbl);
-  
-  // Fetch PLUTO data and DOB Jobs data in parallel
-  const [plutoData, dobJobsData] = await Promise.all([
-    bbl ? fetchPLUTOData(bbl) : Promise.resolve(null),
-    bin ? fetchDOBJobsByBin(bin) : Promise.resolve(null),
-  ]);
-  
-  console.log('PLUTO data result:', plutoData);
-  console.log('DOB Jobs data result:', dobJobsData);
-
-  // If neither PLUTO nor DOB Jobs returned data, we can't sync
-  if (!plutoData && !dobJobsData) {
-    console.error('No data found from PLUTO or DOB Jobs for BBL:', bbl, 'BIN:', bin);
-    return null;
-  }
-
-  // Parse BBL to get borough, block, lot
-  const cleanBbl = (bbl || '').replace(/\D/g, '');
-  const borough = cleanBbl.length >= 1 ? cleanBbl.substring(0, 1) : '';
-  const block = cleanBbl.length >= 6 ? cleanBbl.substring(1, 6).replace(/^0+/, '') || '0' : '';
-  const lot = cleanBbl.length >= 10 ? cleanBbl.substring(6, 10).replace(/^0+/, '') || '0' : '';
-
-  // Build result, merging PLUTO (preferred) with DOB Jobs as fallback
-  const result: NYCBuildingData = {
+// Helper to build a merged result with defaults for new fields
+function buildMergedResult(
+  bin: string,
+  bbl: string,
+  borough: string,
+  block: string,
+  lot: string,
+  plutoData: Partial<NYCBuildingData> | null,
+  dobJobsData: Partial<NYCBuildingData> | null,
+  eDesignations: string | null,
+  lpcData: { landmarkStatus: string | null; isLandmark: boolean } | null,
+  addressFallback: string
+): NYCBuildingData {
+  return {
     // Identifiers
-    bin: bin || '',
-    bbl: cleanBbl,
+    bin,
+    bbl,
     borough,
     block,
     lot,
-    address: (plutoData as any)?.address || '',
+    address: (plutoData as any)?.address || addressFallback || '',
 
-    // Dimensions - prefer PLUTO, fallback to DOB Jobs
+    // Dimensions
     stories: plutoData?.stories ?? dobJobsData?.stories ?? null,
     heightFt: plutoData?.heightFt ?? dobJobsData?.heightFt ?? null,
     grossSqft: plutoData?.grossSqft ?? null,
@@ -384,11 +480,13 @@ export async function syncNYCBuildingDataByIdentifiers(
     storageAreaSqft: plutoData?.storageAreaSqft ?? null,
     otherAreaSqft: plutoData?.otherAreaSqft ?? null,
 
-    // Zoning - prefer PLUTO, fallback to DOB Jobs
+    // Zoning
     zoningDistrict: plutoData?.zoningDistrict ?? dobJobsData?.zoningDistrict ?? null,
+    zoningDistrict2: plutoData?.zoningDistrict2 ?? null,
+    zoningDistrict3: plutoData?.zoningDistrict3 ?? null,
     zoningMap: plutoData?.zoningMap ?? null,
     overlayDistrict: plutoData?.overlayDistrict ?? null,
-    specialDistrict: plutoData?.specialDistrict ?? null,
+    specialDistrict: plutoData?.specialDistrict ?? dobJobsData?.specialDistrict ?? null,
     commercialOverlay: plutoData?.commercialOverlay ?? null,
     floorAreaRatio: plutoData?.floorAreaRatio ?? null,
     maxFloorAreaRatio: plutoData?.maxFloorAreaRatio ?? null,
@@ -396,16 +494,24 @@ export async function syncNYCBuildingDataByIdentifiers(
       ? Math.floor(plutoData.unusedFar * plutoData.lotAreaSqft) 
       : null,
     unusedFar: plutoData?.unusedFar ?? null,
+    splitZone: plutoData?.splitZone ?? false,
+    limitedHeightDistrict: plutoData?.limitedHeightDistrict ?? null,
 
-    // Building classification - merge sources
+    // Lot dimensions
+    lotFrontage: plutoData?.lotFrontage ?? null,
+    lotDepth: plutoData?.lotDepth ?? null,
+
+    // Building classification
     buildingClass: plutoData?.buildingClass ?? dobJobsData?.buildingClass ?? null,
     occupancyGroup: dobJobsData?.occupancyGroup ?? null,
     occupancyClassification: dobJobsData?.occupancyClassification ?? null,
     yearBuilt: plutoData?.yearBuilt ?? null,
     yearAltered1: plutoData?.yearAltered1 ?? null,
     yearAltered2: plutoData?.yearAltered2 ?? null,
+    landUse: plutoData?.landUse ?? null,
+    totalUnits: plutoData?.totalUnits ?? null,
 
-    // Location - merge sources, preferring PLUTO
+    // Location
     latitude: plutoData?.latitude ?? dobJobsData?.latitude ?? null,
     longitude: plutoData?.longitude ?? dobJobsData?.longitude ?? null,
     communityBoard: plutoData?.communityBoard ?? dobJobsData?.communityBoard ?? null,
@@ -413,16 +519,24 @@ export async function syncNYCBuildingDataByIdentifiers(
     censusTract: plutoData?.censusTract ?? dobJobsData?.censusTract ?? null,
     ntaName: dobJobsData?.ntaName ?? null,
 
-    // Landmark & special status
-    isLandmark: plutoData?.isLandmark ?? dobJobsData?.isLandmark ?? false,
-    landmarkStatus: plutoData?.landmarkStatus ?? (dobJobsData?.isLandmark ? 'LANDMARK' : null),
+    // Neighborhood
+    schoolDistrict: plutoData?.schoolDistrict ?? null,
+    policePrecinct: plutoData?.policePrecinct ?? null,
+    fireCompany: plutoData?.fireCompany ?? null,
+    sanitationBorough: plutoData?.sanitationBorough ?? null,
+    sanitationSubsection: plutoData?.sanitationSubsection ?? null,
+
+    // Landmark — LPC enrichment takes priority, then PLUTO, then DOB
+    isLandmark: lpcData?.isLandmark ?? plutoData?.isLandmark ?? dobJobsData?.isLandmark ?? false,
+    landmarkStatus: lpcData?.landmarkStatus ?? plutoData?.landmarkStatus ?? (dobJobsData?.isLandmark ? 'LANDMARK' : null),
     historicDistrict: plutoData?.historicDistrict ?? null,
 
-    // Regulatory restrictions - use DOB Jobs data where available
+    // Regulatory restrictions
     loftLaw: dobJobsData?.loftLaw ?? false,
     legalAdultUse: dobJobsData?.legalAdultUse ?? false,
     isCityOwned: dobJobsData?.isCityOwned ?? false,
     professionalCertRestricted: dobJobsData?.professionalCertRestricted ?? false,
+    environmentalRestrictions: eDesignations,
 
     // Additional info
     additionalBins: [],
@@ -434,13 +548,46 @@ export async function syncNYCBuildingDataByIdentifiers(
     exemptLandValue: plutoData?.exemptLandValue ?? null,
     exemptTotalValue: plutoData?.exemptTotalValue ?? null,
   };
+}
 
-  return result;
+// Sync using existing BIN and BBL (preferred method when we already have identifiers)
+export async function syncNYCBuildingDataByIdentifiers(
+  bin: string | null,
+  bbl: string | null
+): Promise<NYCBuildingData | null> {
+  console.log('Syncing by identifiers - BIN:', bin, 'BBL:', bbl);
+  
+  // Fetch all data sources in parallel
+  const [plutoData, dobJobsData, eDesignations, lpcData] = await Promise.all([
+    bbl ? fetchPLUTOData(bbl) : Promise.resolve(null),
+    bin ? fetchDOBJobsByBin(bin) : Promise.resolve(null),
+    bbl ? fetchEDesignations(bbl) : Promise.resolve(null),
+    bbl ? fetchLPCLandmarkDetails(bbl) : Promise.resolve(null),
+  ]);
+  
+  console.log('PLUTO data result:', plutoData);
+  console.log('DOB Jobs data result:', dobJobsData);
+  console.log('E-Designations:', eDesignations);
+  console.log('LPC data:', lpcData);
+
+  if (!plutoData && !dobJobsData) {
+    console.error('No data found from PLUTO or DOB Jobs for BBL:', bbl, 'BIN:', bin);
+    return null;
+  }
+
+  const cleanBbl = (bbl || '').replace(/\D/g, '');
+  const borough = cleanBbl.length >= 1 ? cleanBbl.substring(0, 1) : '';
+  const block = cleanBbl.length >= 6 ? cleanBbl.substring(1, 6).replace(/^0+/, '') || '0' : '';
+  const lot = cleanBbl.length >= 10 ? cleanBbl.substring(6, 10).replace(/^0+/, '') || '0' : '';
+
+  return buildMergedResult(
+    bin || '', cleanBbl, borough, block, lot,
+    plutoData, dobJobsData, eDesignations, lpcData, ''
+  );
 }
 
 // Main sync function - combines PLUTO and DOB data (fallback for address-based lookup)
 export async function syncNYCBuildingData(address: string): Promise<NYCBuildingData | null> {
-  // Parse address into house number and street
   const parts = address.split(',')[0].trim().split(/\s+/);
   const houseNumber = parts[0];
   const streetName = parts.slice(1).join(' ');
@@ -450,7 +597,6 @@ export async function syncNYCBuildingData(address: string): Promise<NYCBuildingD
     return null;
   }
 
-  // First, get DOB data to get BIN and basic info
   const dobData = await fetchDOBData(houseNumber, streetName);
 
   if (!dobData || !dobData.bin) {
@@ -458,96 +604,23 @@ export async function syncNYCBuildingData(address: string): Promise<NYCBuildingD
     return null;
   }
 
-  // Build BBL from borough, block, lot
   const borough = dobData.borough || '';
   const block = (dobData.block || '').padStart(5, '0');
   const lot = (dobData.lot || '').padStart(4, '0');
   const bbl = borough && block && lot ? `${borough}${block}${lot}` : '';
 
-  // Fetch PLUTO data if we have BBL
-  let plutoData: Partial<NYCBuildingData> | null = null;
-  if (bbl) {
-    plutoData = await fetchPLUTOData(bbl);
-  }
+  // Fetch all supplementary data in parallel
+  const [plutoData, eDesignations, lpcData] = await Promise.all([
+    bbl ? fetchPLUTOData(bbl) : Promise.resolve(null),
+    bbl ? fetchEDesignations(bbl) : Promise.resolve(null),
+    bbl ? fetchLPCLandmarkDetails(bbl) : Promise.resolve(null),
+  ]);
 
-  // Merge data, preferring PLUTO for zoning/land data, DOB for building features
-  const result: NYCBuildingData = {
-    // Identifiers
-    bin: dobData.bin || '',
-    bbl,
-    borough: dobData.borough || '',
-    block: dobData.block || '',
-    lot: dobData.lot || '',
-    address: dobData.address || address,
-
-    // Dimensions - prefer PLUTO, fallback to DOB
-    stories: plutoData?.stories ?? dobData.stories ?? null,
-    heightFt: dobData.heightFt ?? null,
-    grossSqft: plutoData?.grossSqft ?? dobData.grossSqft ?? null,
-    dwellingUnits: plutoData?.dwellingUnits ?? dobData.dwellingUnits ?? null,
-    lotAreaSqft: plutoData?.lotAreaSqft ?? null,
-    buildingAreaSqft: plutoData?.buildingAreaSqft ?? null,
-    residentialAreaSqft: plutoData?.residentialAreaSqft ?? null,
-    commercialAreaSqft: plutoData?.commercialAreaSqft ?? null,
-    officeAreaSqft: plutoData?.officeAreaSqft ?? null,
-    retailAreaSqft: plutoData?.retailAreaSqft ?? null,
-    garageAreaSqft: plutoData?.garageAreaSqft ?? null,
-    factoryAreaSqft: plutoData?.factoryAreaSqft ?? null,
-    storageAreaSqft: plutoData?.storageAreaSqft ?? null,
-    otherAreaSqft: plutoData?.otherAreaSqft ?? null,
-
-    // Zoning from PLUTO
-    zoningDistrict: plutoData?.zoningDistrict ?? null,
-    zoningMap: plutoData?.zoningMap ?? null,
-    overlayDistrict: plutoData?.overlayDistrict ?? null,
-    specialDistrict: plutoData?.specialDistrict ?? null,
-    commercialOverlay: plutoData?.commercialOverlay ?? null,
-    floorAreaRatio: plutoData?.floorAreaRatio ?? null,
-    maxFloorAreaRatio: plutoData?.maxFloorAreaRatio ?? null,
-    airRightsSqft: plutoData?.unusedFar && plutoData?.lotAreaSqft 
-      ? Math.floor(plutoData.unusedFar * plutoData.lotAreaSqft) 
-      : null,
-    unusedFar: plutoData?.unusedFar ?? null,
-
-    // Building classification
-    buildingClass: plutoData?.buildingClass ?? null,
-    occupancyGroup: dobData.occupancyGroup ?? null,
-    occupancyClassification: dobData.occupancyClassification ?? null,
-    yearBuilt: plutoData?.yearBuilt ?? null,
-    yearAltered1: plutoData?.yearAltered1 ?? null,
-    yearAltered2: plutoData?.yearAltered2 ?? null,
-
-    // Location
-    latitude: plutoData?.latitude ?? dobData.latitude ?? null,
-    longitude: plutoData?.longitude ?? dobData.longitude ?? null,
-    communityBoard: plutoData?.communityBoard ?? dobData.communityBoard ?? null,
-    councilDistrict: plutoData?.councilDistrict ?? dobData.councilDistrict ?? null,
-    censusTract: plutoData?.censusTract ?? dobData.censusTract ?? null,
-    ntaName: dobData.ntaName ?? null,
-
-    // Landmark & special status
-    isLandmark: plutoData?.isLandmark ?? dobData.isLandmark ?? false,
-    landmarkStatus: plutoData?.landmarkStatus ?? (dobData.isLandmark ? 'LANDMARK' : null),
-    historicDistrict: plutoData?.historicDistrict ?? null,
-
-    // Regulatory restrictions
-    loftLaw: dobData.loftLaw ?? false,
-    legalAdultUse: dobData.legalAdultUse ?? false,
-    isCityOwned: dobData.isCityOwned ?? false,
-    professionalCertRestricted: dobData.professionalCertRestricted ?? false,
-
-    // Additional info
-    additionalBins: [],
-    hpdMultipleDwelling: false,
-    numberOfBuildings: plutoData?.numberOfBuildings ?? 1,
-    numberOfFloors: plutoData?.stories ?? dobData.stories ?? null,
-    assessedLandValue: plutoData?.assessedLandValue ?? null,
-    assessedTotalValue: plutoData?.assessedTotalValue ?? null,
-    exemptLandValue: plutoData?.exemptLandValue ?? null,
-    exemptTotalValue: plutoData?.exemptTotalValue ?? null,
-  };
-
-  return result;
+  return buildMergedResult(
+    dobData.bin || '', bbl,
+    dobData.borough || '', dobData.block || '', dobData.lot || '',
+    plutoData, dobData, eDesignations, lpcData, dobData.address || address
+  );
 }
 
 // Infer building features from characteristics when not explicitly set
@@ -563,16 +636,9 @@ export function inferBuildingFeatures(data: NYCBuildingData): {
   const buildingClass = (data.buildingClass || '').toUpperCase();
   const isResidential = dwellingUnits > 0 || buildingClass.startsWith('R') || buildingClass.startsWith('D') || buildingClass.startsWith('C');
 
-  // Elevator: required in NYC for buildings 6+ stories (Multiple Dwelling Law §35)
   const has_elevator = stories >= 6;
-
-  // Gas: virtually all residential buildings in NYC have gas service
   const has_gas = isResidential || dwellingUnits > 0 || grossSqft > 10000;
-
-  // Boiler: standard for multi-unit residential, or any large building
   const has_boiler = dwellingUnits >= 6 || stories >= 3 || grossSqft > 25000;
-
-  // Sprinkler: required in NYC for buildings 100+ ft or certain occupancies
   const has_sprinkler = stories >= 7 || grossSqft > 50000;
 
   return { has_gas, has_boiler, has_elevator, has_sprinkler };
@@ -599,10 +665,14 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     
     // Zoning
     zoning_district: data.zoningDistrict,
+    zoning_district_2: data.zoningDistrict2,
+    zoning_district_3: data.zoningDistrict3,
     zoning_map: data.zoningMap,
     overlay_district: data.overlayDistrict,
     special_district: data.specialDistrict,
     commercial_overlay: data.commercialOverlay,
+    split_zone: data.splitZone,
+    limited_height_district: data.limitedHeightDistrict,
     lot_area_sqft: data.lotAreaSqft,
     building_area_sqft: data.buildingAreaSqft,
     residential_area_sqft: data.residentialAreaSqft,
@@ -618,14 +688,20 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     air_rights_sqft: data.airRightsSqft,
     unused_far: data.unusedFar,
 
+    // Lot dimensions
+    lot_frontage: data.lotFrontage,
+    lot_depth: data.lotDepth,
+
     // Building classification
     building_class: data.buildingClass,
     occupancy_group: data.occupancyGroup,
     occupancy_classification: data.occupancyClassification,
-    primary_use_group: data.occupancyGroup, // Map to existing field
+    primary_use_group: data.occupancyGroup,
     year_built: data.yearBuilt,
     year_altered_1: data.yearAltered1,
     year_altered_2: data.yearAltered2,
+    land_use: data.landUse,
+    total_units: data.totalUnits,
 
     // Location
     latitude: data.latitude,
@@ -634,6 +710,13 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     council_district: data.councilDistrict,
     census_tract: data.censusTract,
     nta_name: data.ntaName,
+
+    // Neighborhood
+    school_district: data.schoolDistrict,
+    police_precinct: data.policePrecinct,
+    fire_company: data.fireCompany,
+    sanitation_borough: data.sanitationBorough,
+    sanitation_subsection: data.sanitationSubsection,
 
     // Landmark & special status
     is_landmark: data.isLandmark,
@@ -645,6 +728,7 @@ export function toPropertyUpdate(data: NYCBuildingData): Record<string, any> {
     legal_adult_use: data.legalAdultUse,
     is_city_owned: data.isCityOwned,
     professional_cert_restricted: data.professionalCertRestricted,
+    environmental_restrictions: data.environmentalRestrictions,
 
     // Additional info
     additional_bins: data.additionalBins.length > 0 ? data.additionalBins : null,
