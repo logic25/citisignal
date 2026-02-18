@@ -155,7 +155,8 @@ export const SmartAddressAutocomplete = ({
     try {
       const parts = query.trim().split(/\s+/);
       const houseNumber = parts[0];
-      const streetQuery = parts.slice(1).join(' ').toUpperCase();
+      // Strip ordinal suffixes (1st->1, 2nd->2, 73rd->73, 4th->4) since DOB stores "73 STREET" not "73RD STREET"
+      const streetQuery = parts.slice(1).join(' ').toUpperCase().replace(/(\d+)(ST|ND|RD|TH)\b/g, '$1');
 
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
 
