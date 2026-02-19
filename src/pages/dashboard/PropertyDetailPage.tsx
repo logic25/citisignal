@@ -24,7 +24,7 @@ import { PropertyTaxesTab } from '@/components/properties/detail/PropertyTaxesTa
 import { PropertyTenantsTab } from '@/components/properties/detail/PropertyTenantsTab';
 import { PropertySettingsTab } from '@/components/properties/PropertySettingsTab';
 import { EditPropertyDialog } from '@/components/properties/EditPropertyDialog';
-import { PropertyAIWidget } from '@/components/properties/PropertyAIWidget';
+
 import { getBoroughName } from '@/lib/property-utils';
 import { Badge } from '@/components/ui/badge';
 import { getAgencyColor, isActiveViolation } from '@/lib/violation-utils';
@@ -512,25 +512,6 @@ const PropertyDetailPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Property AI Widget - accessible from all tabs */}
-      <PropertyAIWidget 
-        propertyId={property.id}
-        propertyData={{
-          address: property.address,
-          borough: property.borough,
-          bin: property.bin,
-          bbl: property.bbl,
-          stories: property.stories,
-          dwelling_units: property.dwelling_units,
-          year_built: (property as any).year_built,
-          zoning_district: (property as any).zoning_district,
-          building_class: (property as any).building_class,
-          co_status: property.co_status,
-        }}
-        violations={violations}
-        documents={documents}
-        workOrders={workOrders}
-      />
 
       {/* Edit Property Dialog */}
       <EditPropertyDialog
