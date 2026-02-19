@@ -208,14 +208,14 @@ function buildEmailHtml(data: {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Property Guard Weekly Digest</title>
+  <title>CitiSignal Weekly Digest</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
   <div style="max-width:720px;margin:0 auto;padding:32px 16px;">
     
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);border-radius:16px 16px 0 0;padding:32px 32px;text-align:center;">
-      <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">🛡️ Property Guard</div>
+      <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">📡 CitiSignal</div>
       <div style="color:#94a3b8;font-size:14px;margin-top:6px;">Weekly Compliance Digest</div>
       <div style="color:#64748b;font-size:12px;margin-top:4px;">${digestDate}</div>
     </div>
@@ -289,14 +289,14 @@ function buildEmailHtml(data: {
     <!-- Footer -->
     <div style="padding:24px 32px;text-align:center;border-radius:0 0 16px 16px;background:#ffffff;border-top:1px solid #f1f5f9;">
       <p style="color:#94a3b8;font-size:12px;margin:0;">
-        You're receiving this because you subscribed to Property Guard digest emails.
+        You're receiving this because you subscribed to CitiSignal digest emails.
       </p>
       <p style="color:#94a3b8;font-size:12px;margin:8px 0 0;">
         <a href="${appUrl}/dashboard/settings" style="color:#64748b;text-decoration:underline;">Manage email preferences</a>
         &nbsp;·&nbsp;
         <a href="${appUrl}/dashboard/settings" style="color:#64748b;text-decoration:underline;">Unsubscribe</a>
       </p>
-      <p style="color:#cbd5e1;font-size:11px;margin:12px 0 0;">© ${new Date().getFullYear()} Property Guard. All rights reserved.</p>
+      <p style="color:#cbd5e1;font-size:11px;margin:12px 0 0;">© ${new Date().getFullYear()} CitiSignal. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "Property Guard <onboarding@resend.dev>",
+        from: "CitiSignal <onboarding@resend.dev>",
         to: [userEmail],
         subject: `🛡️ Weekly Compliance Digest — ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
         html,

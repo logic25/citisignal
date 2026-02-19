@@ -115,7 +115,7 @@ const DDReportPrintView = ({ report, userProfile }: DDReportPrintViewProps) => {
       <div className="border-b-2 border-black pb-4 mb-6">
         <div className="text-center mb-4">
           <h1 className="text-sm font-normal tracking-widest text-gray-500 mb-1">─────────────────────────────────────────────────────────</h1>
-          <h1 className="text-2xl font-bold">PropertyGuard™ Due Diligence Report</h1>
+          <h1 className="text-2xl font-bold">CitiSignal™ Due Diligence Report</h1>
           <p className="text-sm text-gray-600 mt-1">
             Generated: {format(new Date(report.report_date), 'MMMM d, yyyy')} | Report ID: {reportId}
           </p>
@@ -315,14 +315,14 @@ const DDReportPrintView = ({ report, userProfile }: DDReportPrintViewProps) => {
         <p className="text-xs text-gray-600 mb-4 text-justify leading-relaxed">
           This report is provided for informational purposes only and does not constitute legal, financial, 
           or investment advice. Data is sourced from NYC Open Data and public records, which may contain 
-          errors, omissions, or be out of date. PropertyGuard AI{userProfile?.company_name ? ` and ${userProfile.company_name}` : ''} make no 
+          errors, omissions, or be out of date. CitiSignal{userProfile?.company_name ? ` and ${userProfile.company_name}` : ''} make no 
           warranties regarding accuracy or completeness. Users should independently verify all information 
           and consult with licensed professionals before making decisions. By using this report, you agree 
-          that PropertyGuard AI{userProfile?.company_name ? ` and ${userProfile.company_name}` : ''} shall not be liable for any decisions made based on this information.
+          that CitiSignal{userProfile?.company_name ? ` and ${userProfile.company_name}` : ''} shall not be liable for any decisions made based on this information.
         </p>
         
         <div className="text-center text-xs text-gray-500 pt-3 border-t border-gray-200">
-          <p className="font-medium">© {new Date().getFullYear()} PropertyGuard AI{userProfile?.company_name ? ` | Powered by ${userProfile.company_name}` : ''}</p>
+          <p className="font-medium">© {new Date().getFullYear()} CitiSignal{userProfile?.company_name ? ` | Powered by ${userProfile.company_name}` : ''}</p>
         </div>
       </footer>
     </div>
