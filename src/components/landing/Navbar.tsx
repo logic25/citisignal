@@ -32,9 +32,11 @@ const Navbar = () => {
                 Sign In
               </Button>
             </Link>
-            <Button variant="hero" size="sm">
-              Schedule Demo
-            </Button>
+            <Link to="/auth">
+              <Button variant="hero" size="sm">
+                Get Started
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
