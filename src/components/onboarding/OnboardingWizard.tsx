@@ -18,7 +18,7 @@ import {
   Loader2,
   ExternalLink,
   SkipForward,
-  Zap,
+  Radio,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ interface OnboardingWizardProps {
 }
 
 const STEPS = [
-  { id: 'welcome', label: 'Welcome', icon: Zap },
+  { id: 'welcome', label: 'Welcome', icon: Radio },
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'property', label: 'Property', icon: Building2 },
   { id: 'telegram', label: 'Telegram', icon: MessageCircle },
@@ -206,7 +206,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           {step === 0 && (
             <div className="text-center space-y-6">
               <div className="w-20 h-20 mx-auto rounded-2xl gradient-hero flex items-center justify-center shadow-xl">
-                <Zap className="w-10 h-10 text-primary-foreground" />
+                <Radio className="w-10 h-10 text-primary-foreground" />
               </div>
               <div className="space-y-3">
                 <h1 className="font-display text-4xl font-bold text-white">
