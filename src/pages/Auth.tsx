@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Radio, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Radio, Loader2, Mail, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -18,12 +19,13 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string; inviteCode?: string }>({});
   
-  const { signIn, signUp, resetPasswordForEmail, user, loading } = useAuth();
+  const { signIn, resetPasswordForEmail, user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const Auth = () => {
   }, [user, loading, navigate]);
 
   const validateForm = (): boolean => {
-    const newErrors: { email?: string; password?: string; confirmPassword?: string } = {};
+    const newErrors: { email?: string; password?: string; confirmPassword?: string; inviteCode?: string } = {};
     
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
@@ -48,6 +50,10 @@ const Auth = () => {
 
       if (isSignUp && password !== confirmPassword) {
         newErrors.confirmPassword = 'Passwords do not match';
+      }
+
+      if (isSignUp && !inviteCode.trim()) {
+        newErrors.inviteCode = 'An invite code is required to create an account';
       }
     }
 
@@ -72,15 +78,18 @@ const Auth = () => {
           setIsForgotPassword(false);
         }
       } else if (isSignUp) {
-        const { error } = await signUp(email, password);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast.error('This email is already registered. Please sign in instead.');
-          } else {
-            toast.error(error.message);
-          }
+        // Call the invite-code edge function instead of supabase signUp directly
+        const { data, error } = await supabase.functions.invoke('validate-invite-code', {
+          body: { email, password, inviteCode: inviteCode.trim() },
+        });
+
+        if (error || data?.error) {
+          const msg = data?.error || error?.message || 'An unexpected error occurred.';
+          toast.error(msg);
         } else {
-          toast.success('Check your email to confirm your account!');
+          toast.success('Account created! Check your email to confirm your account.');
+          setIsSignUp(false);
+          setInviteCode('');
         }
       } else {
         const { error } = await signIn(email, password);
@@ -146,12 +155,12 @@ const Auth = () => {
             {isForgotPassword
               ? "Enter your email and we'll send you a reset link"
               : isSignUp 
-                ? 'Start managing your properties with ease' 
+                ? 'Enter your invite code to get started' 
                 : 'Sign in to access your property dashboard'}
           </p>
 
-          {/* Google Sign-In (not shown on forgot password) */}
-          {!isForgotPassword && (
+          {/* Google Sign-In (sign-in only — not shown on sign up or forgot password) */}
+          {!isForgotPassword && !isSignUp && (
             <>
               <Button
                 type="button"
@@ -245,21 +254,41 @@ const Auth = () => {
                 )}
 
                 {isSignUp && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="confirmPassword"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`pl-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
-                      />
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="confirmPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className={`pl-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
+                        />
+                      </div>
+                      {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
                     </div>
-                    {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
-                  </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="inviteCode">Invite Code</Label>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="inviteCode"
+                          type="text"
+                          placeholder="e.g. CITIBETA"
+                          value={inviteCode}
+                          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                          className={`pl-10 font-mono tracking-widest ${errors.inviteCode ? 'border-destructive' : ''}`}
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                        />
+                      </div>
+                      {errors.inviteCode && <p className="text-sm text-destructive">{errors.inviteCode}</p>}
+                    </div>
+                  </>
                 )}
               </>
             )}
@@ -304,6 +333,7 @@ const Auth = () => {
                   onClick={() => {
                     setIsSignUp(!isSignUp);
                     setErrors({});
+                    setInviteCode('');
                   }}
                   className="text-accent font-medium hover:underline"
                 >
