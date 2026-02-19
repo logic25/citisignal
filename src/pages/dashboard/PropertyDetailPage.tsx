@@ -306,7 +306,7 @@ const PropertyDetailPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <Button 
             variant="ghost" 
@@ -415,7 +415,7 @@ const PropertyDetailPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9 max-w-5xl">
+        <TabsList className="flex flex-wrap gap-1 h-auto p-1 w-full max-w-5xl">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="violations">
             Violations {openViolations > 0 && `(${openViolations})`}
