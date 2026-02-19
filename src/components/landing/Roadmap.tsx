@@ -1,32 +1,22 @@
-import { Clock, Circle, BarChart3, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Circle, BarChart3, Zap, CheckCircle2, ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-const phases = [
-  {
-    status: "in_progress",
-    label: "In Progress",
-    title: "Messaging & Data Expansion",
-    items: [
-      "WhatsApp bot integration",
-      "OATH hearing & penalty sync",
-      "Stop Work Order / Vacate Order detection refinement",
-      "TCO expiration critical alerts",
-      "Enhanced violation suppression thresholds",
-    ],
-  },
-  {
-    status: "planned",
-    label: "Planned",
-    title: "Intelligence & Scale",
-    items: [
-      "Google Calendar sync for deadlines",
-      "Portfolio-level analytics dashboards",
-      "OER tracking (E-designations, Phase I/II ESA)",
-      "White-label / multi-tenant support",
-      "Enhanced RAG for document Q&A",
-      "Vendor COI auto-renewal reminders",
-    ],
-  },
-];
+interface RoadmapItem {
+  id: string;
+  phase: string;
+  title: string;
+  sort_order: number;
+}
+
+const phaseConfig: Record<string, { label: string; icon: typeof Clock; bg: string; text: string; border: string; dot: string }> = {
+  live: { label: "Live", icon: CheckCircle2, bg: "bg-success/10", text: "text-success", border: "border-success/20", dot: "bg-success" },
+  in_progress: { label: "In Progress", icon: Clock, bg: "bg-warning/10", text: "text-warning", border: "border-warning/20", dot: "bg-warning" },
+  next_up: { label: "Next Up", icon: ArrowRight, bg: "bg-primary/10", text: "text-primary", border: "border-primary/20", dot: "bg-primary" },
+  future: { label: "Future", icon: Circle, bg: "bg-muted", text: "text-muted-foreground", border: "border-border", dot: "bg-muted-foreground" },
+};
+
+const phaseOrder = ["live", "in_progress", "next_up", "future"];
 
 const stats = [
   { value: "9", label: "NYC Agencies Monitored" },
@@ -35,12 +25,34 @@ const stats = [
   { value: "24/7", label: "Automated Sync" },
 ];
 
-const statusConfig = {
-  in_progress: { icon: Clock, bg: "bg-warning/10", text: "text-warning", border: "border-warning/20", dot: "bg-warning" },
-  planned: { icon: Circle, bg: "bg-muted", text: "text-muted-foreground", border: "border-border", dot: "bg-muted-foreground" },
-};
-
 const Roadmap = () => {
+  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRoadmap = async () => {
+      const { data, error } = await supabase
+        .from("roadmap_items" as any)
+        .select("*")
+        .order("sort_order", { ascending: true });
+      
+      if (!error && data) {
+        setItems(data as any[]);
+      }
+      setLoading(false);
+    };
+    fetchRoadmap();
+  }, []);
+
+  // Group by phase
+  const grouped = phaseOrder
+    .map(phase => ({
+      phase,
+      config: phaseConfig[phase],
+      items: items.filter(i => i.phase === phase),
+    }))
+    .filter(g => g.items.length > 0);
+
   return (
     <section id="roadmap" className="py-24 bg-background">
       <div className="container mx-auto px-6">
@@ -67,35 +79,35 @@ const Roadmap = () => {
           ))}
         </div>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-          {phases.map((phase, i) => {
-            const config = statusConfig[phase.status as keyof typeof statusConfig];
-            const Icon = config.icon;
-            return (
-              <div key={i} className={`rounded-xl border ${config.border} bg-card p-6`}>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className={`w-8 h-8 rounded-lg ${config.bg} flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${config.text}`} />
+        {loading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading roadmap...</div>
+        ) : (
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+            {grouped.map(({ phase, config, items: phaseItems }) => {
+              const Icon = config.icon;
+              return (
+                <div key={phase} className={`rounded-xl border ${config.border} bg-card p-6`}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`w-8 h-8 rounded-lg ${config.bg} flex items-center justify-center`}>
+                      <Icon className={`w-4 h-4 ${config.text}`} />
+                    </div>
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}>
+                      {config.label}
+                    </span>
                   </div>
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${config.text}`}>
-                    {phase.label}
-                  </span>
+                  <ul className="space-y-2">
+                    {phaseItems.map((item) => (
+                      <li key={item.id} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <span className={`w-1.5 h-1.5 rounded-full ${config.dot} mt-1.5 shrink-0`} />
+                        {item.title}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="font-display text-lg font-semibold text-foreground mb-4">
-                  {phase.title}
-                </h3>
-                <ul className="space-y-2">
-                  {phase.items.map((item, j) => (
-                    <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} mt-1.5 shrink-0`} />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );
