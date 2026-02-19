@@ -22,6 +22,7 @@ import WorkOrdersPage from "@/pages/dashboard/WorkOrdersPage";
 import CAMPage from "@/pages/dashboard/CAMPage";
 import OwnerStatementsPage from "@/pages/dashboard/OwnerStatementsPage";
 import ReportBuilderPage from "@/pages/dashboard/ReportBuilderPage";
+import TaxesPage from "@/pages/dashboard/TaxesPage";
 import SettingsPage from "@/pages/dashboard/SettingsPage";
 import CalendarPage from "@/pages/dashboard/CalendarPage";
 import NotificationsPage from "@/pages/dashboard/NotificationsPage";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="cam" element={<CAMPage />} />
               <Route path="owner-statements" element={<OwnerStatementsPage />} />
               <Route path="reports" element={<ReportBuilderPage />} />
+              <Route path="taxes" element={<TaxesPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="help" element={<HelpCenterPage />} />

@@ -23,7 +23,8 @@ import {
   BarChart3,
   Map,
   MessageSquareText,
-  Bug
+  Bug,
+  Landmark
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -48,6 +49,7 @@ const operationsItems = [
 const financeItems = [
   { icon: Receipt, label: 'CAM Charges', href: '/dashboard/cam' },
   { icon: DollarSign, label: 'Owner Statements', href: '/dashboard/owner-statements' },
+  { icon: Landmark, label: 'Taxes', href: '/dashboard/taxes' },
   { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
 ];
 
