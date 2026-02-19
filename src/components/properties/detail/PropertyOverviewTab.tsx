@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { getBoroughName } from '@/lib/property-utils';
 import { isActiveViolation } from '@/lib/violation-utils';
-import { PropertyAIWidget } from '@/components/properties/PropertyAIWidget';
 import { LocalLawComplianceGrid } from '@/components/properties/detail/LocalLawComplianceGrid';
 
 interface Property {
@@ -628,26 +627,6 @@ export const PropertyOverviewTab = ({
         )}
         <LocalLawComplianceGrid property={property} />
       </div>
-
-      {/* Property AI Widget */}
-      <PropertyAIWidget 
-        propertyId={property.id}
-        propertyData={{
-          address: property.address,
-          borough: property.borough,
-          bin: property.bin,
-          bbl: property.bbl,
-          stories: property.stories,
-          dwelling_units: property.dwelling_units,
-          year_built: property.year_built,
-          zoning_district: property.zoning_district,
-          building_class: property.building_class,
-          co_status: property.co_status,
-        }}
-        violations={violations}
-        documents={documents}
-        workOrders={workOrders}
-      />
     </div>
   );
 };

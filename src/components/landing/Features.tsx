@@ -6,7 +6,7 @@ import {
   Zap,
   Building2,
   Shield,
-  BarChart3,
+  Sparkles,
   ArrowRight,
 } from "lucide-react";
 
@@ -44,14 +44,14 @@ const features = [
     title: "Lease Q&A with AI",
     description: "Upload leases and ask questions in plain English. Get cited answers with exact page references from your actual documents.",
     color: "primary",
-    highlight: "AI-Powered",
+    highlight: "Document Intelligence",
   },
   {
-    icon: BarChart3,
-    title: "Property Tax Tracking",
-    description: "Track assessed values, payment status, and protest deadlines across your entire portfolio. Never miss a tax installment.",
-    color: "muted-foreground",
-    highlight: "Portfolio-Wide",
+    icon: Sparkles,
+    title: "AI Property Assistant",
+    description: "Ask questions about any property in plain English. Get instant answers about violations, deadlines, and lease terms — backed by your actual data.",
+    color: "primary",
+    highlight: "AI-Powered",
   },
 ];
 
