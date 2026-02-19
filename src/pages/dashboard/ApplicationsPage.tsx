@@ -537,7 +537,7 @@ const ApplicationsPage = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Applications</h1>
           <p className="text-muted-foreground mt-1">Track permits and applications from all NYC agencies</p>
         </div>
-        <Button onClick={handleSync} disabled={isRefetching}>
+        <Button variant="outline" onClick={handleSync} disabled={isRefetching}>
           <RefreshCw className={`w-4 h-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
           Sync Applications
         </Button>
@@ -545,7 +545,6 @@ const ApplicationsPage = () => {
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span><strong>{applications?.length || 0}</strong> total applications</span>
         <span><strong>{applications?.length || 0}</strong> total applications</span>
         <span>•</span>
         <span><strong>{activeCount}</strong> active</span>
