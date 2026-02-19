@@ -14,7 +14,8 @@ import PropertyDetailPage from "@/pages/dashboard/PropertyDetailPage";
 // Portfolio pages preserved in src/pages/dashboard/PortfoliosPage.tsx & PortfolioDetailPage.tsx
 import ApplicationsPage from "@/pages/dashboard/ApplicationsPage";
 import ViolationsPage from "@/pages/dashboard/ViolationsPage";
-import DDReportsPage from "@/pages/dashboard/DDReportsPage";
+// DD Reports preserved for BinCheckNYC extraction
+// import DDReportsPage from "@/pages/dashboard/DDReportsPage";
 import VendorsPage from "@/pages/dashboard/VendorsPage";
 import VendorDetailPage from "@/pages/dashboard/VendorDetailPage";
 import WorkOrdersPage from "@/pages/dashboard/WorkOrdersPage";
@@ -57,7 +58,7 @@ const App = () => (
               {/* Portfolio routes removed – files preserved for future use */}
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="violations" element={<ViolationsPage />} />
-              <Route path="dd-reports" element={<DDReportsPage />} />
+              {/* DD Reports route removed – code preserved for BinCheckNYC */}
               <Route path="vendors" element={<VendorsPage />} />
               <Route path="vendors/:id" element={<VendorDetailPage />} />
               <Route path="work-orders" element={<WorkOrdersPage />} />

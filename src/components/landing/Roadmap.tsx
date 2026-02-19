@@ -50,7 +50,7 @@ const Roadmap = () => {
             Platform Status
           </div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            What's next for Property Guard
+            What's next for CitiSignal
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             The core platform is live and actively used. Here's what we're building next.

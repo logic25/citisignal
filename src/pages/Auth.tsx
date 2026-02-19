@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Radio, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -104,9 +104,9 @@ const Auth = () => {
           {/* Logo */}
           <div className="flex items-center gap-2 mb-8">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-primary-foreground" />
+              <Radio className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-2xl text-foreground">Property Guard</span>
+            <span className="font-display font-bold text-2xl text-foreground">CitiSignal</span>
           </div>
 
           {/* Heading */}
@@ -216,7 +216,7 @@ const Auth = () => {
       <div className="hidden lg:flex flex-1 gradient-hero items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="w-20 h-20 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center mx-auto mb-8">
-            <Building2 className="w-10 h-10 text-accent" />
+            <Radio className="w-10 h-10 text-accent" />
           </div>
           <h2 className="font-display text-3xl font-bold text-primary-foreground mb-4">
             Property compliance,<br />simplified.

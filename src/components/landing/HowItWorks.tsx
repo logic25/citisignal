@@ -5,7 +5,7 @@ const steps = [
     number: "01",
     icon: Bell,
     title: "Violations detected automatically",
-    description: "Property Guard syncs with 9 NYC agencies every day. New violations trigger instant alerts via SMS, WhatsApp, or Telegram.",
+    description: "CitiSignal syncs with 9 NYC agencies every day. New violations trigger instant alerts via SMS, WhatsApp, or Telegram.",
     sms: {
       type: "incoming",
       message: "⚠️ New FDNY violation at 708 E Tremont. Sprinkler inspection overdue. Due Mar 1. Reply \"details\" for more.",

@@ -1,4 +1,4 @@
-import { Building2 } from "lucide-react";
+import { Radio } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -8,9 +8,9 @@ const Footer = () => {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-primary-foreground" />
+              <Radio className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-lg text-foreground">Threshold</span>
+            <span className="font-display font-bold text-lg text-foreground">CitiSignal</span>
           </div>
 
           {/* Links */}
@@ -28,7 +28,7 @@ const Footer = () => {
 
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            © 2024 Threshold. All rights reserved.
+            © 2025 CitiSignal. All rights reserved.
           </p>
         </div>
       </div>

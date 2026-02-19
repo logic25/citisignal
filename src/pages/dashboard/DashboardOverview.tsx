@@ -430,17 +430,6 @@ const DashboardOverview = () => {
                 </div>
               </div>
             </Link>
-            <Link to="/dashboard/dd-reports" className="block">
-              <div className="p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <FileCheck className="w-6 h-6 text-primary shrink-0" />
-                  <div>
-                    <p className="font-medium text-sm text-foreground">DD Report</p>
-                    <p className="text-xs text-muted-foreground">Generate due diligence</p>
-                  </div>
-                </div>
-              </div>
-            </Link>
             <Link to="/dashboard/vendors" className="block">
               <div className="p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3">
