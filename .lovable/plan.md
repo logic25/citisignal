@@ -1,34 +1,73 @@
 
+# Invite-Only Signup System
 
-# Unify AI Button: Purple Style with Global Functionality
+## What This Does
 
-## What Changes
+Locks down account creation so only people you personally give a code to can sign up. Anyone can still visit the landing page and sign in to an existing account — but creating a new account requires a valid invite code that you control.
 
-### 1. Update the Global AI Button to match the purple style
-The header button (`GlobalAIChatButton.tsx`) currently uses a small 40x40 square with the orange brand gradient. It will be restyled to match the purple floating button's look:
-- Purple gradient: `from-violet-600 to-indigo-500`
-- Pill shape with "CitiSignal AI" label (visible on desktop, icon-only on mobile)
-- Purple shadow glow effect (`shadow-violet-500/25`)
+## How It Works
 
-### 2. Remove the floating Property AI button
-The `PropertyAIWidget` component renders a duplicate floating button on property detail pages. Since the global button already opens a sheet that supports per-property conversations, the floating widget will be removed from `PropertyDetailPage.tsx`. The import and component usage will be deleted.
+```text
+Landing Page (public)
+       |
+  Click "Get Started"
+       |
+  Auth Page - Sign Up tab
+       |
+  [Email] [Password] [Invite Code]  <-- new field
+       |
+  Backend validates code exists & is unused
+       |
+  Valid?  --> Create account --> Onboarding
+  Invalid? --> "Invalid invite code" error
+```
 
-### 3. No functional changes
-The `GlobalAIChatSheet` (conversation list, per-property chat, @ai commands) stays exactly the same. Only the trigger button's appearance changes.
+## What Gets Built
 
-## Technical Details
+### 1. Database — `invite_codes` table
+A new table to store your invite codes with these fields:
 
-### `src/components/dashboard/GlobalAIChatButton.tsx`
-- Replace the button's className to use `rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105` (matching PropertyAIWidget styling)
-- Add a text label "CitiSignal AI" visible on sm+ screens
-- Keep the conversation count badge
+| Column | Description |
+|---|---|
+| `code` | The code itself (e.g. `CITIBETA`, `FRIEND2026`) |
+| `created_by` | Your admin user ID |
+| `used_by` | The user ID that redeemed it (null until used) |
+| `used_at` | Timestamp when redeemed |
+| `max_uses` | How many times the code can be used (default: 1) |
+| `use_count` | How many times it has been used |
+| `expires_at` | Optional expiration date |
+| `is_active` | Toggle to disable a code |
 
-### `src/pages/dashboard/PropertyDetailPage.tsx`
-- Remove the `PropertyAIWidget` import
-- Remove the `<PropertyAIWidget ... />` component at the bottom of the page
+RLS policies ensure:
+- Only admins can create/view/deactivate codes
+- The validation check during signup is done server-side via an Edge Function (so the code list is never exposed to the browser)
 
-### Files unchanged
-- `GlobalAIChatSheet.tsx` -- all chat functionality stays as-is
-- `PropertyAIWidget.tsx` -- file remains (unused, can be cleaned up later)
-- `DashboardLayout.tsx` -- button already in the header, no changes needed
+### 2. Edge Function — `validate-invite-code`
+A secure backend function that:
+1. Receives the invite code + new user's email
+2. Checks the code exists, is active, not expired, and has remaining uses
+3. If valid: creates the account and marks the code as used
+4. If invalid: returns an error — the account is never created
 
+This keeps invite code validation 100% server-side. Users cannot bypass it from the browser.
+
+### 3. Auth Page — Invite Code Field
+When a visitor switches to "Sign Up" mode, a new "Invite Code" field appears. The existing Sign In flow is completely unchanged. Google Sign-In will also require an invite code on first sign up.
+
+### 4. Admin Panel — Invite Codes Tab
+A new tab added to your existing Admin Panel (`/dashboard/admin`) where you can:
+- **Create new codes** — single-use or multi-use, with optional expiry
+- **See all codes** — which are active, used, by whom, and when
+- **Deactivate codes** — instantly revoke a code if needed
+
+You could create codes like:
+- `FRIEND1`, `FRIEND2`, `FRIEND3` (one per person, single-use)
+- `BETATEAM` (multi-use, for a small group)
+- `CITISIGNAL2026` (share broadly but set a limit of 10 uses)
+
+## Technical Notes
+- Invite code validation happens entirely in the backend — the list of valid codes is never sent to the browser
+- Codes are case-insensitive (so `friend1` and `FRIEND1` both work)
+- The `user_roles` table (already in place) controls admin access to the Invite Codes tab
+- No changes to the existing sign-in flow or password reset flow
+- Google OAuth sign-ups will redirect back to the auth page prompting for an invite code before the account is finalized
