@@ -1,107 +1,92 @@
 
 
-# CitiSignal Rebrand + DD Reports Removal + Marketing Overhaul
+# Sidebar Cleanup + AI Chat Visibility + Marketing Update
 
-## What's Changing
+## 1. Sidebar: Flat List with Financial Divider + Avatar Popover
 
-This update transforms the platform from "Property Guard" into **CitiSignal** -- a brand built around the idea that catching one violation early saves thousands. We'll also remove DD Reports from the UI (keeping the code for BinCheckNYC extraction later) and rewrite marketing copy to anchor on violation cost savings.
+Reorder the nav items to follow the natural property management workflow, with a thin divider before the financial tools. Merge Settings, Sign Out, and user info into a single avatar-triggered popover.
 
----
+### New nav order
 
-## 1. Brand Rename
+```text
+[CitiSignal Logo]        [collapse arrow]
 
-Every instance of "Property Guard" and "Threshold" becomes **CitiSignal** across:
+Overview
+Properties
+Violations
+Work Orders
+Vendors
+Applications
+Notifications
+Calendar
+─────────────────  (1px divider, no label)
+CAM Charges
+Owner Statements
+Reports
 
-| File | Current Text | New Text |
-|------|-------------|----------|
-| `index.html` | "Property Guard - NYC Violation Tracking" | "CitiSignal - NYC Violation Monitoring" |
-| `Navbar.tsx` | "Property Guard" | "CitiSignal" |
-| `Hero.tsx` | "Property Guard syncs with 9 city agencies..." | "CitiSignal syncs with 9 city agencies..." |
-| `HowItWorks.tsx` | "Property Guard syncs with 9 NYC agencies..." | "CitiSignal syncs with 9 NYC agencies..." |
-| `Roadmap.tsx` | "What's next for Property Guard" | "What's next for CitiSignal" |
-| `Footer.tsx` | "Threshold" | "CitiSignal" |
-| `DashboardSidebar.tsx` | "Property Guard" | "CitiSignal" |
-| `Auth.tsx` | "Property Guard" | "CitiSignal" |
+ADMIN (if isAdmin)
+  Admin
+  API Logs
+  Users
 
-### Icon Swap
+--- bottom ---
+[Avatar circle]  -->  click opens popover:
+  user@email.com
+  Property Owner
+  ──────────
+  Settings
+  Sign Out
+```
 
-Replace `Building2` with `Radio` (from lucide-react) across Navbar, Footer, Sidebar, Auth, and Hero to match the "signal" concept.
+### Technical changes in `DashboardSidebar.tsx`
 
----
-
-## 2. Color Palette Update
-
-Shift the accent from amber to **signal red-orange** to convey urgency and alerts.
-
-**Light mode changes** in `src/index.css`:
-- `--accent`: `38 92% 50%` (amber) changes to `12 90% 55%` (signal orange-red)
-- `--warning` stays amber at `38 92% 50%` (now distinct from accent)
-- Gradient accent and shadow glow updated to use the new hue
-- `.text-gradient` updated to use the new orange-red
-
-**Dark mode**: Same accent shift applied.
-
----
-
-## 3. Marketing Copy Rewrite
-
-### Hero Section
-- **Headline**: "One missed satisfactionviolation costs $25,000." / "CitiSignal catches it first."
-- **Subheadline**: "Real-time violation monitoring across 9 NYC agencies. Auto-alerts via SMS, WhatsApp, or Telegram. The cheapest insurance your portfolio has."
-
-### Features Section
-- **Remove**: "Due Diligence Reports" card
-- **Replace with**: "Property Tax Tracking" card -- "Track assessed values, payment status, and protest deadlines across your entire portfolio. Never miss a tax installment."
-- **Section headline**: "Everything that protects your bottom line"
-
-### CTA Section
-- **Headline**: "A single ECB fine runs $2,000 to $25,000." / "CitiSignal pays for itself with one catch."
-
-### Footer
-- Update copyright to 2025, change name to CitiSignal
+- Split `navItems` into `operationsItems` (Overview through Calendar) and `financeItems` (CAM, Owner Statements, Reports)
+- Render a `<Separator />` between the two groups (visible in both collapsed and expanded states)
+- Remove the separate Settings link, Sign Out button, and user info sections at the bottom
+- Replace with a single avatar circle that opens a Radix `Popover` containing: email, role label, a separator, Settings link, and Sign Out button
+- When collapsed: avatar shows as a circle with initial; popover opens to the right
+- Import `Popover`, `PopoverTrigger`, `PopoverContent` from `@/components/ui/popover` and `Separator` from `@/components/ui/separator`
 
 ---
 
-## 4. DD Reports Removal from UI
+## 2. AI Chat: Visible on All Property Tabs
 
-**Hidden but code preserved** for future BinCheckNYC extraction:
+Currently the `PropertyAIWidget` (floating action button) only renders inside `PropertyOverviewTab`. Moving it to `PropertyDetailPage` makes it accessible from every tab (Violations, Work Orders, Documents, etc.).
 
-- Remove from `DashboardSidebar.tsx` nav items array
-- Remove `/dashboard/dd-reports` route from `App.tsx`
-- Remove DD Reports quick-link card from `DashboardOverview.tsx`
-- Remove DD Reports feature card from `Features.tsx`
-- **Keep all DD component files and edge function untouched** in the codebase
+### Changes
+
+- **`PropertyDetailPage.tsx`**: Import `PropertyAIWidget` and render it after the `</Tabs>` closing tag (but before the `EditPropertyDialog`), passing the same props it currently receives in Overview
+- **`PropertyOverviewTab.tsx`**: Remove the `PropertyAIWidget` import and render (lines 28 and 632-650). Remove `documents` and `workOrders` from the component's props interface since they were only needed for the AI widget
 
 ---
 
-## Technical Details
+## 3. Marketing: Replace Tax Card with AI Assistant Card
 
-### Files Modified (no new files created)
+The "Property Tax Tracking" card in Features is misleading (taxes are a tab, not a standalone feature). Replace it with an **AI Property Assistant** card that highlights the chat capability -- making it visible to prospects before they sign up.
 
-| File | Changes |
-|------|---------|
-| `src/index.css` | Accent color vars, gradients, glow shadow, text-gradient |
-| `index.html` | Title + meta tags |
-| `src/components/landing/Navbar.tsx` | Name + icon |
-| `src/components/landing/Hero.tsx` | Full copy rewrite + icon + brand name |
-| `src/components/landing/Features.tsx` | Remove DD card, add Tax card, update headline |
-| `src/components/landing/HowItWorks.tsx` | Brand name in step 1 description |
-| `src/components/landing/CTA.tsx` | ROI-focused copy rewrite |
-| `src/components/landing/Roadmap.tsx` | Brand name in heading |
-| `src/components/landing/Footer.tsx` | Name + copyright year |
-| `src/components/dashboard/DashboardSidebar.tsx` | Name + icon + remove DD Reports nav item |
-| `src/pages/Auth.tsx` | Name + icon |
-| `src/pages/dashboard/DashboardOverview.tsx` | Remove DD Reports quick-link |
-| `src/App.tsx` | Remove DD Reports route (keep import for now or remove) |
+### Changes to `Features.tsx`
 
-### Execution Order
+Replace the last feature entry:
 
-1. Color palette (`src/index.css`)
-2. Brand rename + icon swap across all files
-3. Hero copy rewrite
-4. Features update (remove DD, add Taxes)
-5. CTA copy rewrite
-6. HowItWorks, Roadmap, Footer copy updates
-7. DD Reports removal from sidebar, routing, and overview
-8. `index.html` meta tags
+| Field | Old | New |
+|-------|-----|-----|
+| icon | `BarChart3` | `Sparkles` |
+| title | Property Tax Tracking | AI Property Assistant |
+| description | Track assessed values... | Ask questions about any property in plain English. Get instant answers about violations, deadlines, and lease terms -- backed by your actual data. |
+| highlight | Portfolio-Wide | AI-Powered |
+| color | muted-foreground | primary |
 
+Move the "AI-Powered" badge from Lease Q&A to this new card, and give Lease Q&A the badge "Document Intelligence" instead.
+
+---
+
+## Files Modified
+
+| File | What changes |
+|------|-------------|
+| `src/components/dashboard/DashboardSidebar.tsx` | Reorder nav, add divider, replace bottom section with avatar popover |
+| `src/pages/dashboard/PropertyDetailPage.tsx` | Add `PropertyAIWidget` render at page level |
+| `src/components/properties/detail/PropertyOverviewTab.tsx` | Remove `PropertyAIWidget` render and unused imports/props |
+| `src/components/landing/Features.tsx` | Replace Tax card with AI Assistant card, swap badges |
+
+No new files. No database changes. No new dependencies.
