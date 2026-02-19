@@ -59,12 +59,17 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
 
   const botUsername = 'CitiSignalBot';
 
+  // Check Telegram link on mount AND when navigating to step 3
   useEffect(() => {
     checkTelegramLink();
+  }, [user]);
+
+  useEffect(() => {
+    if (step === 3) checkTelegramLink();
   }, [step]);
 
   const checkTelegramLink = async () => {
-    if (!user || step !== 3) return;
+    if (!user) return;
     const { data } = await supabase
       .from('telegram_users' as any)
       .select('id')
@@ -155,7 +160,10 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   const currentStep = STEPS[step];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'linear-gradient(135deg, hsl(222 47% 97%) 0%, hsl(220 20% 94%) 30%, hsl(230 25% 92%) 60%, hsl(220 20% 97%) 100%)' }}>
+      {/* Decorative blobs */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 90% 55% / 0.08) 0%, transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(222 47% 15% / 0.06) 0%, transparent 70%)' }} />
       {/* Progress bar */}
       <div className="w-full bg-muted h-1">
         <div
