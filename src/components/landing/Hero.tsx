@@ -43,10 +43,10 @@ const Hero = () => {
           {/* Channel pills */}
           <div className="flex flex-wrap items-center justify-center gap-3 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             {[
-              { icon: MessageSquare, label: "WhatsApp" },
-              { icon: Phone, label: "SMS" },
-              { icon: Bell, label: "Telegram" },
-              { icon: Shield, label: "9 NYC Agencies" },
+              { icon: Shield, label: "9 NYC Agencies", soon: false },
+              { icon: Bell, label: "Telegram", soon: false },
+              { icon: Phone, label: "SMS", soon: true },
+              { icon: MessageSquare, label: "WhatsApp", soon: true },
             ].map((item, i) => (
               <div
                 key={i}
@@ -54,6 +54,9 @@ const Hero = () => {
               >
                 <item.icon className="w-4 h-4 text-accent" />
                 <span className="text-sm font-medium text-primary-foreground/80">{item.label}</span>
+                {item.soon && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded">Soon</span>
+                )}
               </div>
             ))}
           </div>
@@ -100,7 +103,7 @@ const Hero = () => {
                         <span className="text-xs font-medium text-muted-foreground">WORK ORDER</span>
                         <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                       </div>
-                      <p className="text-sm font-medium text-foreground mb-2">Vendor dispatched via WhatsApp</p>
+                      <p className="text-sm font-medium text-foreground mb-2">Vendor dispatched via Telegram</p>
                       <p className="text-xs text-muted-foreground">NYC Fire Safety Inc. • In Progress</p>
                     </div>
 

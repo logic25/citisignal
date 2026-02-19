@@ -20,10 +20,10 @@ const features = [
   },
   {
     icon: MessageSquare,
-    title: "SMS, WhatsApp & Telegram",
-    description: "Manage violations and vendors from any channel. AI-powered responses with full property context. Every message saved to the record.",
+    title: "Telegram Alerts (SMS & WhatsApp Soon)",
+    description: "Instant violation alerts and vendor communication via Telegram. SMS & WhatsApp channels coming soon. Every message saved to the record.",
     color: "success",
-    highlight: "Multi-Channel",
+    highlight: "Telegram Live",
   },
   {
     icon: Shield,
