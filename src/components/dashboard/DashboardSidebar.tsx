@@ -6,6 +6,7 @@ import {
   Home, 
   AlertTriangle, 
   Users, 
+  UserCheck,
   ClipboardList,
   Settings,
   LogOut,
@@ -16,14 +17,9 @@ import {
   Bell,
   HelpCircle,
   ShieldCheck,
-  Activity,
-  UserCog,
   Receipt,
   DollarSign,
   BarChart3,
-  Map,
-  MessageSquareText,
-  Bug,
   Landmark,
   ShieldCheck as ShieldCheckIcon
 } from 'lucide-react';
@@ -44,6 +40,7 @@ const operationsItems = [
   { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
   { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+  { icon: UserCheck, label: 'Tenants', href: '/dashboard/tenants' },
   { icon: HelpCircle, label: 'Help Center', href: '/dashboard/help' },
 ];
 
@@ -57,11 +54,6 @@ const financeItems = [
 
 const adminItems = [
   { icon: ShieldCheck, label: 'Admin', href: '/dashboard/admin' },
-  { icon: Activity, label: 'API Logs', href: '/dashboard/admin/api-logs' },
-  { icon: UserCog, label: 'Users', href: '/dashboard/admin/users' },
-  { icon: Map, label: 'Roadmap', href: '/dashboard/admin/roadmap' },
-  { icon: MessageSquareText, label: 'Requests', href: '/dashboard/admin/requests' },
-  { icon: Bug, label: 'Bug Reports', href: '/dashboard/admin/bugs' },
 ];
 
 const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
