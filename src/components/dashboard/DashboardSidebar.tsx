@@ -24,7 +24,8 @@ import {
   Map,
   MessageSquareText,
   Bug,
-  Landmark
+  Landmark,
+  ShieldCheck as ShieldCheckIcon
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -50,6 +51,7 @@ const financeItems = [
   { icon: Receipt, label: 'CAM Charges', href: '/dashboard/cam' },
   { icon: DollarSign, label: 'Owner Statements', href: '/dashboard/owner-statements' },
   { icon: Landmark, label: 'Taxes', href: '/dashboard/taxes' },
+  { icon: ShieldCheckIcon, label: 'Insurance', href: '/dashboard/insurance' },
   { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
 ];
 

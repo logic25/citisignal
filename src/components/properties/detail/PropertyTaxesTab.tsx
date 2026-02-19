@@ -29,10 +29,14 @@ interface TaxRecord {
   payment_status: string;
   due_date: string | null;
   paid_date: string | null;
+  tax_rate: number | null;
   protest_status: string;
   protest_filed_date: string | null;
   protest_hearing_date: string | null;
   protest_outcome_notes: string | null;
+  attorney_name: string | null;
+  attorney_firm: string | null;
+  attorney_fee: number | null;
   tenant_responsible: boolean;
   tenant_name: string | null;
   notes: string | null;
@@ -68,6 +72,7 @@ const emptyForm = {
   assessed_value: '',
   tax_amount: '',
   amount_paid: '',
+  tax_rate: '',
   payment_status: 'unpaid',
   due_date: '',
   paid_date: '',
@@ -75,6 +80,9 @@ const emptyForm = {
   protest_filed_date: '',
   protest_hearing_date: '',
   protest_outcome_notes: '',
+  attorney_name: '',
+  attorney_firm: '',
+  attorney_fee: '',
   tenant_responsible: false,
   tenant_name: '',
   notes: '',
@@ -113,6 +121,7 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
       assessed_value: tax.assessed_value?.toString() || '',
       tax_amount: tax.tax_amount?.toString() || '',
       amount_paid: tax.amount_paid?.toString() || '',
+      tax_rate: tax.tax_rate?.toString() || '',
       payment_status: tax.payment_status,
       due_date: tax.due_date || '',
       paid_date: tax.paid_date || '',
@@ -120,6 +129,9 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
       protest_filed_date: tax.protest_filed_date || '',
       protest_hearing_date: tax.protest_hearing_date || '',
       protest_outcome_notes: tax.protest_outcome_notes || '',
+      attorney_name: tax.attorney_name || '',
+      attorney_firm: tax.attorney_firm || '',
+      attorney_fee: tax.attorney_fee?.toString() || '',
       tenant_responsible: tax.tenant_responsible,
       tenant_name: tax.tenant_name || '',
       notes: tax.notes || '',
@@ -135,6 +147,7 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
       assessed_value: form.assessed_value ? parseFloat(form.assessed_value) : null,
       tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : null,
       amount_paid: form.amount_paid ? parseFloat(form.amount_paid) : 0,
+      tax_rate: form.tax_rate ? parseFloat(form.tax_rate) : null,
       payment_status: form.payment_status,
       due_date: form.due_date || null,
       paid_date: form.paid_date || null,
@@ -142,6 +155,9 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
       protest_filed_date: form.protest_filed_date || null,
       protest_hearing_date: form.protest_hearing_date || null,
       protest_outcome_notes: form.protest_outcome_notes || null,
+      attorney_name: form.attorney_name || null,
+      attorney_firm: form.attorney_firm || null,
+      attorney_fee: form.attorney_fee ? parseFloat(form.attorney_fee) : null,
       tenant_responsible: form.tenant_responsible,
       tenant_name: form.tenant_name || null,
       notes: form.notes || null,
@@ -332,6 +348,11 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
                 <Input type="number" placeholder="0" value={form.amount_paid} onChange={e => setForm({ ...form, amount_paid: e.target.value })} />
               </div>
             </div>
+            <div>
+              <Label>Tax Rate (per $100)</Label>
+              <Input type="number" step="0.001" placeholder="e.g. 10.694" value={form.tax_rate} onChange={e => setForm({ ...form, tax_rate: e.target.value })} />
+            </div>
+            <p className="text-xs text-muted-foreground">Balance is auto-calculated: Tax Amount − Amount Paid</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Payment Status</Label>
@@ -387,6 +408,20 @@ export const PropertyTaxesTab = ({ propertyId }: PropertyTaxesTabProps) => {
               <div className="mt-3">
                 <Label>Outcome Notes</Label>
                 <Textarea placeholder="Protest outcome details..." value={form.protest_outcome_notes} onChange={e => setForm({ ...form, protest_outcome_notes: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                <div>
+                  <Label>Attorney Name</Label>
+                  <Input placeholder="Name" value={form.attorney_name} onChange={e => setForm({ ...form, attorney_name: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Law Firm</Label>
+                  <Input placeholder="Firm" value={form.attorney_firm} onChange={e => setForm({ ...form, attorney_firm: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Fee ($)</Label>
+                  <Input type="number" placeholder="0" value={form.attorney_fee} onChange={e => setForm({ ...form, attorney_fee: e.target.value })} />
+                </div>
               </div>
             </div>
 

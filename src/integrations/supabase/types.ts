@@ -1677,6 +1677,9 @@ export type Database = {
         Row: {
           amount_paid: number | null
           assessed_value: number | null
+          attorney_fee: number | null
+          attorney_firm: string | null
+          attorney_name: string | null
           balance_due: number | null
           created_at: string
           due_date: string | null
@@ -1690,6 +1693,7 @@ export type Database = {
           protest_outcome_notes: string | null
           protest_status: string | null
           tax_amount: number | null
+          tax_rate: number | null
           tax_year: number
           tenant_name: string | null
           tenant_responsible: boolean | null
@@ -1698,6 +1702,9 @@ export type Database = {
         Insert: {
           amount_paid?: number | null
           assessed_value?: number | null
+          attorney_fee?: number | null
+          attorney_firm?: string | null
+          attorney_name?: string | null
           balance_due?: number | null
           created_at?: string
           due_date?: string | null
@@ -1711,6 +1718,7 @@ export type Database = {
           protest_outcome_notes?: string | null
           protest_status?: string | null
           tax_amount?: number | null
+          tax_rate?: number | null
           tax_year: number
           tenant_name?: string | null
           tenant_responsible?: boolean | null
@@ -1719,6 +1727,9 @@ export type Database = {
         Update: {
           amount_paid?: number | null
           assessed_value?: number | null
+          attorney_fee?: number | null
+          attorney_firm?: string | null
+          attorney_name?: string | null
           balance_due?: number | null
           created_at?: string
           due_date?: string | null
@@ -1732,6 +1743,7 @@ export type Database = {
           protest_outcome_notes?: string | null
           protest_status?: string | null
           tax_amount?: number | null
+          tax_rate?: number | null
           tax_year?: number
           tenant_name?: string | null
           tenant_responsible?: boolean | null
@@ -1966,6 +1978,109 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_exemptions: {
+        Row: {
+          annual_savings: number | null
+          application_number: string | null
+          created_at: string
+          exemption_type: string
+          expiration_date: string | null
+          id: string
+          notes: string | null
+          program_name: string | null
+          property_id: string
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          annual_savings?: number | null
+          application_number?: string | null
+          created_at?: string
+          exemption_type: string
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          program_name?: string | null
+          property_id: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          annual_savings?: number | null
+          application_number?: string | null
+          created_at?: string
+          exemption_type?: string
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          program_name?: string | null
+          property_id?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_exemptions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_installments: {
+        Row: {
+          amount_due: number
+          amount_paid: number
+          created_at: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          paid_date: string | null
+          payment_status: string
+          property_tax_id: string
+          quarter: number
+          updated_at: string
+        }
+        Insert: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          payment_status?: string
+          property_tax_id: string
+          quarter: number
+          updated_at?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          payment_status?: string
+          property_tax_id?: string
+          quarter?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_installments_property_tax_id_fkey"
+            columns: ["property_tax_id"]
+            isOneToOne: false
+            referencedRelation: "property_taxes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telegram_users: {
         Row: {
           chat_id: number
@@ -2001,6 +2116,81 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      tenant_insurance_policies: {
+        Row: {
+          additional_insured: boolean
+          additional_insured_required: boolean
+          carrier_name: string | null
+          certificate_url: string | null
+          coverage_amount: number | null
+          created_at: string
+          effective_date: string | null
+          expiration_date: string | null
+          id: string
+          notes: string | null
+          policy_number: string | null
+          policy_type: string
+          property_id: string
+          required_minimum: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          additional_insured?: boolean
+          additional_insured_required?: boolean
+          carrier_name?: string | null
+          certificate_url?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          effective_date?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          policy_number?: string | null
+          policy_type: string
+          property_id: string
+          required_minimum?: number | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          additional_insured?: boolean
+          additional_insured_required?: boolean
+          carrier_name?: string | null
+          certificate_url?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          effective_date?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          policy_number?: string | null
+          policy_type?: string
+          property_id?: string
+          required_minimum?: number | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_insurance_policies_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_insurance_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
