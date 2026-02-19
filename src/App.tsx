@@ -32,6 +32,7 @@ import AdminUsersPage from "@/pages/dashboard/admin/AdminUsersPage";
 import AdminUserDetailPage from "@/pages/dashboard/admin/AdminUserDetailPage";
 import AdminRoadmapPage from "@/pages/dashboard/admin/AdminRoadmapPage";
 import AdminFeatureRequestsPage from "@/pages/dashboard/admin/AdminFeatureRequestsPage";
+import AdminBugReportsPage from "@/pages/dashboard/admin/AdminBugReportsPage";
 import SignPO from "./pages/SignPO";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="admin/users/:userId" element={<AdminUserDetailPage />} />
               <Route path="admin/roadmap" element={<AdminRoadmapPage />} />
               <Route path="admin/requests" element={<AdminFeatureRequestsPage />} />
+              <Route path="admin/bugs" element={<AdminBugReportsPage />} />
             </Route>
             <Route path="/sign-po/:token" element={<SignPO />} />
             <Route path="/reset-password" element={<ResetPassword />} />

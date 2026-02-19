@@ -22,7 +22,8 @@ import {
   DollarSign,
   BarChart3,
   Map,
-  MessageSquareText
+  MessageSquareText,
+  Bug
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -56,6 +57,7 @@ const adminItems = [
   { icon: UserCog, label: 'Users', href: '/dashboard/admin/users' },
   { icon: Map, label: 'Roadmap', href: '/dashboard/admin/roadmap' },
   { icon: MessageSquareText, label: 'Requests', href: '/dashboard/admin/requests' },
+  { icon: Bug, label: 'Bug Reports', href: '/dashboard/admin/bugs' },
 ];
 
 const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
