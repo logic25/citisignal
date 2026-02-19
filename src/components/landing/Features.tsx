@@ -48,10 +48,10 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: "Due Diligence Reports",
-    description: "Generate comprehensive property reports pulling violations, applications, and building data. Export as PDF for transactions.",
+    title: "Property Tax Tracking",
+    description: "Track assessed values, payment status, and protest deadlines across your entire portfolio. Never miss a tax installment.",
     color: "muted-foreground",
-    highlight: "One-Click PDF",
+    highlight: "Portfolio-Wide",
   },
 ];
 
@@ -66,7 +66,7 @@ const Features = () => {
             Platform Features
           </div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            The operating system for NYC property compliance
+            Everything that protects your bottom line
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Purpose-built for landlords, property managers, and expeditors who need to stay ahead of violations across multiple agencies.

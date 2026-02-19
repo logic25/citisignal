@@ -23,13 +23,13 @@ const CTA = () => {
           </div>
 
           <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-foreground mb-6">
-            Your properties monitored.
+            A single ECB fine runs $2,000 to $25,000.
             <br />
-            <span className="text-gradient">Your vendors one text away.</span>
+            <span className="text-gradient">CitiSignal pays for itself with one catch.</span>
           </h2>
 
           <p className="text-lg text-primary-foreground/70 mb-10 max-w-xl mx-auto">
-            Join property owners and expeditors who manage compliance from their phone — not a dashboard.
+            Join property owners and expeditors who protect their bottom line from their phone — not a dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">

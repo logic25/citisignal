@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Building2, MessageSquare, Shield, Bell, Phone } from "lucide-react";
+import { ArrowRight, Radio, MessageSquare, Shield, Bell, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Hero = () => {
@@ -18,13 +18,13 @@ const Hero = () => {
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 leading-tight animate-slide-up">
-            NYC violation monitoring
+            One missed violation costs $25,000.
             <br />
-            <span className="text-gradient">on autopilot.</span>
+            <span className="text-gradient">CitiSignal catches it first.</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-primary-foreground/70 mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Property Guard syncs with 9 city agencies daily, auto-creates work orders, and lets you dispatch vendors via WhatsApp, SMS, or Telegram — no login needed.
+            Real-time violation monitoring across 9 NYC agencies. Auto-alerts via SMS, WhatsApp, or Telegram. The cheapest insurance your portfolio has.
           </p>
 
           {/* CTAs */}
@@ -70,7 +70,7 @@ const Hero = () => {
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-primary-foreground" />
+                        <Radio className="w-4 h-4 text-primary-foreground" />
                       </div>
                       <span className="font-display font-semibold text-foreground">Portfolio Overview</span>
                     </div>

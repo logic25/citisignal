@@ -27,8 +27,8 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    /* Amber accent - urgency & action */
-    --accent: 38 92% 50%;
+    /* Signal red-orange accent - urgency & alerts */
+    --accent: 12 90% 55%;
     --accent-foreground: 222 47% 11%;
 
     /* Alert states */
@@ -52,14 +52,14 @@
     /* Custom gradients */
     --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 50%, hsl(230 40% 25%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 20% 99%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 95% 55%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(12 90% 55%) 0%, hsl(16 85% 60%) 100%);
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.07), 0 2px 4px -2px hsl(222 47% 11% / 0.05);
     --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.08), 0 4px 6px -4px hsl(222 47% 11% / 0.05);
     --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.05);
-    --shadow-glow: 0 0 40px -10px hsl(38 92% 50% / 0.3);
+    --shadow-glow: 0 0 40px -10px hsl(12 90% 55% / 0.3);
 
     /* Sidebar tokens */
     --sidebar-background: 0 0% 98%;
@@ -91,7 +91,7 @@
     --muted: 222 30% 15%;
     --muted-foreground: 220 9% 60%;
 
-    --accent: 38 92% 50%;
+    --accent: 12 90% 55%;
     --accent-foreground: 222 47% 11%;
 
     --destructive: 0 62% 50%;
@@ -105,19 +105,19 @@
 
     --border: 222 30% 18%;
     --input: 222 30% 18%;
-    --ring: 38 92% 50%;
+    --ring: 12 90% 55%;
 
     --gradient-hero: linear-gradient(135deg, hsl(222 47% 6%) 0%, hsl(222 47% 11%) 50%, hsl(230 40% 15%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(222 47% 9%) 0%, hsl(222 47% 8%) 100%);
     
     --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary: 12 90% 55%;
     --sidebar-primary-foreground: 222 47% 11%;
     --sidebar-accent: 222 30% 15%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-ring: 12 90% 55%;
   }
 }
 
@@ -171,7 +171,7 @@
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 95% 60%) 100%);
+    background: linear-gradient(135deg, hsl(12 90% 55%) 0%, hsl(16 85% 60%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

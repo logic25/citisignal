@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Building2, 
+  Radio, 
   LayoutDashboard, 
   Home, 
   AlertTriangle, 
@@ -35,7 +35,7 @@ const navItems = [
   { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
   { icon: AlertTriangle, label: 'Violations', href: '/dashboard/violations' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
-  { icon: FileText, label: 'DD Reports', href: '/dashboard/dd-reports' },
+  
   { icon: Users, label: 'Vendors', href: '/dashboard/vendors' },
   { icon: ClipboardList, label: 'Work Orders', href: '/dashboard/work-orders' },
   { icon: Receipt, label: 'CAM Charges', href: '/dashboard/cam' },
@@ -106,11 +106,11 @@ const DashboardSidebar = () => {
       )}>
         <Link to="/dashboard" className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5 text-primary-foreground" />
+            <Radio className="w-5 h-5 text-primary-foreground" />
           </div>
           {!collapsed && (
             <span className="font-display font-bold text-xl text-foreground">
-              Property Guard
+              CitiSignal
             </span>
           )}
         </Link>
