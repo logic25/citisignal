@@ -5,7 +5,7 @@ const steps = [
     number: "01",
     icon: Bell,
     title: "Violations detected automatically",
-    description: "CitiSignal syncs with 9 NYC agencies every day. New violations trigger instant alerts via SMS, WhatsApp, or Telegram.",
+    description: "CitiSignal syncs with 9 NYC agencies every day. New violations trigger instant alerts via Telegram — with SMS & WhatsApp coming soon.",
     sms: {
       type: "incoming",
       message: "⚠️ New FDNY violation at 708 E Tremont. Sprinkler inspection overdue. Due Mar 1. Reply \"details\" for more.",
@@ -25,7 +25,7 @@ const steps = [
     number: "03",
     icon: Users,
     title: "Dispatch vendors from any channel",
-    description: "Text your vendors via SMS or WhatsApp. The AI assistant can answer their questions with full property context.",
+    description: "Message your vendors via Telegram. The AI assistant can answer their questions with full property context. SMS & WhatsApp coming soon.",
     sms: {
       type: "outgoing",
       message: "Hi Mike, sprinkler inspection needed at 708 E Tremont. FDNY violation, due Mar 1. Available this week?",
@@ -56,7 +56,7 @@ const HowItWorks = () => {
             From violation to resolution in 4 steps
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            No login required for day-to-day management. Handle everything from your phone via text.
+            No login required for day-to-day management. Handle everything from your phone via Telegram.
           </p>
         </div>
 

@@ -25,7 +25,7 @@ const VendorDispatch = () => {
                 {
                   icon: MessageSquare,
                   title: "Violation alert hits your phone",
-                  description: "FDNY sprinkler violation detected at 708 E Tremont. You get an instant WhatsApp or SMS alert.",
+                  description: "FDNY sprinkler violation detected at 708 E Tremont. You get an instant Telegram alert.",
                   color: "destructive",
                 },
                 {
@@ -37,7 +37,7 @@ const VendorDispatch = () => {
                 {
                   icon: Send,
                   title: "Dispatch vendor in one tap",
-                  description: "Select your contractor, hit send. They get the job details via WhatsApp, SMS, or Telegram.",
+                  description: "Select your contractor, hit send. They get the job details via Telegram. SMS & WhatsApp coming soon.",
                   color: "accent",
                 },
                 {
