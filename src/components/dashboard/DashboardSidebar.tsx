@@ -20,7 +20,9 @@ import {
   UserCog,
   Receipt,
   DollarSign,
-  BarChart3
+  BarChart3,
+  Map,
+  MessageSquareText
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -52,6 +54,8 @@ const adminItems = [
   { icon: ShieldCheck, label: 'Admin', href: '/dashboard/admin' },
   { icon: Activity, label: 'API Logs', href: '/dashboard/admin/api-logs' },
   { icon: UserCog, label: 'Users', href: '/dashboard/admin/users' },
+  { icon: Map, label: 'Roadmap', href: '/dashboard/admin/roadmap' },
+  { icon: MessageSquareText, label: 'Requests', href: '/dashboard/admin/requests' },
 ];
 
 const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
