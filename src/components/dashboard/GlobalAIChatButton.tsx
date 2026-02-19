@@ -28,7 +28,7 @@ export const GlobalAIChatButton = () => {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
+        className="relative flex items-center justify-center w-10 h-10 rounded-lg gradient-accent text-white shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
         aria-label="Open CitiSignal AI"
       >
         <Sparkles className="w-4 h-4" />
