@@ -47,7 +47,7 @@ const CTA = () => {
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-primary-foreground/60">
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              WhatsApp, SMS & Telegram
+              Telegram alerts live
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
@@ -55,7 +55,7 @@ const CTA = () => {
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              AI-powered lease & property intelligence
+              AI-powered property intelligence
             </span>
           </div>
         </div>

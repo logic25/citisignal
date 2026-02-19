@@ -41,17 +41,17 @@ const features = [
   },
   {
     icon: BookOpen,
-    title: "Lease Q&A with AI",
-    description: "Upload leases and ask questions in plain English. Get cited answers with exact page references from your actual documents.",
+    title: "Property Intelligence & Lease Q&A",
+    description: "Ask any question about your properties or leases via web or Telegram. Get cited answers backed by your actual data — violations, deadlines, and documents.",
     color: "primary",
-    highlight: "Document Intelligence",
+    highlight: "AI + Telegram",
   },
   {
     icon: Sparkles,
-    title: "AI Property Assistant",
-    description: "Ask questions about any property in plain English. Get instant answers about violations, deadlines, and lease terms — backed by your actual data.",
+    title: "Team Property Chat",
+    description: "Collaborative chat per property. Leave notes, tag the AI with @ai, and track Telegram messages — all in one thread with full audit trail.",
     color: "primary",
-    highlight: "AI-Powered",
+    highlight: "Collaboration",
   },
 ];
 

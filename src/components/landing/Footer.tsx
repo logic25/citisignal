@@ -28,7 +28,7 @@ const Footer = () => {
 
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            © 2025 CitiSignal. All rights reserved.
+            © 2026 CitiSignal. All rights reserved.
           </p>
         </div>
       </div>
