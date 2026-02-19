@@ -275,14 +275,14 @@ const DashboardOverview = () => {
             <h3 className="font-display text-sm font-semibold uppercase tracking-wide mb-4">Property Scores</h3>
             <div className="space-y-2">
               {portfolioScores.map(s => {
-                const cfg = s.grade === 'A' ? 'text-emerald-600' : s.grade === 'B' ? 'text-blue-600' : s.grade === 'C' ? 'text-amber-600' : s.grade === 'D' ? 'text-orange-600' : 'text-red-600';
+                const cfg = s.grade === 'A' ? 'text-success' : s.grade === 'B' ? 'text-primary' : s.grade === 'C' ? 'text-warning' : s.grade === 'D' ? 'text-accent' : 'text-destructive';
                 return (
                   <div key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
                     <span className={`font-display text-lg font-bold w-8 ${cfg}`}>{s.grade}</span>
                     <div className="flex-1">
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${s.score >= 80 ? 'bg-emerald-500' : s.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          className={`h-full rounded-full ${s.score >= 80 ? 'bg-success' : s.score >= 60 ? 'bg-warning' : 'bg-destructive'}`}
                           style={{ width: `${s.score}%` }}
                         />
                       </div>

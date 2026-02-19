@@ -25,6 +25,7 @@ import ReportBuilderPage from "@/pages/dashboard/ReportBuilderPage";
 import SettingsPage from "@/pages/dashboard/SettingsPage";
 import CalendarPage from "@/pages/dashboard/CalendarPage";
 import NotificationsPage from "@/pages/dashboard/NotificationsPage";
+import HelpCenterPage from "@/pages/dashboard/HelpCenterPage";
 import AdminOverview from "@/pages/dashboard/admin/AdminOverview";
 import AdminAPILogsPage from "@/pages/dashboard/admin/AdminAPILogsPage";
 import AdminUsersPage from "@/pages/dashboard/admin/AdminUsersPage";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="reports" element={<ReportBuilderPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="help" element={<HelpCenterPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="admin" element={<AdminOverview />} />
               <Route path="admin/api-logs" element={<AdminAPILogsPage />} />

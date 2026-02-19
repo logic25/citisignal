@@ -14,6 +14,7 @@ import {
   FileStack,
   Calendar,
   Bell,
+  HelpCircle,
   ShieldCheck,
   Activity,
   UserCog,
@@ -38,6 +39,7 @@ const operationsItems = [
   { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
   { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+  { icon: HelpCircle, label: 'Help Center', href: '/dashboard/help' },
 ];
 
 const financeItems = [
