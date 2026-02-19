@@ -1033,6 +1033,7 @@ export type Database = {
           company_name: string | null
           created_at: string
           display_name: string | null
+          has_completed_onboarding: boolean
           id: string
           license_id: string | null
           phone: string | null
@@ -1044,6 +1045,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           display_name?: string | null
+          has_completed_onboarding?: boolean
           id?: string
           license_id?: string | null
           phone?: string | null
@@ -1055,6 +1057,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           display_name?: string | null
+          has_completed_onboarding?: boolean
           id?: string
           license_id?: string | null
           phone?: string | null
