@@ -69,3 +69,7 @@ verify_jwt = false
 
 [functions.sign-po]
 verify_jwt = false
+
+[functions.validate-invite-code]
+verify_jwt = false
+
