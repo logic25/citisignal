@@ -1,92 +1,81 @@
 
 
-# Sidebar Cleanup + AI Chat Visibility + Marketing Update
+# Global AI Chat in Dashboard Header
 
-## 1. Sidebar: Flat List with Financial Divider + Avatar Popover
+## Problem
+The AI chat button only appears on individual property detail pages. Users on the dashboard overview, calendar, violations list, or any other page have no access to the AI assistant.
 
-Reorder the nav items to follow the natural property management workflow, with a thin divider before the financial tools. Merge Settings, Sign Out, and user info into a single avatar-triggered popover.
+## Solution
+Add a persistent AI chat button to the dashboard top header bar (next to the notification bell). Clicking it opens a slide-out panel showing all property conversations, organized by property.
 
-### New nav order
+## How It Works
+
+1. **Chat icon in the header** -- a `Sparkles` button sits next to the notification bell in `DashboardLayout.tsx`. It shows an unread badge when new messages arrive.
+
+2. **Slide-out panel (Sheet)** -- clicking the button opens a right-side sheet with two views:
+   - **Conversation list**: Shows all properties that have active AI conversations, sorted by most recent activity. Each row shows the property address, last message preview, and timestamp.
+   - **Chat view**: Clicking a property opens that property's chat thread (reusing the same `property_ai_conversations` and `property_ai_messages` tables). Users can also start a new conversation by selecting a property from a dropdown.
+
+3. **Property detail page keeps its FAB** -- when you're on a property detail page, the existing floating button still works as a quick shortcut. Both entry points share the same conversation data.
+
+## New Components
+
+### `GlobalAIChatButton` (header icon)
+- Renders the `Sparkles` icon button in the header
+- Queries all conversations for the current user to show total unread count
+- Opens/closes the `GlobalAIChatSheet`
+
+### `GlobalAIChatSheet` (slide-out panel)
+- Uses Radix `Sheet` (already installed) opening from the right
+- **List view**: Fetches all `property_ai_conversations` for the user, joined with `properties.address`, ordered by `updated_at` desc
+- **Chat view**: When a conversation is selected, renders the message thread with the same send logic as `PropertyAIWidget` (reused into a shared hook or inline)
+- Back button to return to conversation list
+- "New Chat" button with a property selector dropdown
+
+### `usePropertyAIChat` (shared hook -- optional extraction)
+- Extracts the message fetching, sending, and streaming logic from `PropertyAIWidget` so both the FAB and the global sheet can share it
+- Handles conversation creation, message persistence, realtime subscriptions, and AI streaming
+
+## Changes by File
+
+| File | Change |
+|------|--------|
+| `src/components/dashboard/DashboardLayout.tsx` | Add `GlobalAIChatButton` next to `NotificationBell` in the header |
+| `src/components/dashboard/GlobalAIChatButton.tsx` | **New** -- icon button with unread badge, toggles the sheet |
+| `src/components/dashboard/GlobalAIChatSheet.tsx` | **New** -- right-side sheet with conversation list and chat views |
+| `src/hooks/usePropertyAIChat.ts` | **New** -- shared hook extracting chat logic from PropertyAIWidget |
+| `src/components/properties/PropertyAIWidget.tsx` | Refactor to use `usePropertyAIChat` hook instead of inline logic (keeps FAB behavior identical) |
+
+## Header Layout
 
 ```text
-[CitiSignal Logo]        [collapse arrow]
-
-Overview
-Properties
-Violations
-Work Orders
-Vendors
-Applications
-Notifications
-Calendar
-─────────────────  (1px divider, no label)
-CAM Charges
-Owner Statements
-Reports
-
-ADMIN (if isAdmin)
-  Admin
-  API Logs
-  Users
-
---- bottom ---
-[Avatar circle]  -->  click opens popover:
-  user@email.com
-  Property Owner
-  ──────────
-  Settings
-  Sign Out
+[                                              ] [Sparkles] [Bell]
 ```
 
-### Technical changes in `DashboardSidebar.tsx`
+The Sparkles button uses a violet/indigo gradient background to stand out from the muted notification bell, matching the existing FAB styling.
 
-- Split `navItems` into `operationsItems` (Overview through Calendar) and `financeItems` (CAM, Owner Statements, Reports)
-- Render a `<Separator />` between the two groups (visible in both collapsed and expanded states)
-- Remove the separate Settings link, Sign Out button, and user info sections at the bottom
-- Replace with a single avatar circle that opens a Radix `Popover` containing: email, role label, a separator, Settings link, and Sign Out button
-- When collapsed: avatar shows as a circle with initial; popover opens to the right
-- Import `Popover`, `PopoverTrigger`, `PopoverContent` from `@/components/ui/popover` and `Separator` from `@/components/ui/separator`
+## Conversation List View (inside the sheet)
 
----
+```text
++----------------------------------+
+|  AI Assistant          [+ New]   |
++----------------------------------+
+|  830 Rockaway Ave                |
+|  "The open DOB violation..."     |
+|  2 min ago                       |
++----------------------------------+
+|  45 Main St                      |
+|  "Zoning is R6A with a..."       |
+|  1 hour ago                      |
++----------------------------------+
+|  12 Park Place                   |
+|  No messages yet                 |
+|  Yesterday                       |
++----------------------------------+
+```
 
-## 2. AI Chat: Visible on All Property Tabs
+## No Database Changes
+The existing `property_ai_conversations` and `property_ai_messages` tables already support multi-property conversations per user. No schema changes needed.
 
-Currently the `PropertyAIWidget` (floating action button) only renders inside `PropertyOverviewTab`. Moving it to `PropertyDetailPage` makes it accessible from every tab (Violations, Work Orders, Documents, etc.).
-
-### Changes
-
-- **`PropertyDetailPage.tsx`**: Import `PropertyAIWidget` and render it after the `</Tabs>` closing tag (but before the `EditPropertyDialog`), passing the same props it currently receives in Overview
-- **`PropertyOverviewTab.tsx`**: Remove the `PropertyAIWidget` import and render (lines 28 and 632-650). Remove `documents` and `workOrders` from the component's props interface since they were only needed for the AI widget
-
----
-
-## 3. Marketing: Replace Tax Card with AI Assistant Card
-
-The "Property Tax Tracking" card in Features is misleading (taxes are a tab, not a standalone feature). Replace it with an **AI Property Assistant** card that highlights the chat capability -- making it visible to prospects before they sign up.
-
-### Changes to `Features.tsx`
-
-Replace the last feature entry:
-
-| Field | Old | New |
-|-------|-----|-----|
-| icon | `BarChart3` | `Sparkles` |
-| title | Property Tax Tracking | AI Property Assistant |
-| description | Track assessed values... | Ask questions about any property in plain English. Get instant answers about violations, deadlines, and lease terms -- backed by your actual data. |
-| highlight | Portfolio-Wide | AI-Powered |
-| color | muted-foreground | primary |
-
-Move the "AI-Powered" badge from Lease Q&A to this new card, and give Lease Q&A the badge "Document Intelligence" instead.
-
----
-
-## Files Modified
-
-| File | What changes |
-|------|-------------|
-| `src/components/dashboard/DashboardSidebar.tsx` | Reorder nav, add divider, replace bottom section with avatar popover |
-| `src/pages/dashboard/PropertyDetailPage.tsx` | Add `PropertyAIWidget` render at page level |
-| `src/components/properties/detail/PropertyOverviewTab.tsx` | Remove `PropertyAIWidget` render and unused imports/props |
-| `src/components/landing/Features.tsx` | Replace Tax card with AI Assistant card, swap badges |
-
-No new files. No database changes. No new dependencies.
+## No New Dependencies
+Uses existing Sheet, ScrollArea, Button, and Badge components.
