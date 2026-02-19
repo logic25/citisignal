@@ -160,12 +160,13 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   const currentStep = STEPS[step];
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'linear-gradient(135deg, hsl(222 47% 97%) 0%, hsl(220 20% 94%) 30%, hsl(230 25% 92%) 60%, hsl(220 20% 97%) 100%)' }}>
+    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'linear-gradient(145deg, hsl(222 47% 14%) 0%, hsl(220 35% 22%) 40%, hsl(12 40% 25%) 80%, hsl(222 47% 18%) 100%)' }}>
       {/* Decorative blobs */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 90% 55% / 0.08) 0%, transparent 70%)' }} />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(222 47% 15% / 0.06) 0%, transparent 70%)' }} />
+      <div className="absolute top-[-200px] right-[-100px] w-[700px] h-[700px] rounded-full opacity-40 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 90% 55% / 0.25) 0%, transparent 70%)' }} />
+      <div className="absolute bottom-[-150px] left-[-100px] w-[600px] h-[600px] rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(222 60% 50% / 0.2) 0%, transparent 70%)' }} />
+      <div className="absolute top-[40%] left-[50%] w-[400px] h-[400px] rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 80% 60% / 0.15) 0%, transparent 70%)' }} />
       {/* Progress bar */}
-      <div className="w-full bg-muted h-1">
+      <div className="w-full bg-white/10 h-1">
         <div
           className="h-full bg-accent transition-all duration-500"
           style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
@@ -181,17 +182,17 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           return (
             <div key={s.id} className="flex items-center gap-2">
               <div
-                className={cn(
+                 className={cn(
                   'w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300',
                   isDone && 'bg-accent text-accent-foreground',
-                  isCurrent && 'bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2 ring-offset-background',
-                  !isDone && !isCurrent && 'bg-muted text-muted-foreground'
+                  isCurrent && 'bg-white text-primary ring-2 ring-white/30 ring-offset-2 ring-offset-transparent',
+                  !isDone && !isCurrent && 'bg-white/15 text-white/50'
                 )}
               >
                 {isDone ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
               </div>
               {i < STEPS.length - 1 && (
-                <div className={cn('w-8 h-0.5 rounded-full hidden sm:block', i < step ? 'bg-accent' : 'bg-muted')} />
+                <div className={cn('w-8 h-0.5 rounded-full hidden sm:block', i < step ? 'bg-accent' : 'bg-white/15')} />
               )}
             </div>
           );
@@ -208,10 +209,10 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                 <Zap className="w-10 h-10 text-primary-foreground" />
               </div>
               <div className="space-y-3">
-                <h1 className="font-display text-4xl font-bold text-foreground">
+                <h1 className="font-display text-4xl font-bold text-white">
                   Welcome to CitiSignal
                 </h1>
-                <p className="text-lg text-muted-foreground max-w-md mx-auto">
+                <p className="text-lg text-white/70 max-w-md mx-auto">
                   Your building intelligence platform. Monitor violations, track compliance, and manage your NYC properties — all in one place.
                 </p>
               </div>
@@ -225,25 +226,25 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           {step === 1 && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="font-display text-2xl font-bold text-foreground">Set Up Your Profile</h2>
-                <p className="text-muted-foreground">Tell us a bit about yourself and your company.</p>
+                <h2 className="font-display text-2xl font-bold text-white">Set Up Your Profile</h2>
+                <p className="text-white/60">Tell us a bit about yourself and your company.</p>
               </div>
-              <div className="space-y-4 bg-card rounded-xl border border-border p-6 shadow-card">
+              <div className="space-y-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 p-6 shadow-xl">
                 <div className="space-y-2">
-                  <Label>Your Name</Label>
+                  <Label className="text-white/80">Your Name</Label>
                   <Input placeholder="Jane Smith" value={displayName} onChange={e => setDisplayName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Company Name</Label>
+                  <Label className="text-white/80">Company Name</Label>
                   <Input placeholder="ABC Realty LLC" value={companyName} onChange={e => setCompanyName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label className="text-white/80">Phone</Label>
                   <Input type="tel" placeholder="+1 (555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(0)}>
+                <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => setStep(0)}>
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="flex gap-2">
@@ -262,13 +263,13 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           {step === 2 && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="font-display text-2xl font-bold text-foreground">Add Your First Property</h2>
-                <p className="text-muted-foreground">Start typing an NYC address — we'll auto-populate building data from DOB.</p>
+                <h2 className="font-display text-2xl font-bold text-white">Add Your First Property</h2>
+                <p className="text-white/60">Start typing an NYC address — we'll auto-populate building data from DOB.</p>
               </div>
               {!propertyAdded ? (
-                <div className="space-y-4 bg-card rounded-xl border border-border p-6 shadow-card">
+                <div className="space-y-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 p-6 shadow-xl">
                   <div className="space-y-2">
-                    <Label>NYC Address</Label>
+                    <Label className="text-white/80">NYC Address</Label>
                     <SmartAddressAutocomplete
                       value={address}
                       onChange={setAddress}
@@ -277,10 +278,10 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                     />
                   </div>
                   {bin && (
-                    <div className="flex gap-4 text-sm text-muted-foreground">
-                      <span>BIN: <strong className="text-foreground">{bin}</strong></span>
-                      {stories && <span>Stories: <strong className="text-foreground">{stories}</strong></span>}
-                      {dwellingUnits && <span>Units: <strong className="text-foreground">{dwellingUnits}</strong></span>}
+                    <div className="flex gap-4 text-sm text-white/50">
+                      <span>BIN: <strong className="text-white">{bin}</strong></span>
+                      {stories && <span>Stories: <strong className="text-white">{stories}</strong></span>}
+                      {dwellingUnits && <span>Units: <strong className="text-white">{dwellingUnits}</strong></span>}
                     </div>
                   )}
                   <Button onClick={handleAddProperty} disabled={saving || !address} className="w-full">
@@ -290,16 +291,16 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                   </Button>
                 </div>
               ) : (
-                <div className="bg-card rounded-xl border border-success/30 p-6 shadow-card text-center space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-                    <Check className="w-6 h-6 text-success" />
+                <div className="bg-white/10 backdrop-blur-md rounded-xl border border-emerald-400/30 p-6 shadow-xl text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-emerald-400/20 flex items-center justify-center">
+                    <Check className="w-6 h-6 text-emerald-400" />
                   </div>
-                  <p className="font-medium text-foreground">{address}</p>
-                  <p className="text-sm text-muted-foreground">Property added! Violations will be synced automatically.</p>
+                  <p className="font-medium text-white">{address}</p>
+                  <p className="text-sm text-white/60">Property added! Violations will be synced automatically.</p>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(1)}>
+                <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => setStep(1)}>
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="flex gap-2">
@@ -322,17 +323,17 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           {step === 3 && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="font-display text-2xl font-bold text-foreground">Connect Telegram</h2>
-                <p className="text-muted-foreground">Get instant alerts and query your properties on the go.</p>
+                <h2 className="font-display text-2xl font-bold text-white">Connect Telegram</h2>
+                <p className="text-white/60">Get instant alerts and query your properties on the go.</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-6 shadow-card space-y-5">
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/10 p-6 shadow-xl space-y-5">
                 {telegramLinked ? (
                   <div className="text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-                      <Check className="w-6 h-6 text-success" />
+                    <div className="w-12 h-12 mx-auto rounded-full bg-emerald-400/20 flex items-center justify-center">
+                      <Check className="w-6 h-6 text-emerald-400" />
                     </div>
-                    <p className="font-medium text-foreground">Telegram Connected!</p>
-                    <p className="text-sm text-muted-foreground">You'll receive alerts and can query your data via @{botUsername}.</p>
+                    <p className="font-medium text-white">Telegram Connected!</p>
+                    <p className="text-sm text-white/60">You'll receive alerts and can query your data via @{botUsername}.</p>
                   </div>
                 ) : (
                   <>
@@ -340,17 +341,17 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                       <div className="w-14 h-14 rounded-2xl bg-[#229ED9]/10 flex items-center justify-center">
                         <MessageCircle className="w-7 h-7 text-[#229ED9]" />
                       </div>
-                      <ol className="text-sm text-muted-foreground space-y-2 text-left w-full">
+                      <ol className="text-sm text-white/60 space-y-2 text-left w-full">
                         <li className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                          <span className="w-6 h-6 rounded-full bg-white/15 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
                           Click "Open in Telegram" below
                         </li>
                         <li className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                          <span className="w-6 h-6 rounded-full bg-white/15 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
                           Press "Start" in the bot chat
                         </li>
                         <li className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                          <span className="w-6 h-6 rounded-full bg-white/15 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
                           You're linked! Come back here to continue.
                         </li>
                       </ol>
@@ -369,7 +370,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(2)}>
+                <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => setStep(2)}>
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="flex gap-2">
@@ -384,12 +385,12 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           {/* All Set */}
           {step === 4 && (
             <div className="text-center space-y-6">
-              <div className="w-20 h-20 mx-auto rounded-2xl bg-success/10 flex items-center justify-center">
-                <Rocket className="w-10 h-10 text-success" />
+              <div className="w-20 h-20 mx-auto rounded-2xl bg-emerald-400/20 flex items-center justify-center">
+                <Rocket className="w-10 h-10 text-emerald-400" />
               </div>
               <div className="space-y-3">
-                <h1 className="font-display text-3xl font-bold text-foreground">You're All Set!</h1>
-                <p className="text-lg text-muted-foreground max-w-md mx-auto">
+                <h1 className="font-display text-3xl font-bold text-white">You're All Set!</h1>
+                <p className="text-lg text-white/70 max-w-md mx-auto">
                   Your CitiSignal account is ready. Violations sync automatically — we'll notify you when anything needs attention.
                 </p>
               </div>
