@@ -30,6 +30,8 @@ import AdminOverview from "@/pages/dashboard/admin/AdminOverview";
 import AdminAPILogsPage from "@/pages/dashboard/admin/AdminAPILogsPage";
 import AdminUsersPage from "@/pages/dashboard/admin/AdminUsersPage";
 import AdminUserDetailPage from "@/pages/dashboard/admin/AdminUserDetailPage";
+import AdminRoadmapPage from "@/pages/dashboard/admin/AdminRoadmapPage";
+import AdminFeatureRequestsPage from "@/pages/dashboard/admin/AdminFeatureRequestsPage";
 import SignPO from "./pages/SignPO";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -75,6 +77,8 @@ const App = () => (
               <Route path="admin/api-logs" element={<AdminAPILogsPage />} />
               <Route path="admin/users" element={<AdminUsersPage />} />
               <Route path="admin/users/:userId" element={<AdminUserDetailPage />} />
+              <Route path="admin/roadmap" element={<AdminRoadmapPage />} />
+              <Route path="admin/requests" element={<AdminFeatureRequestsPage />} />
             </Route>
             <Route path="/sign-po/:token" element={<SignPO />} />
             <Route path="/reset-password" element={<ResetPassword />} />
