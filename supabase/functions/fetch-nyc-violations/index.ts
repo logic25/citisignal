@@ -239,19 +239,69 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Validate authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
       throw new Error("Missing Supabase environment variables");
+    }
+
+    // Verify the user
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { bin, bbl, property_id, applicable_agencies, send_sms_alert } = await req.json();
 
+    // Input validation
     if (!bin && !bbl) {
       throw new Error("BIN or BBL is required");
+    }
+    if (bin && (typeof bin !== "string" || !/^\d{7}$/.test(bin))) {
+      throw new Error("Invalid BIN format (must be 7 digits)");
+    }
+    if (bbl && (typeof bbl !== "string" || !/^\d{10}$/.test(bbl))) {
+      throw new Error("Invalid BBL format (must be 10 digits)");
+    }
+    if (property_id && (typeof property_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(property_id))) {
+      throw new Error("Invalid property_id format");
+    }
+    if (applicable_agencies && (!Array.isArray(applicable_agencies) || applicable_agencies.some((a: unknown) => typeof a !== "string"))) {
+      throw new Error("Invalid applicable_agencies format");
+    }
+
+    // Verify property ownership
+    if (property_id) {
+      const { data: prop, error: propErr } = await supabase
+        .from("properties")
+        .select("user_id")
+        .eq("id", property_id)
+        .single();
+      if (propErr || !prop || prop.user_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden: not your property" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Parse BBL into components for OATH lookups

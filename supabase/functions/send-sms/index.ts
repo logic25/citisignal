@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -11,6 +13,29 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Validate authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
     const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
@@ -27,11 +52,14 @@ Deno.serve(async (req) => {
 
     const { to, message, type } = await req.json();
 
-    if (!to) {
+    if (!to || typeof to !== "string") {
       throw new Error("Phone number 'to' is required");
     }
-    if (!message) {
+    if (!message || typeof message !== "string") {
       throw new Error("Message is required");
+    }
+    if (message.length > 1600) {
+      throw new Error("Message too long (max 1600 characters)");
     }
 
     console.log(`Sending SMS to ${to}: ${message.substring(0, 50)}...`);
@@ -42,6 +70,11 @@ Deno.serve(async (req) => {
       formattedTo = `+1${formattedTo}`;
     } else if (!formattedTo.startsWith("+")) {
       formattedTo = `+${formattedTo}`;
+    }
+
+    // Validate phone number format
+    if (formattedTo.length < 10 || formattedTo.length > 16) {
+      throw new Error("Invalid phone number format");
     }
 
     // Send SMS via Twilio

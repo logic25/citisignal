@@ -19,51 +19,41 @@ const SignPO = () => {
     const fetchPO = async () => {
       if (!token) { setError('Invalid link'); setLoading(false); return; }
 
-      const { data, error: fetchErr } = await supabase
-        .from('purchase_orders')
-        .select(`
-          *,
-          property:properties(address, borough),
-          vendor:vendors(name, phone_number, email)
-        `)
-        .eq('vendor_sign_token', token)
-        .maybeSingle();
+      try {
+        const { data, error: invokeErr } = await supabase.functions.invoke('sign-po', {
+          body: { token, action: 'view' },
+        });
 
-      if (fetchErr || !data) {
-        setError('Purchase order not found or link expired.');
-        setLoading(false);
-        return;
+        if (invokeErr || !data?.po) {
+          setError('Purchase order not found or link expired.');
+          setLoading(false);
+          return;
+        }
+
+        setPo(data.po);
+        if (data.po.vendor_signed_at) setSigned(true);
+      } catch {
+        setError('Failed to load purchase order.');
       }
-
-      setPo(data);
-      if (data.vendor_signed_at) setSigned(true);
       setLoading(false);
     };
     fetchPO();
   }, [token]);
 
   const handleSign = async () => {
-    if (!po) return;
+    if (!po || !token) return;
     setSigning(true);
     try {
-      const { error: updateErr } = await supabase
-        .from('purchase_orders')
-        .update({
-          vendor_signed_at: new Date().toISOString(),
-          status: 'fully_executed',
-        })
-        .eq('id', po.id)
-        .eq('vendor_sign_token', token);
+      const { data, error: invokeErr } = await supabase.functions.invoke('sign-po', {
+        body: { token, action: 'sign' },
+      });
 
-      if (updateErr) throw updateErr;
-
-      // Update work order status to in_progress
-      await supabase
-        .from('work_orders')
-        .update({ status: 'in_progress' as any })
-        .eq('id', po.work_order_id);
+      if (invokeErr || !data?.success) {
+        throw new Error(data?.error || 'Failed to sign');
+      }
 
       setSigned(true);
+      setPo((prev: any) => ({ ...prev, vendor_signed_at: data.po.vendor_signed_at, status: 'fully_executed' }));
       toast.success('Purchase order signed successfully!');
     } catch {
       toast.error('Failed to sign. Please try again.');
@@ -96,7 +86,7 @@ const SignPO = () => {
 
   const property = po?.property as any;
   const vendor = po?.vendor as any;
-  const terms = (po as any)?.terms_and_conditions;
+  const terms = po?.terms_and_conditions;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">

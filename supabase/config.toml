@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.work-order-followup]
 verify_jwt = false
+
+[functions.sign-po]
+verify_jwt = false
