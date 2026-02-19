@@ -86,7 +86,7 @@ const ChatView = ({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+      <div className="px-4 py-3 pr-10 border-b border-border flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
@@ -269,7 +269,7 @@ export const GlobalAIChatSheet = ({ open, onOpenChange }: GlobalAIChatSheetProps
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="p-0 w-[400px] sm:max-w-[400px] flex flex-col">
         <SheetHeader className="sr-only">
-          <SheetTitle>AI Assistant</SheetTitle>
+          <SheetTitle>CitiSignal AI</SheetTitle>
         </SheetHeader>
 
         {selectedProperty ? (
@@ -281,10 +281,10 @@ export const GlobalAIChatSheet = ({ open, onOpenChange }: GlobalAIChatSheetProps
         ) : (
           <div className="flex flex-col h-full">
             {/* List Header */}
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="px-4 py-3 pr-10 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">AI Assistant</span>
+                <span className="text-sm font-semibold">CitiSignal AI</span>
               </div>
               <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setShowNewChat(!showNewChat)}>
                 <Plus className="w-4 h-4" />
@@ -318,7 +318,7 @@ export const GlobalAIChatSheet = ({ open, onOpenChange }: GlobalAIChatSheetProps
                 <div className="text-center py-12 px-4">
                   <MessageCircle className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">No conversations yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "+ New" to start chatting about a property</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "+ New" to start chatting with CitiSignal AI</p>
                 </div>
               ) : (
                 <div>
