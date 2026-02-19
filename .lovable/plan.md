@@ -1,28 +1,27 @@
 
 
-# Fix AI Chat: Button Overlap + CitiSignal Branding
+# Fix CitiSignal AI Button Color to Match Brand
 
-## Issues to Fix
+## Problem
+The AI chat button uses a violet/indigo gradient (`from-violet-600 to-indigo-500`) that exists nowhere in the brand palette. CitiSignal's identity is built on:
+- **Navy** (primary) -- trust and professionalism
+- **Signal orange** (accent) -- urgency and alerts
 
-1. **"+ New" and "X" overlap** -- The Sheet component renders an automatic close button at `position: absolute; right: 16px; top: 16px`. The custom header's "+ New" button sits in the same spot, causing the overlap visible in the screenshot.
+A purple button feels disconnected from a monitoring/alerting product.
 
-2. **Rename to CitiSignal AI** -- Brand the assistant as "CitiSignal AI" instead of generic "AI Assistant" to match the product identity.
+## Recommendation
+Use the **brand accent gradient** (signal orange) for the AI button. This ties the assistant to the product's core identity -- "your signal, your assistant." The orange also creates a natural visual hierarchy: it draws attention without clashing with the navy used everywhere else.
 
 ## Changes
 
-### 1. `src/components/dashboard/GlobalAIChatSheet.tsx`
+### `src/components/dashboard/GlobalAIChatButton.tsx`
+Replace the gradient class on the button:
 
-- Change the header title from "AI Assistant" to **"CitiSignal AI"**
-- Add `pr-10` (right padding) to the header bar so the "+ New" button doesn't collide with the Sheet's built-in X close button
-- Update the SheetTitle (sr-only) from "AI Assistant" to "CitiSignal AI"
-- Update the empty-state text to reference "CitiSignal AI"
+| Before | After |
+|--------|-------|
+| `bg-gradient-to-r from-violet-600 to-indigo-500` | `bg-gradient-to-r from-[hsl(12,90%,55%)] to-[hsl(16,85%,60%)]` |
 
-### 2. `src/components/dashboard/GlobalAIChatButton.tsx`
+This matches `--gradient-accent` already defined in `index.css`, keeping the design system consistent.
 
-- Update the aria-label from "Open AI Assistant" to "Open CitiSignal AI"
-
-### 3. `src/components/dashboard/GlobalAIChatSheet.tsx` (ChatView header)
-
-- Also add right padding to the chat-view header so the trash icon doesn't overlap with the X button either
-
-## No other file changes needed.
+### No other files need changes
+The Sheet, branding text, and conversation UI all remain the same.
