@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
               await sendTelegram(
                 TELEGRAM_BOT_TOKEN,
                 chatId,
-                `✅ *Account linked!*\n\nWelcome to Property Guard, ${firstName || "there"}! You can now:\n\n• Ask about your properties and violations\n• Get daily compliance digests\n• Query hearings and deadlines\n\nTry: _"Show violations for 123 Main St"_`,
+                `✅ *Account linked!*\n\nWelcome to CitiSignal, ${firstName || "there"}! You can now:\n\n• Ask about your properties and violations\n• Get daily compliance digests\n• Query hearings and deadlines\n\nTry: _"Show violations for 123 Main St"_`,
                 "Markdown"
               );
             }
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       await sendTelegram(
         TELEGRAM_BOT_TOKEN,
         chatId,
-        `👋 *Welcome to Property Guard Bot!*\n\nTo get started, link your account from the Settings page in Property Guard.\n\nOnce linked, you can:\n• Query violations by property\n• Get compliance status updates\n• Receive daily digests`,
+        `👋 *Welcome to CitiSignal Bot!*\n\nTo get started, link your account from the Settings page in CitiSignal.\n\nOnce linked, you can:\n• Query violations by property\n• Get compliance status updates\n• Receive daily digests`,
         "Markdown"
       );
       return new Response("OK", { status: 200 });
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
       await sendTelegram(
         TELEGRAM_BOT_TOKEN,
         chatId,
-        `📋 *Property Guard Bot Commands*\n\n• Just type a question about your properties\n• _"Violations at 123 Main St"_\n• _"Compliance status for all properties"_\n• _"Upcoming hearings this week"_\n• _"Tax status for 456 Oak Ave"_\n\n/status — Quick portfolio overview\n/unlink — Disconnect your account\n/help — Show this message`,
+        `📋 *CitiSignal Bot Commands*\n\n• Just type a question about your properties\n• _"Violations at 123 Main St"_\n• _"Compliance status for all properties"_\n• _"Upcoming hearings this week"_\n• _"Tax status for 456 Oak Ave"_\n\n/status — Quick portfolio overview\n/unlink — Disconnect your account\n/help — Show this message`,
         "Markdown"
       );
       return new Response("OK", { status: 200 });
@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
       await sendTelegram(
         TELEGRAM_BOT_TOKEN,
         chatId,
-        "⚠️ Your account is not linked. Please link from Settings in Property Guard."
+        "⚠️ Your account is not linked. Please link from Settings in CitiSignal."
       );
       return new Response("OK", { status: 200 });
     }
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    const systemPrompt = `You are Property Guard Bot, a Telegram assistant for NYC property owners.
+    const systemPrompt = `You are CitiSignal Bot, a Telegram assistant for NYC property owners.
 You have access to the user's property portfolio data below. Answer questions concisely for Telegram (max 4000 chars).
 Use Markdown formatting sparingly (bold for emphasis, bullet points for lists).
 If the user asks about a property not in their portfolio, say so.

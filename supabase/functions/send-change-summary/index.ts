@@ -71,7 +71,7 @@ function buildChangeSummaryHtml(data: {
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
     <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
-      <div style="font-size:24px;font-weight:800;color:#ffffff;">🛡️ Property Guard</div>
+      <div style="font-size:24px;font-weight:800;color:#ffffff;">📡 CitiSignal</div>
       <div style="color:#94a3b8;font-size:13px;margin-top:4px;">Daily Change Summary</div>
       <div style="color:#64748b;font-size:12px;margin-top:4px;">${date}</div>
     </div>
@@ -109,7 +109,7 @@ function buildChangeSummaryHtml(data: {
       <p style="color:#94a3b8;font-size:11px;margin:0;">
         <a href="${appUrl}/dashboard/settings" style="color:#64748b;text-decoration:underline;">Manage preferences</a> · <a href="${appUrl}/dashboard/settings" style="color:#64748b;text-decoration:underline;">Unsubscribe</a>
       </p>
-      <p style="color:#cbd5e1;font-size:10px;margin:8px 0 0;">© ${new Date().getFullYear()} Property Guard</p>
+      <p style="color:#cbd5e1;font-size:10px;margin:8px 0 0;">© ${new Date().getFullYear()} CitiSignal</p>
     </div>
   </div>
 </body></html>`;
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
           body: JSON.stringify({
-            from: "Property Guard <onboarding@resend.dev>",
+            from: "CitiSignal <onboarding@resend.dev>",
             to: [user.email],
             subject: `🔄 ${userChanges.length} changes detected — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
             html,

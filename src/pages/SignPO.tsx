@@ -252,7 +252,7 @@ const SignPO = () => {
         )}
 
         <p className="text-center text-xs text-muted-foreground">
-          Property Guard • Purchase Order System
+          CitiSignal • Purchase Order System
         </p>
       </div>
     </div>
