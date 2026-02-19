@@ -9,11 +9,9 @@ import {
   ClipboardList,
   Settings,
   LogOut,
-  FolderOpen,
   ChevronLeft,
   ChevronRight,
   FileStack,
-  FileText,
   Calendar,
   Bell,
   ShieldCheck,
@@ -28,20 +26,24 @@ import { useAdminRole } from '@/hooks/useAdminRole';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 
-const navItems = [
+const operationsItems = [
   { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
   { icon: Home, label: 'Properties', href: '/dashboard/properties' },
-  { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
   { icon: AlertTriangle, label: 'Violations', href: '/dashboard/violations' },
-  { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
-  
-  { icon: Users, label: 'Vendors', href: '/dashboard/vendors' },
   { icon: ClipboardList, label: 'Work Orders', href: '/dashboard/work-orders' },
+  { icon: Users, label: 'Vendors', href: '/dashboard/vendors' },
+  { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
+  { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
+  { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
+];
+
+const financeItems = [
   { icon: Receipt, label: 'CAM Charges', href: '/dashboard/cam' },
   { icon: DollarSign, label: 'Owner Statements', href: '/dashboard/owner-statements' },
   { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
-  { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
 ];
 
 const adminItems = [
@@ -56,7 +58,7 @@ const DashboardSidebar = () => {
   const { isAdmin } = useAdminRole();
   const [collapsed, setCollapsed] = useState(false);
 
-  const NavItem = ({ item }: { item: typeof navItems[0] }) => {
+  const NavItem = ({ item }: { item: typeof operationsItems[0] }) => {
     const isActive = location.pathname === item.href || 
       (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
     
@@ -143,125 +145,88 @@ const DashboardSidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
-          {navItems.map((item) => (
+          {operationsItems.map((item) => (
             <li key={item.href}>
               <NavItem item={item} />
             </li>
           ))}
-          {isAdmin && (
-            <>
-              <li className="pt-3 pb-1">
-                {!collapsed && (
-                  <span className="px-4 text-xs font-semibold uppercase text-muted-foreground tracking-wider">Admin</span>
-                )}
-              </li>
+        </ul>
+
+        <Separator className="my-3" />
+
+        <ul className="space-y-1">
+          {financeItems.map((item) => (
+            <li key={item.href}>
+              <NavItem item={item} />
+            </li>
+          ))}
+        </ul>
+
+        {isAdmin && (
+          <>
+            <div className="pt-3 pb-1">
+              {!collapsed && (
+                <span className="px-4 text-xs font-semibold uppercase text-muted-foreground tracking-wider">Admin</span>
+              )}
+            </div>
+            <ul className="space-y-1">
               {adminItems.map((item) => (
                 <li key={item.href}>
                   <NavItem item={item} />
                 </li>
               ))}
-            </>
-          )}
-        </ul>
-      </nav>
-
-      {/* Bottom section */}
-      <div className="p-2 border-t border-border space-y-1">
-        {collapsed ? (
-          <>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <span className="block">
-                  <Link
-                    to="/dashboard/settings"
-                    className={cn(
-                      "flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                      location.pathname === '/dashboard/settings'
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    )}
-                  >
-                    <Settings className="w-5 h-5" />
-                  </Link>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={10}>
-                Settings
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => signOut()}
-                  className="flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={10}>
-                Sign Out
-              </TooltipContent>
-            </Tooltip>
-          </>
-        ) : (
-          <>
-            <Link
-              to="/dashboard/settings"
-              className={cn(
-                "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                location.pathname === '/dashboard/settings'
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              )}
-            >
-              <Settings className="w-5 h-5" />
-              Settings
-            </Link>
-            <button
-              onClick={() => signOut()}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full"
-            >
-              <LogOut className="w-5 h-5" />
-              Sign Out
-            </button>
+            </ul>
           </>
         )}
-      </div>
+      </nav>
 
-      {/* User info */}
+      {/* Avatar Popover */}
       <div className={cn(
-        "p-4 border-t border-border",
-        collapsed && "p-2"
+        "p-2 border-t border-border",
+        collapsed && "flex justify-center"
       )}>
-        {collapsed ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center mx-auto cursor-default">
-                <span className="text-sm font-medium text-foreground">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10}>
-              <p>{user?.email}</p>
-              <p className="text-muted-foreground">Property Owner</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className={cn(
+              "w-9 h-9 rounded-full bg-secondary flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all",
+              !collapsed && "ml-2"
+            )}>
               <span className="text-sm font-medium text-foreground">
                 {user?.email?.charAt(0).toUpperCase()}
               </span>
-            </div>
-            <div className="flex-1 min-w-0">
+            </button>
+          </PopoverTrigger>
+          <PopoverContent 
+            side={collapsed ? "right" : "top"} 
+            sideOffset={10} 
+            align="start"
+            className="w-56 p-3"
+          >
+            <div className="space-y-1 mb-2">
               <p className="text-sm font-medium text-foreground truncate">
                 {user?.email}
               </p>
               <p className="text-xs text-muted-foreground">Property Owner</p>
             </div>
-          </div>
-        )}
+            <Separator className="my-2" />
+            <div className="space-y-1">
+              <Link
+                to="/dashboard/settings"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </aside>
   );
