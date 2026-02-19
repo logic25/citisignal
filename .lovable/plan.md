@@ -1,89 +1,107 @@
 
-# Simulate Vendor Signing + View Executed PO + Payment Flow
 
-## What This Covers
+# CitiSignal Rebrand + DD Reports Removal + Marketing Overhaul
 
-1. **"Simulate Vendor Sign" button** on the work order expanded view so you can test the full cycle without Telegram
-2. **Fully Executed PO view** inline on the work order row showing both signatures, amount, PO number, and a "View PO" link
-3. **Completion + Payment flow** -- the industry-standard PM pattern:
-   - Vendor marks work "complete" and uploads photos
-   - Owner reviews completion photos and approves
-   - Payment triggered (Zelle info displayed or Stripe payout)
+## What's Changing
+
+This update transforms the platform from "Property Guard" into **CitiSignal** -- a brand built around the idea that catching one violation early saves thousands. We'll also remove DD Reports from the UI (keeping the code for BinCheckNYC extraction later) and rewrite marketing copy to anchor on violation cost savings.
 
 ---
 
-## 1. Simulate Vendor Sign Button
+## 1. Brand Rename
 
-In `WorkOrdersPage.tsx`, when a work order has status `approved` and has a `po_id`:
-- Add a **"Simulate Vendor Sign"** button (dev/test only) that:
-  - Fetches the PO by `po_id`
-  - Sets `vendor_signed_at = now()` and `status = 'fully_executed'`
-  - Updates the work order status to `in_progress`
-  - Refreshes the UI
-- This mimics what happens when a vendor clicks the sign link or texts "ACCEPT PO-XXXXX"
+Every instance of "Property Guard" and "Threshold" becomes **CitiSignal** across:
 
-## 2. Fully Executed PO Display
+| File | Current Text | New Text |
+|------|-------------|----------|
+| `index.html` | "Property Guard - NYC Violation Tracking" | "CitiSignal - NYC Violation Monitoring" |
+| `Navbar.tsx` | "Property Guard" | "CitiSignal" |
+| `Hero.tsx` | "Property Guard syncs with 9 city agencies..." | "CitiSignal syncs with 9 city agencies..." |
+| `HowItWorks.tsx` | "Property Guard syncs with 9 NYC agencies..." | "CitiSignal syncs with 9 NYC agencies..." |
+| `Roadmap.tsx` | "What's next for Property Guard" | "What's next for CitiSignal" |
+| `Footer.tsx` | "Threshold" | "CitiSignal" |
+| `DashboardSidebar.tsx` | "Property Guard" | "CitiSignal" |
+| `Auth.tsx` | "Property Guard" | "CitiSignal" |
 
-When work order has `po_id` and PO is `fully_executed`:
-- Show a green card in the expanded row with:
-  - PO Number
-  - Amount
-  - Owner signed date
-  - Vendor signed date
-  - Status badge: "Fully Executed"
-  - Link to view the full PO page (`/sign-po/:token`)
-- The PO lives in the `purchase_orders` table and is viewable on the `/sign-po/:token` route (already built)
+### Icon Swap
 
-## 3. Completion + Payment Flow (Industry Standard)
+Replace `Building2` with `Radio` (from lucide-react) across Navbar, Footer, Sidebar, Auth, and Hero to match the "signal" concept.
 
-The standard property management completion flow:
-1. Work order status moves from `in_progress` to `awaiting_docs`
-2. Vendor uploads completion photos (via Telegram or a completion link)
-3. Owner reviews photos and marks "Work Verified"
-4. Status moves to `completed`
-5. Payment is released
+---
 
-### Database Changes
+## 2. Color Palette Update
 
-Add columns to `work_orders`:
-- `completion_photos` (jsonb) -- array of photo URLs
-- `completion_notes` (text) -- vendor's completion notes
-- `completed_at` (timestamptz) -- when vendor marked complete
-- `verified_at` (timestamptz) -- when owner verified
-- `payment_method` (text) -- 'zelle', 'stripe', 'check', 'other'
-- `payment_status` (text) -- 'pending', 'processing', 'paid'
-- `payment_reference` (text) -- Zelle confirmation, Stripe ID, check number
-- `paid_at` (timestamptz)
+Shift the accent from amber to **signal red-orange** to convey urgency and alerts.
 
-Add columns to `vendors`:
-- `zelle_email` (text) -- for Zelle payments
-- `zelle_phone` (text) -- alternate Zelle identifier
-- `payment_preference` (text) -- 'zelle', 'stripe', 'check'
+**Light mode changes** in `src/index.css`:
+- `--accent`: `38 92% 50%` (amber) changes to `12 90% 55%` (signal orange-red)
+- `--warning` stays amber at `38 92% 50%` (now distinct from accent)
+- Gradient accent and shadow glow updated to use the new hue
+- `.text-gradient` updated to use the new orange-red
 
-### UI Changes in WorkOrdersPage.tsx
+**Dark mode**: Same accent shift applied.
 
-**For `in_progress` work orders:**
-- Show a "Mark Complete" button that opens a dialog for uploading completion photos and notes
-- Status changes to `awaiting_docs`
+---
 
-**For `awaiting_docs` work orders:**
-- Display uploaded photos in a grid
-- Show "Verify & Pay" button
-- Verify button opens payment dialog:
-  - Shows vendor's preferred payment method
-  - For Zelle: displays vendor's Zelle email/phone, field for confirmation number
-  - For Stripe: future integration hook
-  - For Check: field for check number
-- On confirm: status to `completed`, `payment_status` to `paid`
+## 3. Marketing Copy Rewrite
 
-### File Changes Summary
+### Hero Section
+- **Headline**: "One missed satisfactionviolation costs $25,000." / "CitiSignal catches it first."
+- **Subheadline**: "Real-time violation monitoring across 9 NYC agencies. Auto-alerts via SMS, WhatsApp, or Telegram. The cheapest insurance your portfolio has."
 
-| File | Change |
-|------|--------|
-| `WorkOrdersPage.tsx` | Add simulate sign button, PO display card, completion flow UI, payment dialog |
-| Migration SQL | Add completion/payment columns to work_orders, payment info to vendors |
-| `src/integrations/supabase/types.ts` | Auto-updates with new columns |
+### Features Section
+- **Remove**: "Due Diligence Reports" card
+- **Replace with**: "Property Tax Tracking" card -- "Track assessed values, payment status, and protest deadlines across your entire portfolio. Never miss a tax installment."
+- **Section headline**: "Everything that protects your bottom line"
 
-### Storage
+### CTA Section
+- **Headline**: "A single ECB fine runs $2,000 to $25,000." / "CitiSignal pays for itself with one catch."
 
-Completion photos will be stored in a new `work-order-photos` storage bucket (public for vendor upload links, RLS for owner access).
+### Footer
+- Update copyright to 2025, change name to CitiSignal
+
+---
+
+## 4. DD Reports Removal from UI
+
+**Hidden but code preserved** for future BinCheckNYC extraction:
+
+- Remove from `DashboardSidebar.tsx` nav items array
+- Remove `/dashboard/dd-reports` route from `App.tsx`
+- Remove DD Reports quick-link card from `DashboardOverview.tsx`
+- Remove DD Reports feature card from `Features.tsx`
+- **Keep all DD component files and edge function untouched** in the codebase
+
+---
+
+## Technical Details
+
+### Files Modified (no new files created)
+
+| File | Changes |
+|------|---------|
+| `src/index.css` | Accent color vars, gradients, glow shadow, text-gradient |
+| `index.html` | Title + meta tags |
+| `src/components/landing/Navbar.tsx` | Name + icon |
+| `src/components/landing/Hero.tsx` | Full copy rewrite + icon + brand name |
+| `src/components/landing/Features.tsx` | Remove DD card, add Tax card, update headline |
+| `src/components/landing/HowItWorks.tsx` | Brand name in step 1 description |
+| `src/components/landing/CTA.tsx` | ROI-focused copy rewrite |
+| `src/components/landing/Roadmap.tsx` | Brand name in heading |
+| `src/components/landing/Footer.tsx` | Name + copyright year |
+| `src/components/dashboard/DashboardSidebar.tsx` | Name + icon + remove DD Reports nav item |
+| `src/pages/Auth.tsx` | Name + icon |
+| `src/pages/dashboard/DashboardOverview.tsx` | Remove DD Reports quick-link |
+| `src/App.tsx` | Remove DD Reports route (keep import for now or remove) |
+
+### Execution Order
+
+1. Color palette (`src/index.css`)
+2. Brand rename + icon swap across all files
+3. Hero copy rewrite
+4. Features update (remove DD, add Taxes)
+5. CTA copy rewrite
+6. HowItWorks, Roadmap, Footer copy updates
+7. DD Reports removal from sidebar, routing, and overview
+8. `index.html` meta tags
+
