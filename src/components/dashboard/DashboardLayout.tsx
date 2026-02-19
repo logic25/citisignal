@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import DashboardSidebar from './DashboardSidebar';
 import { NotificationBell } from './NotificationBell';
@@ -6,9 +6,37 @@ import { GlobalAIChatButton } from './GlobalAIChatButton';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
 
 const DashboardLayout = () => {
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('has_completed_onboarding')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // Show wizard if no profile or hasn't completed onboarding
+      setShowOnboarding(!data || !(data as any).has_completed_onboarding);
+      setOnboardingChecked(true);
+    };
+    checkOnboarding();
+  }, [user]);
+
+  if (!onboardingChecked) return null;
+
+  if (showOnboarding) {
+    return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
