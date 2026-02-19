@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Loader2, Users, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Users, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, format, parseISO } from 'date-fns';
+import { TenantInsuranceSection } from './TenantInsuranceSection';
 
 interface Tenant {
   id: string;
@@ -61,6 +62,7 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
 
   const fetchTenants = async () => {
     const { data, error } = await supabase
@@ -161,6 +163,14 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
 
   const setField = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
+  const toggleExpanded = (id: string) => {
+    setExpandedTenants(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   return (
@@ -250,6 +260,7 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Tenant</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Lease Type</TableHead>
@@ -261,7 +272,11 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
             </TableHeader>
             <TableBody>
               {tenants.map(t => (
-                <TableRow key={t.id}>
+                <>
+                <TableRow key={t.id} className="cursor-pointer" onClick={() => toggleExpanded(t.id)}>
+                  <TableCell className="w-8 py-2">
+                    {expandedTenants.has(t.id) ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                  </TableCell>
                   <TableCell>
                     <div>
                       <div className="font-medium">{t.company_name}</div>
@@ -283,7 +298,7 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
@@ -293,6 +308,14 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                     </div>
                   </TableCell>
                 </TableRow>
+                {expandedTenants.has(t.id) && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="bg-muted/20 px-6 py-3">
+                      <TenantInsuranceSection tenantId={t.id} propertyId={propertyId} tenantName={t.company_name} />
+                    </TableCell>
+                  </TableRow>
+                )}
+                </>
               ))}
             </TableBody>
           </Table>
