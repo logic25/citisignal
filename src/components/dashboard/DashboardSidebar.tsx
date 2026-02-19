@@ -52,7 +52,7 @@ const adminItems = [
   { icon: UserCog, label: 'Users', href: '/dashboard/admin/users' },
 ];
 
-const DashboardSidebar = () => {
+const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { isAdmin } = useAdminRole();
@@ -65,6 +65,7 @@ const DashboardSidebar = () => {
     const linkContent = (
       <Link
         to={item.href}
+        onClick={onNavigate}
         className={cn(
           "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
           isActive 
