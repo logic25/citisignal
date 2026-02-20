@@ -1,80 +1,180 @@
 
-# Admin Panel: Invite Codes Tab, Tooltips Everywhere & Overview Enhancements
-
-## Three things to fix
-
----
-
-## 1. Where to Send Invites — Invite Codes Tab is Missing from Admin Panel
-
-**The problem**: Looking at `AdminPage.tsx`, the tab list is:
-- Overview / API Logs / Users / Roadmap / Feature Requests / Bug Reports
-
-**The "Invite Codes" tab is not there.** The `InviteCodesTab` component exists and is fully built (with Bulk Invite), but it was never added to the Admin Panel tabs. Your friends need you to go to Admin → Invite Codes → click "Bulk Invite" — but that tab doesn't appear.
-
-**Fix**: Add `<TabsTrigger value="invite-codes">Invite Codes</TabsTrigger>` and its `<TabsContent>` to `AdminPage.tsx`, importing `InviteCodesTab`.
+# Three Features: AI Stress-Test, AI Idea Intake & AI Usage Dashboard
+## (Clarity: Placeholder UI Only — Script Added Later)
 
 ---
 
-## 2. Tooltips on Every Admin Table Column
+## On Microsoft Clarity
 
-Right now, only the Users page and API Logs page have tooltips. The Invite Codes table and Admin Overview cards have none.
+You do NOT need to add Clarity right now — you can add the script tag any time, it's just one paste into `index.html`. The plan below skips the live script entirely and instead adds a **"Session Analytics" placeholder tab** in the Admin section so you can see exactly what data Clarity will surface (heatmaps, session recordings, rage clicks, scroll depth) and where the setup instructions will live when you're ready to activate it. Nothing breaks if the script isn't there yet.
 
-### Invite Codes table — columns that need tooltips:
+---
 
-| Column | Tooltip text |
+## Feature 1 — Microsoft Clarity Placeholder (No Script Yet)
+
+**New component**: `src/components/helpdesk/ClarityPlaceholder.tsx`
+
+A preview card shown in a new **"Session Analytics"** tab in the Help Center (admin-only). It will show:
+
+- A banner: "Microsoft Clarity is not yet connected" with a setup button
+- A grid of what you'll see once connected, with tooltips explaining each metric:
+  - **Session Recordings** — Watch real users click, scroll, and navigate. Understand where they get confused.
+  - **Heatmaps** — See which parts of the page users click on most (and which they ignore).
+  - **Rage Clicks** — Spots where users click frantically, usually indicating something broken or confusing.
+  - **Scroll Depth** — How far down a page users scroll before leaving.
+  - **Dead Clicks** — Clicks on elements users expect to be clickable but aren't.
+  - **Insights Dashboard** — AI-generated highlights from Clarity about friction in your app.
+- A code snippet block (non-functional, just shows the script) so you know exactly what to paste when ready, with the note: "Replace `YOUR_CLARITY_TAG_ID` with your CitiSignal project ID from clarity.microsoft.com"
+- A direct link button: "Create Clarity Project →" pointing to clarity.microsoft.com
+
+This tab is visible only when `isAdmin === true`.
+
+---
+
+## Feature 2 — AI Stress-Test (Roadmap Items)
+
+### New Edge Function: `supabase/functions/analyze-telemetry/index.ts`
+
+Handles two modes in one function:
+
+**Mode: `"idea"`**
+- Input: `{ mode: "idea", raw_idea: string, existing_items?: string[] }`
+- Calls `google/gemini-3-flash-preview` via Lovable AI Gateway
+- System prompt: senior product analyst — stress-tests the idea, surfaces risks, flags duplicates against existing items, scores priority
+- Returns structured JSON: `{ title, description, category, priority, evidence, duplicate_warning, challenges: [{problem, solution}] }`
+- After successful call, logs to `ai_usage_logs` table using service role (feature: `"stress_test"`)
+
+**Mode: `"telemetry"`**
+- Input: `{ mode: "telemetry" }`
+- Checks for a `telemetry_events` table (graceful fallback if missing: "No telemetry data yet")
+- Returns up to 5 gap/friction suggestions
+- Logs to `ai_usage_logs` (feature: `"telemetry_analysis"`)
+
+Config addition in `supabase/config.toml`:
+```
+[functions.analyze-telemetry]
+verify_jwt = false
+```
+
+### UI Changes: `src/pages/dashboard/admin/AdminRoadmapPage.tsx`
+
+**On each card** (hover-revealed, next to the edit/delete icons):
+- A **"Run AI Test" button** (⚡ lightning bolt icon)
+- Clicking it: shows a loading spinner, calls the edge function with the card's title + description + a list of other existing item titles (for duplicate detection)
+- Result renders **inline below the card content**: evidence paragraph, challenges list (each shows `problem → solution`), a priority badge, and a duplicate warning if one is detected
+- Cards that have been tested get an **"⚡ AI tested"** badge (state-only, resets on refresh — this is a testing tool not a persistent flag)
+
+**In the Create/Edit dialog**:
+- A **"Test with AI"** button below the description textarea
+- Same behavior — shows results inside the dialog and auto-fills the Priority and Category dropdowns with AI suggestions (user can still change before saving)
+
+---
+
+## Feature 3 — AI Idea Intake (Feature Requests Tab)
+
+### UI Changes: `src/components/helpdesk/FeatureRequests.tsx`
+
+Add a collapsible **"AI Roadmap Intake"** panel above the existing feature request list. Has two sections:
+
+**Idea Analyzer**
+- Textarea: "Describe your feature idea..."
+- Button: "Analyze with AI" → calls `analyze-telemetry` with `mode: "idea"`
+- Results card shows: refined title, "Why it matters" (evidence text), priority badge (red/amber/green), duplicate warning if any, and challenges list (problem → solution)
+- **"Add to Roadmap"** button saves the vetted item to `roadmap_items` table with AI-suggested title, description, category, and priority
+
+**Telemetry Scan**
+- Button: "Scan for Friction Points" → calls `analyze-telemetry` with `mode: "telemetry"`
+- Displays up to 5 returned gap suggestions as simple cards
+
+Panel is collapsed by default, toggled with a chevron button.
+
+---
+
+## Feature 4 — AI Usage Dashboard (Admin-only tab in Help Center)
+
+### Database: New `ai_usage_logs` Table
+
+```sql
+CREATE TABLE public.ai_usage_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  feature text NOT NULL,
+  model text NOT NULL DEFAULT 'google/gemini-3-flash-preview',
+  prompt_tokens integer NOT NULL DEFAULT 0,
+  completion_tokens integer NOT NULL DEFAULT 0,
+  total_tokens integer NOT NULL DEFAULT 0,
+  estimated_cost_usd numeric(10,6) NOT NULL DEFAULT 0,
+  metadata jsonb DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can view ai usage logs" ON public.ai_usage_logs FOR SELECT USING (has_role(auth.uid(), 'admin'::app_role));
+CREATE POLICY "Service role can insert ai usage logs" ON public.ai_usage_logs FOR INSERT WITH CHECK (true);
+```
+
+Cost estimation formula used in edge functions: `(total_tokens / 1_000_000) * 0.15` (Gemini Flash pricing approximation).
+
+### New Component: `src/components/helpdesk/AIUsageDashboard.tsx`
+
+Admin-only, reads from `ai_usage_logs` filtered by selected date range.
+
+**KPI Cards (top row)** — all with plain-English tooltips (no "tokens" jargon):
+- Total Requests — "How many times AI was used across all features"
+- Words Processed — `sum(total_tokens) × 0.75` — "Approximate words the AI read and wrote"
+- Estimated Cost — `sum(estimated_cost_usd)` — "Approximate cost. See Lovable Billing for actuals."
+- Features Using AI — distinct count of `feature`
+
+**Bar Chart: Requests by Feature** (Recharts — already installed)
+- X-axis: friendly names (Roadmap Stress Test, Behavior Analysis, etc.)
+- Y-axis: request count
+
+**Bar Chart: Daily AI Activity**
+- X-axis: date (MM/dd), Y-axis: requests per day
+- Filtered by date range selector
+
+**Progress Bars: AI Models Used**
+- Friendly names: "Gemini Flash (fast, efficient)", "Gemini Flash 2.5 (multimodal)", "Gemini Pro (most powerful)"
+- Shows % of total + request count
+
+**Progress Bars: Usage by Team Member**
+- Joins `profiles` on `user_id`, shows display_name or email fallback
+
+**Cost Breakdown Table**
+- Columns: Feature | Requests | Words Processed | Est. Cost
+- Sorted by cost descending
+
+**Date range selector**: Last 7 / 30 / 90 days (pill buttons)
+
+**Bottom link**: "View Lovable Billing →"
+
+### Feature name → friendly label mapping used in UI:
+- `stress_test` → "Roadmap Stress Test"
+- `telemetry_analysis` → "Behavior Analysis"
+- `collection_message` → "Collection Email"
+- `plan_analysis` → "Plan Analysis"
+- (others shown as-is if not in map)
+
+### Help Center Update: `src/pages/dashboard/HelpCenterPage.tsx`
+
+Add two admin-only tabs:
+1. **AI Usage** — `<AIUsageDashboard />`
+2. **Session Analytics** — `<ClarityPlaceholder />` (the Clarity setup preview)
+
+Both tabs hidden for non-admin users using `useAdminRole()`.
+
+---
+
+## Files Changed
+
+| File | Action |
 |---|---|
-| Code | The unique invite code string. Click the copy icon to copy it to your clipboard. |
-| Uses | How many times this code has been used vs. its limit (e.g. 1/3 means 1 person has signed up, 2 remaining). |
-| Expires | The date after which this code can no longer be used to sign up. "Never" means it doesn't expire. |
-| Notes | An optional label you added when creating this code, for your own reference. |
-| Status | Active = the code can be used. Toggle it off to temporarily disable. Exhausted = the use limit has been reached. Expired = the expiry date has passed. |
-| Created | When this invite code was generated. |
+| `supabase/functions/analyze-telemetry/index.ts` | New edge function (idea + telemetry modes, AI call, usage logging) |
+| `supabase/config.toml` | Add `[functions.analyze-telemetry]` entry |
+| `src/pages/dashboard/admin/AdminRoadmapPage.tsx` | Add "Run AI Test" button per card + in dialog, inline results, "⚡ AI tested" badge |
+| `src/components/helpdesk/FeatureRequests.tsx` | Add AI Roadmap Intake panel (idea analyzer + telemetry scan + Add to Roadmap) |
+| `src/components/helpdesk/AIUsageDashboard.tsx` | New — full admin AI usage dashboard with charts and cost table |
+| `src/components/helpdesk/ClarityPlaceholder.tsx` | New — Clarity setup preview card with metric descriptions and code snippet |
+| `src/pages/dashboard/HelpCenterPage.tsx` | Add admin-only "AI Usage" and "Session Analytics" tabs |
+| DB migration | Create `ai_usage_logs` table with RLS |
 
-### Admin Overview — API Health cards:
-
-Each endpoint pill (PLUTO, DOB_JOBS, ECB, etc.) needs a tooltip explaining what that dataset is:
-- **PLUTO** → Property/zoning data from NYC's Primary Land Use Tax Output. Used to sync lot size, building class, and zoning info.
-- **DOB_JOBS** → Department of Buildings permit applications — used to track active construction and alteration work on your properties.
-- **ECB** → Environmental Control Board violations — fines and penalties issued for building code infractions.
-- **OATH** → Office of Administrative Trials and Hearings — tracks hearing outcomes and adjudicated penalty amounts.
-- **PAD** → Property Address Directory — used to resolve and normalize NYC addresses to their BIN/BBL identifiers.
-- **DOB_VIOLATIONS** → Department of Buildings violations — structural and safety violations issued against a property.
-
-The colored dot (green/yellow/red) also needs a tooltip: "Green = 0% error rate, Yellow = under 10% errors, Red = over 10% errors in the last 24 hours."
-
-The `{stats.avgMs}ms` latency also needs a tooltip: "Average response time from NYC Open Data in milliseconds. Under 500ms is healthy."
-
----
-
-## 3. Admin Overview Enhancements
-
-Beyond average session time (which requires storing session duration in the database — a larger lift), here are **immediately buildable** improvements using data already available:
-
-### New stat cards to add (row 2):
-| Metric | Source | What it tells you |
-|---|---|---|
-| Total Open Violations | `violations` table, `status = open` | Already exists — move to better position |
-| New Users (7 days) | `profiles.created_at` | How many people signed up this week |
-| Invite Codes Active | `invite_codes` where `is_active = true` | How many codes are still usable |
-| Properties with Violations | `violations` join `properties` | How many properties have at least one open issue |
-
-### Improvements to the API Health section:
-- Wrap each endpoint chip in a Tooltip explaining what that API does
-- Add a "last updated" timestamp below the grid so you can see when the data was last refreshed
-- Add a "View Full Logs →" link that navigates to Admin → API Logs tab
-
-### Note on Average Session Time:
-True average session time requires storing login/logout timestamps in a dedicated table whenever a user signs in or out — which is a new database table and trigger. This is doable but should be a separate task. For now, "Last Sign-In" on the Users tab shows activity, and "New Users (7 days)" shows growth.
-
----
-
-## Files to Change
-
-| File | What changes |
-|---|---|
-| `src/pages/dashboard/admin/AdminPage.tsx` | Add Invite Codes tab trigger + content, import InviteCodesTab |
-| `src/components/admin/InviteCodesTab.tsx` | Wrap table headers in Tooltip, add TooltipProvider |
-| `src/pages/dashboard/admin/AdminOverview.tsx` | Add new stat cards (new users 7d, invite codes active, properties with violations), add TooltipProvider + tooltips on each API endpoint chip and latency badge, add "View Full Logs" link |
-
-No database changes or new edge functions needed.
+No external API keys needed. Clarity script is NOT added — you paste it into `index.html` later in one step when you have your CitiSignal Clarity tag ID.
