@@ -113,11 +113,32 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/dashboard`,
-      });
-      if (error) {
-        toast.error('Failed to sign in with Google. Please try again.');
+      const isCustomDomain =
+        !window.location.hostname.includes('lovable.app') &&
+        !window.location.hostname.includes('lovableproject.com') &&
+        !window.location.hostname.includes('localhost');
+
+      if (isCustomDomain) {
+        // On custom domain: bypass auth-bridge, get OAuth URL directly
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/dashboard`,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) throw error;
+        if (data?.url) {
+          window.location.href = data.url;
+        }
+      } else {
+        // On Lovable preview domains: use managed OAuth flow
+        const { error } = await lovable.auth.signInWithOAuth('google', {
+          redirect_uri: `${window.location.origin}/dashboard`,
+        });
+        if (error) {
+          toast.error('Failed to sign in with Google. Please try again.');
+        }
       }
     } catch (err) {
       toast.error('An unexpected error occurred. Please try again.');
