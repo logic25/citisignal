@@ -1,180 +1,134 @@
 
-# Three Features: AI Stress-Test, AI Idea Intake & AI Usage Dashboard
-## (Clarity: Placeholder UI Only — Script Added Later)
+# Team Workspace: Shared Access for Fuertes Management
+
+## The Problem
+Right now CitiSignal is strictly one account = one data silo. Each of TJ, Erika, and Mike would sign up and see a completely empty dashboard. They'd each have to manually add the same Fuertes Management buildings separately — and none of them would see each other's data.
+
+The `property_members` table already exists in the database, but it only gives someone read-only access to a single property. It does not allow shared property creation, shared violations, or a unified portfolio view across team members.
 
 ---
 
-## On Microsoft Clarity
+## What Needs to Be Built
 
-You do NOT need to add Clarity right now — you can add the script tag any time, it's just one paste into `index.html`. The plan below skips the live script entirely and instead adds a **"Session Analytics" placeholder tab** in the Admin section so you can see exactly what data Clarity will surface (heatmaps, session recordings, rage clicks, scroll depth) and where the setup instructions will live when you're ready to activate it. Nothing breaks if the script isn't there yet.
+The cleanest approach for the testers' scenario: **one person (say, TJ as the account owner) adds all the Fuertes Management buildings**, then invites Erika and Mike as members at the property level. Erika and Mike log in, go to their dashboard, and see those shared properties listed — along with all violations, work orders, compliance, etc.
 
----
+This does NOT require a complex multi-tenant org system. The `property_members` table is already the right foundation. What's missing is:
 
-## Feature 1 — Microsoft Clarity Placeholder (No Script Yet)
-
-**New component**: `src/components/helpdesk/ClarityPlaceholder.tsx`
-
-A preview card shown in a new **"Session Analytics"** tab in the Help Center (admin-only). It will show:
-
-- A banner: "Microsoft Clarity is not yet connected" with a setup button
-- A grid of what you'll see once connected, with tooltips explaining each metric:
-  - **Session Recordings** — Watch real users click, scroll, and navigate. Understand where they get confused.
-  - **Heatmaps** — See which parts of the page users click on most (and which they ignore).
-  - **Rage Clicks** — Spots where users click frantically, usually indicating something broken or confusing.
-  - **Scroll Depth** — How far down a page users scroll before leaving.
-  - **Dead Clicks** — Clicks on elements users expect to be clickable but aren't.
-  - **Insights Dashboard** — AI-generated highlights from Clarity about friction in your app.
-- A code snippet block (non-functional, just shows the script) so you know exactly what to paste when ready, with the note: "Replace `YOUR_CLARITY_TAG_ID` with your CitiSignal project ID from clarity.microsoft.com"
-- A direct link button: "Create Clarity Project →" pointing to clarity.microsoft.com
-
-This tab is visible only when `isAdmin === true`.
+1. The RLS policies on all related tables need to allow access when a user is a member (not just the owner)
+2. The Properties page needs to fetch properties where the user is either owner OR an accepted member
+3. The onboarding invites need to be matched to a real account when the invited user signs up
 
 ---
 
-## Feature 2 — AI Stress-Test (Roadmap Items)
+## Technical Implementation Plan
 
-### New Edge Function: `supabase/functions/analyze-telemetry/index.ts`
+### Step 1 — Database: Extend RLS Policies
 
-Handles two modes in one function:
+Currently every table (violations, work orders, applications, etc.) checks `properties.user_id = auth.uid()`. We need to add a secondary check: OR the user is an accepted member of that property.
 
-**Mode: `"idea"`**
-- Input: `{ mode: "idea", raw_idea: string, existing_items?: string[] }`
-- Calls `google/gemini-3-flash-preview` via Lovable AI Gateway
-- System prompt: senior product analyst — stress-tests the idea, surfaces risks, flags duplicates against existing items, scores priority
-- Returns structured JSON: `{ title, description, category, priority, evidence, duplicate_warning, challenges: [{problem, solution}] }`
-- After successful call, logs to `ai_usage_logs` table using service role (feature: `"stress_test"`)
-
-**Mode: `"telemetry"`**
-- Input: `{ mode: "telemetry" }`
-- Checks for a `telemetry_events` table (graceful fallback if missing: "No telemetry data yet")
-- Returns up to 5 gap/friction suggestions
-- Logs to `ai_usage_logs` (feature: `"telemetry_analysis"`)
-
-Config addition in `supabase/config.toml`:
-```
-[functions.analyze-telemetry]
-verify_jwt = false
-```
-
-### UI Changes: `src/pages/dashboard/admin/AdminRoadmapPage.tsx`
-
-**On each card** (hover-revealed, next to the edit/delete icons):
-- A **"Run AI Test" button** (⚡ lightning bolt icon)
-- Clicking it: shows a loading spinner, calls the edge function with the card's title + description + a list of other existing item titles (for duplicate detection)
-- Result renders **inline below the card content**: evidence paragraph, challenges list (each shows `problem → solution`), a priority badge, and a duplicate warning if one is detected
-- Cards that have been tested get an **"⚡ AI tested"** badge (state-only, resets on refresh — this is a testing tool not a persistent flag)
-
-**In the Create/Edit dialog**:
-- A **"Test with AI"** button below the description textarea
-- Same behavior — shows results inside the dialog and auto-fills the Priority and Category dropdowns with AI suggestions (user can still change before saving)
-
----
-
-## Feature 3 — AI Idea Intake (Feature Requests Tab)
-
-### UI Changes: `src/components/helpdesk/FeatureRequests.tsx`
-
-Add a collapsible **"AI Roadmap Intake"** panel above the existing feature request list. Has two sections:
-
-**Idea Analyzer**
-- Textarea: "Describe your feature idea..."
-- Button: "Analyze with AI" → calls `analyze-telemetry` with `mode: "idea"`
-- Results card shows: refined title, "Why it matters" (evidence text), priority badge (red/amber/green), duplicate warning if any, and challenges list (problem → solution)
-- **"Add to Roadmap"** button saves the vetted item to `roadmap_items` table with AI-suggested title, description, category, and priority
-
-**Telemetry Scan**
-- Button: "Scan for Friction Points" → calls `analyze-telemetry` with `mode: "telemetry"`
-- Displays up to 5 returned gap suggestions as simple cards
-
-Panel is collapsed by default, toggled with a chevron button.
-
----
-
-## Feature 4 — AI Usage Dashboard (Admin-only tab in Help Center)
-
-### Database: New `ai_usage_logs` Table
+Create a helper database function to avoid repeating the join everywhere:
 
 ```sql
-CREATE TABLE public.ai_usage_logs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  feature text NOT NULL,
-  model text NOT NULL DEFAULT 'google/gemini-3-flash-preview',
-  prompt_tokens integer NOT NULL DEFAULT 0,
-  completion_tokens integer NOT NULL DEFAULT 0,
-  total_tokens integer NOT NULL DEFAULT 0,
-  estimated_cost_usd numeric(10,6) NOT NULL DEFAULT 0,
-  metadata jsonb DEFAULT '{}',
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.ai_usage_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Admins can view ai usage logs" ON public.ai_usage_logs FOR SELECT USING (has_role(auth.uid(), 'admin'::app_role));
-CREATE POLICY "Service role can insert ai usage logs" ON public.ai_usage_logs FOR INSERT WITH CHECK (true);
+CREATE OR REPLACE FUNCTION public.is_property_member(_property_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM property_members
+    WHERE property_id = _property_id
+      AND user_id = auth.uid()
+      AND status = 'accepted'
+  )
+$$;
 ```
 
-Cost estimation formula used in edge functions: `(total_tokens / 1_000_000) * 0.15` (Gemini Flash pricing approximation).
+Then update the `SELECT` RLS policy on the `properties` table to:
+```sql
+auth.uid() = user_id OR is_property_member(id)
+```
 
-### New Component: `src/components/helpdesk/AIUsageDashboard.tsx`
+And update SELECT policies on:
+- `violations`
+- `applications`
+- `work_orders`
+- `compliance_requirements`
+- `compliance_scores`
+- `property_documents`
+- `property_activity_log`
+- `notifications`
+- `change_log`
 
-Admin-only, reads from `ai_usage_logs` filtered by selected date range.
+Members would get **read access** (SELECT) by default. Write access (INSERT/UPDATE/DELETE) stays owner-only for safety, or can be extended per role if needed.
 
-**KPI Cards (top row)** — all with plain-English tooltips (no "tokens" jargon):
-- Total Requests — "How many times AI was used across all features"
-- Words Processed — `sum(total_tokens) × 0.75` — "Approximate words the AI read and wrote"
-- Estimated Cost — `sum(estimated_cost_usd)` — "Approximate cost. See Lovable Billing for actuals."
-- Features Using AI — distinct count of `feature`
+### Step 2 — Member Invite → Account Link
 
-**Bar Chart: Requests by Feature** (Recharts — already installed)
-- X-axis: friendly names (Roadmap Stress Test, Behavior Analysis, etc.)
-- Y-axis: request count
+Right now when TJ invites "mike@fuertes.com" to a property, a row is created in `property_members` with `status: 'pending'` and `user_id` set to TJ's ID (wrong — it should be empty until Mike accepts).
 
-**Bar Chart: Daily AI Activity**
-- X-axis: date (MM/dd), Y-axis: requests per day
-- Filtered by date range selector
+Fix: When inserting a pending invite, set `user_id` to the owner's ID only as a temporary placeholder, OR leave it null until Mike accepts.
 
-**Progress Bars: AI Models Used**
-- Friendly names: "Gemini Flash (fast, efficient)", "Gemini Flash 2.5 (multimodal)", "Gemini Pro (most powerful)"
-- Shows % of total + request count
+When Mike signs up and logs in for the first time, check if any pending invites exist for his email and auto-link them:
+- Query `property_members` for rows where `email = user.email AND status = 'pending'`
+- Update those rows: set `user_id = user.id, status = 'accepted', accepted_at = now()`
 
-**Progress Bars: Usage by Team Member**
-- Joins `profiles` on `user_id`, shows display_name or email fallback
+This can happen in the auth flow (after sign-in) or in the onboarding wizard.
 
-**Cost Breakdown Table**
-- Columns: Feature | Requests | Words Processed | Est. Cost
-- Sorted by cost descending
+### Step 3 — Properties Page: Show Shared Properties
 
-**Date range selector**: Last 7 / 30 / 90 days (pill buttons)
+Currently `PropertiesPage.tsx` only fetches `properties` where the logged-in user is the owner (`user_id = auth.uid()`). After the RLS change, it will automatically return shared properties too — but we need to visually distinguish them.
 
-**Bottom link**: "View Lovable Billing →"
+Add a "Shared" badge on property cards/rows where `user_id !== currentUser.id` so team members know which properties they own vs. were added to.
 
-### Feature name → friendly label mapping used in UI:
-- `stress_test` → "Roadmap Stress Test"
-- `telemetry_analysis` → "Behavior Analysis"
-- `collection_message` → "Collection Email"
-- `plan_analysis` → "Plan Analysis"
-- (others shown as-is if not in map)
+### Step 4 — Invite Flow Polish (Optional but Recommended)
 
-### Help Center Update: `src/pages/dashboard/HelpCenterPage.tsx`
+Currently the invite in `PropertySettingsTab.tsx` does:
+```js
+supabase.from('property_members').insert({
+  user_id: user.id,  // ← This is wrong — sets it to the inviter's ID
+  email: inviteEmail,
+  status: 'pending'
+})
+```
 
-Add two admin-only tabs:
-1. **AI Usage** — `<AIUsageDashboard />`
-2. **Session Analytics** — `<ClarityPlaceholder />` (the Clarity setup preview)
-
-Both tabs hidden for non-admin users using `useAdminRole()`.
+Fix: Change `user_id` to be nullable (or a placeholder) until the invitee accepts. Then on first login, auto-link pending invites to the new user's `auth.uid()`.
 
 ---
 
-## Files Changed
+## What TJ, Erika & Mike's Experience Would Look Like
 
-| File | Action |
+```text
+TJ signs up with CITISIGNALFUERTES
+  └─ Adds all Fuertes Management buildings
+  └─ Goes to each property → Settings → Team → Invites erika@... and mike@...
+
+Erika signs up with CITISIGNALFUERTES
+  └─ Logs in → System detects pending invites for her email
+  └─ Invites auto-accepted → Dashboard shows all shared buildings
+  └─ Can see all violations, work orders, compliance — read access
+
+Mike does the same
+  └─ All three now see identical dashboards for Fuertes Management
+```
+
+---
+
+## Scope of Changes
+
+| Area | Change |
 |---|---|
-| `supabase/functions/analyze-telemetry/index.ts` | New edge function (idea + telemetry modes, AI call, usage logging) |
-| `supabase/config.toml` | Add `[functions.analyze-telemetry]` entry |
-| `src/pages/dashboard/admin/AdminRoadmapPage.tsx` | Add "Run AI Test" button per card + in dialog, inline results, "⚡ AI tested" badge |
-| `src/components/helpdesk/FeatureRequests.tsx` | Add AI Roadmap Intake panel (idea analyzer + telemetry scan + Add to Roadmap) |
-| `src/components/helpdesk/AIUsageDashboard.tsx` | New — full admin AI usage dashboard with charts and cost table |
-| `src/components/helpdesk/ClarityPlaceholder.tsx` | New — Clarity setup preview card with metric descriptions and code snippet |
-| `src/pages/dashboard/HelpCenterPage.tsx` | Add admin-only "AI Usage" and "Session Analytics" tabs |
-| DB migration | Create `ai_usage_logs` table with RLS |
+| Database migration | New `is_property_member()` function + updated RLS on 8-10 tables |
+| `property_members` table | Fix `user_id` nullable + pending invite insert logic |
+| Auth flow / Onboarding | Auto-link pending invites on first login |
+| `PropertiesPage.tsx` | Add "Shared" badge for non-owned properties |
+| `PropertySettingsTab.tsx` | Fix invite insert (user_id placeholder) |
 
-No external API keys needed. Clarity script is NOT added — you paste it into `index.html` later in one step when you have your CitiSignal Clarity tag ID.
+---
+
+## Important Note for the Beta Test
+
+For TJ, Erika, and Mike specifically — the fastest path for this weekend:
+
+**Have ONE of them (TJ) add all the Fuertes properties, then invite the other two from each property's Settings tab.** Once this feature is built, Erika and Mike's dashboards will automatically populate with the shared buildings when they log in and accept their invites.
+
+This is a meaningful feature — probably a 2-3 hour build — but it's the right architecture and will make CitiSignal genuinely useful for any company with multiple people managing the same portfolio.
