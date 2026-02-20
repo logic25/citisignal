@@ -76,3 +76,6 @@ verify_jwt = false
 [functions.admin-get-users]
 verify_jwt = false
 
+[functions.analyze-telemetry]
+verify_jwt = false
+
