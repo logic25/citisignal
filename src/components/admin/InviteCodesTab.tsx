@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Ticket, Copy, Check } from 'lucide-react';
+import { Plus, Ticket, Copy, Check, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +30,10 @@ const InviteCodesTab = () => {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [sendInviteOpen, setSendInviteOpen] = useState(false);
+  const [sendInviteCode, setSendInviteCode] = useState('');
+  const [sendInviteEmail, setSendInviteEmail] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   // Form state
   const [newCode, setNewCode] = useState('');
@@ -111,6 +115,29 @@ const InviteCodesTab = () => {
     setNewCode(code);
   };
 
+  const handleSendInvite = async () => {
+    if (!sendInviteEmail.trim() || !sendInviteCode) return;
+    setIsSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invite', {
+        body: { recipientEmail: sendInviteEmail.trim(), inviteCode: sendInviteCode },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      toast.success(`Invite sent to ${sendInviteEmail}`);
+      setSendInviteOpen(false);
+      setSendInviteEmail('');
+      setSendInviteCode('');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send invite');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const availableCodes = codes.filter(
+    c => c.is_active && c.use_count < c.max_uses && (!c.expires_at || new Date(c.expires_at) > new Date())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -118,77 +145,136 @@ const InviteCodesTab = () => {
           <h2 className="text-lg font-semibold text-foreground">Invite Codes</h2>
           <p className="text-sm text-muted-foreground">Manage who can create a CitiSignal account</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              New Code
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Invite Code</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="code"
-                    placeholder="e.g. CITIBETA"
-                    value={newCode}
-                    onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                    className="font-mono"
-                  />
-                  <Button type="button" variant="outline" size="sm" onClick={generateRandomCode}>
-                    Random
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="maxUses">Max Uses</Label>
-                <Input
-                  id="maxUses"
-                  type="number"
-                  min="1"
-                  value={maxUses}
-                  onChange={(e) => setMaxUses(e.target.value)}
-                  placeholder="1"
-                />
-                <p className="text-xs text-muted-foreground">How many times this code can be used to create an account</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="expiresAt">Expires At (optional)</Label>
-                <Input
-                  id="expiresAt"
-                  type="datetime-local"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (optional)</Label>
-                <Input
-                  id="notes"
-                  placeholder="e.g. For John Smith"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending || !newCode.trim()}
-              >
-                {createMutation.isPending ? 'Creating...' : 'Create Code'}
+        <div className="flex gap-2">
+          {/* Send Invite */}
+          <Dialog open={sendInviteOpen} onOpenChange={setSendInviteOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-2">
+                <Send className="w-4 h-4" />
+                Send Invite
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Send Invite Email</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inviteEmail">Recipient Email</Label>
+                  <Input
+                    id="inviteEmail"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={sendInviteEmail}
+                    onChange={(e) => setSendInviteEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inviteCodeSelect">Invite Code</Label>
+                  <select
+                    id="inviteCodeSelect"
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-mono"
+                    value={sendInviteCode}
+                    onChange={(e) => setSendInviteCode(e.target.value)}
+                  >
+                    <option value="">Select a code…</option>
+                    {availableCodes.map(c => (
+                      <option key={c.id} value={c.code}>
+                        {c.code} ({c.use_count}/{c.max_uses} used){c.notes ? ` — ${c.notes}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {availableCodes.length === 0 && (
+                    <p className="text-xs text-destructive">No active codes available. Create one first.</p>
+                  )}
+                  {availableCodes.length > 0 && (
+                    <p className="text-xs text-muted-foreground">Only active, available codes are shown</p>
+                  )}
+                </div>
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleSendInvite}
+                  disabled={isSending || !sendInviteEmail.trim() || !sendInviteCode}
+                >
+                  {isSending ? 'Sending…' : <><Send className="w-4 h-4" /> Send Invite Email</>}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Create Code */}
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                New Code
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Invite Code</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="code">Code</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="code"
+                      placeholder="e.g. CITIBETA"
+                      value={newCode}
+                      onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                      className="font-mono"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={generateRandomCode}>
+                      Random
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxUses">Max Uses</Label>
+                  <Input
+                    id="maxUses"
+                    type="number"
+                    min="1"
+                    value={maxUses}
+                    onChange={(e) => setMaxUses(e.target.value)}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-muted-foreground">How many times this code can be used to create an account</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expiresAt">Expires At (optional)</Label>
+                  <Input
+                    id="expiresAt"
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (optional)</Label>
+                  <Input
+                    id="notes"
+                    placeholder="e.g. For John Smith"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={() => createMutation.mutate()}
+                  disabled={createMutation.isPending || !newCode.trim()}
+                >
+                  {createMutation.isPending ? 'Creating...' : 'Create Code'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
