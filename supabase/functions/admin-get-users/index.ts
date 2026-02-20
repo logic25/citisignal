@@ -69,11 +69,49 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: profilesError.message }), { status: 500, headers: corsHeaders });
   }
 
+  // Fetch properties for all users
+  const { data: allProperties } = await adminClient
+    .from('properties')
+    .select('id, address, borough, user_id');
+
+  // Fetch violations for all properties (open count only)
+  const propertyIds = (allProperties ?? []).map((p: any) => p.id);
+  let violationCounts: Record<string, number> = {};
+  let openViolationCounts: Record<string, number> = {};
+
+  if (propertyIds.length > 0) {
+    const { data: violations } = await adminClient
+      .from('violations')
+      .select('property_id, status')
+      .in('property_id', propertyIds);
+
+    for (const v of violations ?? []) {
+      violationCounts[v.property_id] = (violationCounts[v.property_id] || 0) + 1;
+      if (v.status === 'open') {
+        openViolationCounts[v.property_id] = (openViolationCounts[v.property_id] || 0) + 1;
+      }
+    }
+  }
+
+  // Group properties by user
+  const propertiesByUser: Record<string, any[]> = {};
+  for (const p of allProperties ?? []) {
+    if (!propertiesByUser[p.user_id]) propertiesByUser[p.user_id] = [];
+    propertiesByUser[p.user_id].push({
+      id: p.id,
+      address: p.address,
+      borough: p.borough,
+      total_violations: violationCounts[p.id] || 0,
+      open_violations: openViolationCounts[p.id] || 0,
+    });
+  }
+
   // Merge
   const merged = (profiles ?? []).map((p) => ({
     ...p,
     email: authMap[p.user_id]?.email ?? null,
     last_sign_in_at: authMap[p.user_id]?.last_sign_in_at ?? null,
+    property_list: propertiesByUser[p.user_id] ?? [],
   }));
 
   return new Response(JSON.stringify({ users: merged }), {

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 
 export default function AdminAPILogsPage() {
@@ -33,7 +34,7 @@ export default function AdminAPILogsPage() {
 
   const getStatusBadge = (code: number | null) => {
     if (!code) return <Badge variant="destructive">ERR</Badge>;
-    if (code >= 200 && code < 300) return <Badge className="bg-green-600 text-white">{code}</Badge>;
+    if (code >= 200 && code < 300) return <Badge className="bg-primary text-primary-foreground">{code}</Badge>;
     if (code >= 300 && code < 400) return <Badge variant="secondary">{code}</Badge>;
     if (code >= 400) return <Badge variant="destructive">{code}</Badge>;
     return <Badge variant="outline">{code}</Badge>;
@@ -75,17 +76,44 @@ export default function AdminAPILogsPage() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Endpoint</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Latency</TableHead>
-                <TableHead>Error</TableHead>
-              </TableRow>
-            </TableHeader>
+         <CardContent className="p-0">
+           <Table>
+             <TableHeader>
+               <TooltipProvider>
+               <TableRow>
+                 <TableHead>
+                   <Tooltip>
+                     <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Time</TooltipTrigger>
+                     <TooltipContent>When this outgoing API call was made</TooltipContent>
+                   </Tooltip>
+                 </TableHead>
+                 <TableHead>
+                   <Tooltip>
+                     <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Endpoint</TooltipTrigger>
+                     <TooltipContent>Which NYC Open Data dataset was queried — PLUTO (property/zoning data), DOB_JOBS (permit applications), ECB (Environmental Control Board violations), OATH (hearing outcomes), PAD (address lookup), DOB_VIOLATIONS (building violations)</TooltipContent>
+                   </Tooltip>
+                 </TableHead>
+                 <TableHead>
+                   <Tooltip>
+                     <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Status</TooltipTrigger>
+                     <TooltipContent>HTTP response code — 200 means success, 4xx means the request failed (bad data), 5xx means the external server errored</TooltipContent>
+                   </Tooltip>
+                 </TableHead>
+                 <TableHead>
+                   <Tooltip>
+                     <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Latency</TooltipTrigger>
+                     <TooltipContent>How long the external API took to respond in milliseconds. Under 500ms is healthy; over 2000ms may indicate NYC Open Data slowness</TooltipContent>
+                   </Tooltip>
+                 </TableHead>
+                 <TableHead>
+                   <Tooltip>
+                     <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Error</TooltipTrigger>
+                     <TooltipContent>Error message if the call failed — shown only when status is 4xx or 5xx</TooltipContent>
+                   </Tooltip>
+                 </TableHead>
+               </TableRow>
+               </TooltipProvider>
+             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
