@@ -28,6 +28,7 @@ export const GlobalAIChatButton = () => {
     <>
       <button
         onClick={() => setOpen(true)}
+        data-tour="ai-chat-button"
         className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105 transition-all duration-200"
         aria-label="Open CitiSignal AI"
       >

@@ -77,7 +77,7 @@ export const NotificationBell = () => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" data-tour="notification-bell">
           <Bell className={cn(
             'w-5 h-5 transition-transform',
             isRinging && 'animate-[bell-ring_0.6s_ease-in-out]'
