@@ -1,104 +1,78 @@
 
-## Fix: Google OAuth redirect loops to marketing page
+# Combined Plan: Admin Users, Settings & Bulk Invite
 
-### Root Cause
+## What Needs To Be Done
 
-In `src/hooks/useAuth.tsx`, the `onAuthStateChange` callback has this guard:
+Three separate improvements discussed across multiple conversations, combined into one implementation:
 
-```typescript
-if (!isMounted || !initializedRef.current) return;
-```
+---
 
-This was meant to prevent double-setState during initial load, but it has a fatal flaw for OAuth callbacks:
+## Part 1 — Admin Users Page: Show Email + Last Sign-In
 
-1. Google redirects back to `citisignal.com/#access_token=...`
-2. Supabase's `createClient` immediately detects the hash and fires `SIGNED_IN` via `onAuthStateChange`
-3. But `initializedRef.current` is still `false` at this point (it's set to `true` only after `getSession()` resolves)
-4. So the callback is **silently ignored** — the session is set in Supabase internally but the React state is never updated
-5. `getSession()` then runs and DOES return the session, setting `user` correctly
-6. But by then, `Index.tsx` has already rendered the marketing page, and the `onAuthStateChange` listener in `Index.tsx` only fires for **future** state changes — not the one that already happened
+**Current problem**: The User column shows either a display name or a raw UUID under it (the user_id). There is no email visible and no last sign-in time. This makes it impossible to identify who a user is.
 
-### The Fix (3 files)
+**Fix**: Create a new backend function `admin-get-users` that uses admin-level access to read user emails and last sign-in timestamps from the authentication system, then merge that data into the users table display.
 
-**1. `src/hooks/useAuth.tsx` — Remove the `initializedRef` guard from `onAuthStateChange`**
+The Users table will gain:
+- Email shown under the display name (e.g. "erussell25@gmail.com" instead of a UUID)
+- "Last Sign-In" column showing when the user last logged in (or "Never" if they haven't)
 
-The listener should ALWAYS respond to auth events. The double-setState concern is harmless (React batches them). Instead, let `onAuthStateChange` handle ALL session state, and use it to also set `loading = false`. Drop the separate `getSession()` / `initializedRef` pattern:
+**Tooltips added to table headers**:
+- "User" → "The user's display name and email address"
+- "Signed Up" → "Date the account was created"
+- "Properties" → "Number of properties this user has added to their portfolio"
+- "Role" → "Admin users can access the Admin Panel; regular users cannot"
+- Eye icon → "View this user's full profile and activity history"
 
-```typescript
-useEffect(() => {
-  let isMounted = true;
+---
 
-  // onAuthStateChange fires for BOTH the initial session AND future changes.
-  // It fires with the current session immediately on subscribe (including OAuth hash tokens).
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    (_event, session) => {
-      if (!isMounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false); // Always mark loaded once we get any event
-    }
-  );
+## Part 2 — Settings Page: Fix Broken Sections
 
-  return () => {
-    isMounted = false;
-    subscription.unsubscribe();
-  };
-}, []);
-```
+**Current problem**: The Security tab has three buttons ("Change", "Enable", "View") that do nothing. The Billing tab shows fake "Free Plan" and "Payment Method" / "Billing History" rows that don't connect to anything real.
 
-This is the pattern Supabase officially recommends. `onAuthStateChange` fires synchronously with the current session state when you subscribe, including detecting OAuth hash tokens in the URL — so `getSession()` becomes redundant.
+**Fixes**:
 
-**2. `src/pages/Index.tsx` — Add an early hash-detection guard**
+**Security tab**:
+- "Change Password" button → wires to a real password reset email via the authentication system, shows a toast: "Password reset email sent — check your inbox"
+- Remove "Two-Factor Authentication" row (not supported in current setup — showing it is misleading)
+- Remove "Active Sessions" row (no session management API is available)
 
-Even with the AuthProvider fix, there's a brief render gap. Add an early check: if the URL hash contains `access_token`, render a full-screen spinner immediately (before auth state even loads) so the marketing page never flashes:
+**Billing tab**:
+- Replace the entire section with an honest informational card: "CitiSignal is currently in invite-only beta. Billing is not yet active — your access is complimentary while we build toward launch."
+- Remove the fake "Payment Method" and "Billing History" rows
 
-```typescript
-// Early exit if we're handling an OAuth callback
-if (window.location.hash.includes('access_token')) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-    </div>
-  );
-}
-```
+**Tooltips added to key settings fields**:
+- "License / Expediter ID" → "Your professional license or expediter ID. Appears on the 'Prepared by' line of Due Diligence reports."
+- "PO Terms" tab → "Your default Purchase Order terms — auto-applied to every PO you generate. You can override them per PO."
+- "Telegram" tab → "Connect your Telegram account to receive real-time violation alerts via bot message."
 
-This is placed before the `if (loading)` check, so it runs on the very first render.
+---
 
-**3. `src/pages/Auth.tsx` — Remove `skipBrowserRedirect: true`**
+## Part 3 — Bulk Invite: Send 3 Friends Their Codes in One Step
 
-The `skipBrowserRedirect: true` option was added to manually control the redirect, but this actually causes the problem — it prevents Supabase from handling the OAuth callback hash automatically. Remove it so Supabase handles the full redirect flow natively:
+**Current problem**: To invite 3 friends you must repeat 6 manual steps (create code → copy → open Send Invite → select code → enter email → send) three separate times.
 
-```typescript
-// BEFORE (broken):
-const { data, error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: window.location.origin,
-    skipBrowserRedirect: true,  // ← this is the problem
-  },
-});
-if (data?.url) window.location.href = data.url;
+**Fix**: Add a "Bulk Invite" button next to "Send Invite" in the Admin Panel → Invite Codes tab.
 
-// AFTER (fixed):
-const { error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: window.location.origin,
-  },
-});
-```
+**How it works**:
+1. Click "Bulk Invite"
+2. A dialog opens with a text area — enter multiple email addresses (one per line or comma-separated)
+3. Optionally add a shared note for all the codes (e.g. "Friends beta Feb 2026")
+4. Click "Send All Invites"
+5. The system auto-generates a unique 8-character code per recipient, saves each to the database with `max_uses: 1`, then sends each person a branded invite email
+6. Progress is shown in real-time: "Sending 2 of 3..."
+7. A results summary shows which emails succeeded and which (if any) failed
+8. The invite codes table refreshes automatically showing the new codes
 
-Without `skipBrowserRedirect`, Supabase handles the OAuth redirect natively and the session is properly detected on return.
+---
 
-### Summary of Changes
+## Files to Change
 
-| File | Change |
+| File | What Changes |
 |---|---|
-| `src/hooks/useAuth.tsx` | Remove `initializedRef` guard; let `onAuthStateChange` handle all session state including `loading` |
-| `src/pages/Index.tsx` | Add early hash-detection to show spinner during OAuth callback |
-| `src/pages/Auth.tsx` | Remove `skipBrowserRedirect: true` from the custom domain Google sign-in path |
+| `supabase/functions/admin-get-users/index.ts` | New — backend function that reads emails + last sign-in using admin access, merged with profile data |
+| `src/pages/dashboard/admin/AdminUsersPage.tsx` | Call the new function, display email + last sign-in, add tooltips to column headers |
+| `src/pages/dashboard/SettingsPage.tsx` | Add tooltips to key fields; wire real password reset to Security tab; replace fake Billing content |
+| `src/components/admin/InviteCodesTab.tsx` | Add "Bulk Invite" button and dialog with multi-email input, auto code generation, progress indicator |
 
-### Why You Do NOT Need Your Own Google OAuth Credentials
-
-The branding ("Lovable" name) and the redirect bug are two separate issues. The redirect is purely a code bug in the auth initialization order. Lovable's managed Google OAuth works perfectly fine for handling the actual authentication — it's just the post-auth redirect handling in your React app that was broken.
+No database schema changes are needed — all three improvements use existing tables and infrastructure.
