@@ -39,19 +39,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Auto-link any pending property invites for this email
+    if (!error && data.user) {
+      await linkPendingInvites(data.user.id, data.user.email || email);
+    }
+    return { error: error as Error | null };
+  };
+
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: redirectUrl }
     });
+    // Auto-link any pending invites if signup doesn't require email confirmation
+    if (!error && data.user) {
+      await linkPendingInvites(data.user.id, data.user.email || email);
+    }
     return { error: error as Error | null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+  const linkPendingInvites = async (userId: string, email: string) => {
+    try {
+      await supabase
+        .from('property_members')
+        .update({ user_id: userId, status: 'accepted', accepted_at: new Date().toISOString() } as any)
+        .eq('email', email.toLowerCase())
+        .eq('status', 'pending');
+    } catch (e) {
+      console.error('Error linking pending invites:', e);
+    }
   };
 
   const signOut = async () => {

@@ -49,6 +49,8 @@ interface Property {
   has_swo?: boolean;
   has_vacate?: boolean;
   last_synced_at?: string | null;
+  user_id: string;
+  is_shared?: boolean;
 }
 
 type ViewMode = 'table' | 'cards';
@@ -105,6 +107,7 @@ const PropertiesPage = () => {
         violations_count: violationCounts[p.id] || 0,
         has_swo: swoFlags.has(p.id),
         has_vacate: vacateFlags.has(p.id),
+        is_shared: p.user_id !== user.id,
       })) || [];
 
       setProperties(propertiesWithCount as unknown as Property[]);
@@ -384,8 +387,15 @@ const PropertiesPage = () => {
                             <Building2 className="w-4 h-4 text-primary" />
                           </div>
                           <div>
-                            <div className="font-medium text-foreground line-clamp-1">
-                              {property.address}
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground line-clamp-1">
+                                {property.address}
+                              </span>
+                              {property.is_shared && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary shrink-0">
+                                  Shared
+                                </Badge>
+                              )}
                             </div>
                             {property.bin && (
                               <div className="text-xs text-muted-foreground">
@@ -469,6 +479,7 @@ const PropertiesPage = () => {
               <PropertyCard
                 key={property.id}
                 property={property}
+                isShared={property.is_shared}
                 onDelete={handleDelete}
               />
             ))}

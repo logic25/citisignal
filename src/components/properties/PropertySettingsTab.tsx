@@ -239,14 +239,15 @@ export const PropertySettingsTab = ({
     if (!inviteEmail || !user) return;
     setInviting(true);
     try {
+      // user_id is intentionally null for pending invites — it gets linked when the invitee signs up
       const { error } = await supabase.from('property_members').insert({
         property_id: propertyId,
-        user_id: user.id,
+        user_id: null,
         email: inviteEmail.toLowerCase().trim(),
         role: inviteRole,
         invited_by: user.id,
         status: 'pending',
-      });
+      } as any);
       if (error) {
         if (error.code === '23505') { toast.error('This person has already been invited'); }
         else { throw error; }
