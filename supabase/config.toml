@@ -73,3 +73,6 @@ verify_jwt = false
 [functions.validate-invite-code]
 verify_jwt = false
 
+[functions.admin-get-users]
+verify_jwt = false
+
