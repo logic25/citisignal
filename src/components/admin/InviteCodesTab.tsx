@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Ticket, Copy, Check, Send, Users, Loader2 } from 'lucide-react';
@@ -485,15 +486,47 @@ const InviteCodesTab = () => {
           ) : (
             <Table>
               <TableHeader>
+                <TooltipProvider>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Uses</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Code</TooltipTrigger>
+                      <TooltipContent>The unique invite code string. Click the copy icon to copy it to your clipboard.</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Uses</TooltipTrigger>
+                      <TooltipContent>How many times this code has been used vs. its limit (e.g. 1/3 means 1 person signed up, 2 remaining).</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Expires</TooltipTrigger>
+                      <TooltipContent>The date after which this code can no longer be used to sign up. "Never" means it doesn't expire.</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Notes</TooltipTrigger>
+                      <TooltipContent>An optional label you added when creating this code, for your own reference.</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Status</TooltipTrigger>
+                      <TooltipContent>Active = the code can be used. Toggle it off to temporarily disable. Exhausted = the use limit has been reached. Expired = the expiry date has passed.</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
+                  <TableHead>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Created</TooltipTrigger>
+                      <TooltipContent>When this invite code was generated.</TooltipContent>
+                    </Tooltip>
+                  </TableHead>
                   <TableHead></TableHead>
                 </TableRow>
+                </TooltipProvider>
               </TableHeader>
               <TableBody>
                 {codes.map((code) => {
