@@ -114,7 +114,7 @@ const Auth = () => {
     setIsGoogleLoading(true);
     try {
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: `${window.location.origin}/dashboard`,
       });
       if (error) {
         toast.error('Failed to sign in with Google. Please try again.');
