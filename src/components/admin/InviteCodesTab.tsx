@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Ticket, Copy, Check, Send } from 'lucide-react';
+import { Plus, Ticket, Copy, Check, Send, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,17 @@ interface InviteCode {
   created_at: string;
 }
 
+interface BulkResult {
+  email: string;
+  success: boolean;
+  code?: string;
+  error?: string;
+}
+
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const generateRandomCode = () =>
+  Array.from({ length: 8 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+
 const InviteCodesTab = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -34,6 +46,14 @@ const InviteCodesTab = () => {
   const [sendInviteCode, setSendInviteCode] = useState('');
   const [sendInviteEmail, setSendInviteEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Bulk invite state
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [bulkNotes, setBulkNotes] = useState('');
+  const [isBulkSending, setIsBulkSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null);
 
   // Form state
   const [newCode, setNewCode] = useState('');
@@ -109,11 +129,7 @@ const InviteCodesTab = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const generateRandomCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const code = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    setNewCode(code);
-  };
+  const handleGenerateRandomCode = () => setNewCode(generateRandomCode());
 
   const handleSendInvite = async () => {
     if (!sendInviteEmail.trim() || !sendInviteCode) return;
@@ -134,8 +150,78 @@ const InviteCodesTab = () => {
     }
   };
 
+  const parseEmails = (raw: string): string[] => {
+    return raw
+      .split(/[\n,]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.includes('@'));
+  };
+
+  const handleBulkInvite = async () => {
+    const emails = parseEmails(bulkEmails);
+    if (emails.length === 0) {
+      toast.error('Please enter at least one valid email address');
+      return;
+    }
+
+    setIsBulkSending(true);
+    setBulkResults(null);
+    setBulkProgress({ current: 0, total: emails.length });
+
+    const results: BulkResult[] = [];
+
+    for (let i = 0; i < emails.length; i++) {
+      const email = emails[i];
+      setBulkProgress({ current: i + 1, total: emails.length });
+
+      const code = generateRandomCode();
+
+      try {
+        // Insert the code
+        const { error: insertError } = await supabase.from('invite_codes').insert({
+          code,
+          max_uses: 1,
+          notes: bulkNotes || `Bulk invite — ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+          created_by: user!.id,
+        });
+        if (insertError) throw new Error(insertError.message);
+
+        // Send the email
+        const { data, error: sendError } = await supabase.functions.invoke('send-invite', {
+          body: { recipientEmail: email, inviteCode: code },
+        });
+        if (sendError || data?.error) throw new Error(data?.error || sendError?.message);
+
+        results.push({ email, success: true, code });
+      } catch (err) {
+        results.push({ email, success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+      }
+    }
+
+    setBulkResults(results);
+    setBulkProgress(null);
+    setIsBulkSending(false);
+    queryClient.invalidateQueries({ queryKey: ['invite-codes'] });
+
+    const successCount = results.filter((r) => r.success).length;
+    if (successCount === emails.length) {
+      toast.success(`${successCount} invite${successCount > 1 ? 's' : ''} sent successfully`);
+    } else {
+      toast.warning(`${successCount} of ${emails.length} invites sent`);
+    }
+  };
+
+  const handleBulkClose = () => {
+    if (isBulkSending) return;
+    setBulkOpen(false);
+    setBulkEmails('');
+    setBulkNotes('');
+    setBulkResults(null);
+    setBulkProgress(null);
+  };
+
   const availableCodes = codes.filter(
-    c => c.is_active && c.use_count < c.max_uses && (!c.expires_at || new Date(c.expires_at) > new Date())
+    (c) => c.is_active && c.use_count < c.max_uses && (!c.expires_at || new Date(c.expires_at) > new Date())
   );
 
   return (
@@ -146,6 +232,90 @@ const InviteCodesTab = () => {
           <p className="text-sm text-muted-foreground">Manage who can create a CitiSignal account</p>
         </div>
         <div className="flex gap-2">
+          {/* Bulk Invite */}
+          <Dialog open={bulkOpen} onOpenChange={(open) => { if (!open) handleBulkClose(); else setBulkOpen(true); }}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-2">
+                <Users className="w-4 h-4" />
+                Bulk Invite
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Bulk Invite</DialogTitle>
+              </DialogHeader>
+
+              {bulkResults ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {bulkResults.filter((r) => r.success).length} of {bulkResults.length} invites sent successfully.
+                  </p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {bulkResults.map((r) => (
+                      <div key={r.email} className={`flex items-start gap-2 p-2 rounded-md text-sm ${r.success ? 'bg-primary/5' : 'bg-destructive/5'}`}>
+                        <span className={r.success ? 'text-primary' : 'text-destructive'}>
+                          {r.success ? '✓' : '✗'}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{r.email}</p>
+                          {r.success && <p className="text-xs text-muted-foreground font-mono">{r.code}</p>}
+                          {!r.success && <p className="text-xs text-destructive">{r.error}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full" onClick={handleBulkClose}>Done</Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bulkEmails">Email Addresses</Label>
+                    <Textarea
+                      id="bulkEmails"
+                      placeholder={"alice@example.com\nbob@example.com\ncharlie@example.com"}
+                      className="min-h-[120px] font-mono text-sm"
+                      value={bulkEmails}
+                      onChange={(e) => setBulkEmails(e.target.value)}
+                      disabled={isBulkSending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      One email per line or comma-separated. Each recipient gets their own unique code.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bulkNotes">Note (optional)</Label>
+                    <Input
+                      id="bulkNotes"
+                      placeholder="e.g. Friends beta Feb 2026"
+                      value={bulkNotes}
+                      onChange={(e) => setBulkNotes(e.target.value)}
+                      disabled={isBulkSending}
+                    />
+                    <p className="text-xs text-muted-foreground">Attached to each generated code for your reference.</p>
+                  </div>
+
+                  {bulkProgress && (
+                    <div className="p-3 rounded-md bg-muted text-sm text-center text-muted-foreground">
+                      Sending {bulkProgress.current} of {bulkProgress.total}…
+                    </div>
+                  )}
+
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleBulkInvite}
+                    disabled={isBulkSending || !bulkEmails.trim()}
+                  >
+                    {isBulkSending ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>
+                    ) : (
+                      <><Send className="w-4 h-4" /> Send All Invites ({parseEmails(bulkEmails).length || 0})</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* Send Invite */}
           <Dialog open={sendInviteOpen} onOpenChange={setSendInviteOpen}>
             <DialogTrigger asChild>
@@ -178,7 +348,7 @@ const InviteCodesTab = () => {
                     onChange={(e) => setSendInviteCode(e.target.value)}
                   >
                     <option value="">Select a code…</option>
-                    {availableCodes.map(c => (
+                    {availableCodes.map((c) => (
                       <option key={c.id} value={c.code}>
                         {c.code} ({c.use_count}/{c.max_uses} used){c.notes ? ` — ${c.notes}` : ''}
                       </option>
@@ -225,7 +395,7 @@ const InviteCodesTab = () => {
                       onChange={(e) => setNewCode(e.target.value.toUpperCase())}
                       className="font-mono"
                     />
-                    <Button type="button" variant="outline" size="sm" onClick={generateRandomCode}>
+                    <Button type="button" variant="outline" size="sm" onClick={handleGenerateRandomCode}>
                       Random
                     </Button>
                   </div>
@@ -287,7 +457,7 @@ const InviteCodesTab = () => {
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-foreground">{codes.filter(c => c.is_active).length}</p>
+            <p className="text-2xl font-bold text-foreground">{codes.filter((c) => c.is_active).length}</p>
             <p className="text-xs text-muted-foreground">Active</p>
           </CardContent>
         </Card>
