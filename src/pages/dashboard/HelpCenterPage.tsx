@@ -3,11 +3,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HowToGuides } from "@/components/helpdesk/HowToGuides";
 import { FeatureRequests } from "@/components/helpdesk/FeatureRequests";
 import { BugReports } from "@/components/helpdesk/BugReports";
+import { AIUsageDashboard } from "@/components/helpdesk/AIUsageDashboard";
+import { ClarityPlaceholder } from "@/components/helpdesk/ClarityPlaceholder";
 import { Button } from "@/components/ui/button";
 import { useTour } from "@/components/tour/TourContext";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const HelpCenterPage = () => {
   const { restartTour } = useTour();
+  const { isAdmin } = useAdminRole();
 
   return (
     <div className="space-y-6">
@@ -32,15 +36,22 @@ const HelpCenterPage = () => {
           <TabsTrigger value="guides">How-To Guides</TabsTrigger>
           <TabsTrigger value="bugs">Bug Reports</TabsTrigger>
           <TabsTrigger value="requests">Feature Requests</TabsTrigger>
+          {isAdmin && <TabsTrigger value="ai-usage">AI Usage</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="session-analytics">Session Analytics</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="guides"><HowToGuides /></TabsContent>
         <TabsContent value="bugs"><BugReports /></TabsContent>
         <TabsContent value="requests"><FeatureRequests /></TabsContent>
+        {isAdmin && (
+          <TabsContent value="ai-usage"><AIUsageDashboard /></TabsContent>
+        )}
+        {isAdmin && (
+          <TabsContent value="session-analytics"><ClarityPlaceholder /></TabsContent>
+        )}
       </Tabs>
     </div>
   );
 };
 
 export default HelpCenterPage;
-

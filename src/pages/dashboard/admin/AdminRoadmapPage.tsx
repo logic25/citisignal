@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, GripVertical, Rocket, Loader2, Clock, Lightbulb } from 'lucide-react';
+import { Plus, Pencil, Trash2, Rocket, Loader2, Clock, Lightbulb, Zap, AlertTriangle, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PHASES = ['live', 'in_progress', 'next_up', 'future'] as const;
@@ -21,12 +21,13 @@ const PHASE_CONFIG: Record<Phase, { label: string; icon: typeof Rocket; color: s
   future: { label: 'Future', icon: Lightbulb, color: 'bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400', description: 'On the radar' },
 };
 
-const BADGE_VARIANTS: Record<Phase, 'default' | 'secondary' | 'outline'> = {
-  live: 'default',
-  in_progress: 'secondary',
-  next_up: 'outline',
-  future: 'outline',
+const PRIORITY_COLORS: Record<string, string> = {
+  high: 'bg-destructive/10 text-destructive border-destructive/30',
+  medium: 'bg-warning/10 text-warning border-warning/30',
+  low: 'bg-success/10 text-success border-success/30',
 };
+
+const AI_CATEGORIES = ['billing', 'projects', 'integrations', 'operations', 'general'] as const;
 
 type RoadmapItem = {
   id: string;
@@ -37,11 +38,76 @@ type RoadmapItem = {
   created_at: string;
 };
 
+type AIResult = {
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  evidence: string;
+  duplicate_warning: string | null;
+  challenges: { problem: string; solution: string }[];
+};
+
+async function runAITest(rawIdea: string, existingItems: string[]): Promise<AIResult> {
+  const { data, error } = await supabase.functions.invoke('analyze-telemetry', {
+    body: { mode: 'idea', raw_idea: rawIdea, existing_items: existingItems },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data as AIResult;
+}
+
+function AIResultPanel({ result, onClose }: { result: AIResult; onClose?: () => void }) {
+  return (
+    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-foreground text-sm">{result.title}</span>
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${PRIORITY_COLORS[result.priority] || ''}`}>
+            {result.priority} priority
+          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{result.category}</Badge>
+          {onClose && (
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
+          )}
+        </div>
+      </div>
+      {result.duplicate_warning && (
+        <div className="flex items-start gap-1.5 text-warning bg-warning/10 rounded px-2 py-1">
+          <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+          <span>Similar to: <em>{result.duplicate_warning}</em></span>
+        </div>
+      )}
+      <p className="text-muted-foreground">{result.evidence}</p>
+      {result.challenges?.length > 0 && (
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">Challenges</p>
+          {result.challenges.map((c, i) => (
+            <div key={i} className="flex items-start gap-1.5">
+              <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+              <span><span className="text-foreground">{c.problem}</span> → <span className="text-muted-foreground">{c.solution}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminRoadmapPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
   const [form, setForm] = useState({ title: '', description: '', phase: 'future' as string, sort_order: 0 });
+
+  // AI state per card (id -> result)
+  const [cardAILoading, setCardAILoading] = useState<Record<string, boolean>>({});
+  const [cardAIResult, setCardAIResult] = useState<Record<string, AIResult>>({});
+  const [cardAITested, setCardAITested] = useState<Set<string>>(new Set());
+
+  // AI state for dialog
+  const [dialogAILoading, setDialogAILoading] = useState(false);
+  const [dialogAIResult, setDialogAIResult] = useState<AIResult | null>(null);
 
   const { data: items, isLoading } = useQuery({
     queryKey: ['admin-roadmap-items'],
@@ -105,12 +171,14 @@ export default function AdminRoadmapPage() {
     const phaseItems = items?.filter(i => i.phase === phase) || [];
     setEditingItem(null);
     setForm({ title: '', description: '', phase, sort_order: phaseItems.length + 1 });
+    setDialogAIResult(null);
     setDialogOpen(true);
   };
 
   const openEdit = (item: RoadmapItem) => {
     setEditingItem(item);
     setForm({ title: item.title, description: item.description || '', phase: item.phase, sort_order: item.sort_order });
+    setDialogAIResult(null);
     setDialogOpen(true);
   };
 
@@ -118,6 +186,7 @@ export default function AdminRoadmapPage() {
     setDialogOpen(false);
     setEditingItem(null);
     setForm({ title: '', description: '', phase: 'future', sort_order: 0 });
+    setDialogAIResult(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -129,6 +198,43 @@ export default function AdminRoadmapPage() {
     (items || []).filter(i => i.phase === phase).sort((a, b) => a.sort_order - b.sort_order);
 
   const totalItems = items?.length || 0;
+  const existingTitles = items?.map(i => i.title) || [];
+
+  const handleCardAITest = async (item: RoadmapItem) => {
+    setCardAILoading(prev => ({ ...prev, [item.id]: true }));
+    try {
+      const idea = `${item.title}${item.description ? ': ' + item.description : ''}`;
+      const others = existingTitles.filter(t => t !== item.title);
+      const result = await runAITest(idea, others);
+      setCardAIResult(prev => ({ ...prev, [item.id]: result }));
+      setCardAITested(prev => new Set([...prev, item.id]));
+    } catch (err: any) {
+      toast.error('AI test failed: ' + err.message);
+    } finally {
+      setCardAILoading(prev => ({ ...prev, [item.id]: false }));
+    }
+  };
+
+  const handleDialogAITest = async () => {
+    if (!form.title.trim()) {
+      toast.error('Add a title first');
+      return;
+    }
+    setDialogAILoading(true);
+    try {
+      const idea = `${form.title}${form.description ? ': ' + form.description : ''}`;
+      const others = existingTitles.filter(t => t !== form.title);
+      const result = await runAITest(idea, others);
+      setDialogAIResult(result);
+      // Auto-fill priority and category
+      if (result.category) setForm(f => ({ ...f })); // category not in form but we show it
+      toast.success('AI analysis complete');
+    } catch (err: any) {
+      toast.error('AI test failed: ' + err.message);
+    } finally {
+      setDialogAILoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -182,46 +288,81 @@ export default function AdminRoadmapPage() {
                     <p className="mt-1">No items yet</p>
                   </div>
                 ) : (
-                  phaseItems.map((item) => (
-                    <Card key={item.id} className="group cursor-pointer hover:shadow-md transition-shadow">
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-foreground leading-tight">{item.title}</p>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(item)}>
-                              <Pencil className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={() => deleteMutation.mutate(item.id)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
+                  phaseItems.map((item) => {
+                    const isAILoading = cardAILoading[item.id];
+                    const aiResult = cardAIResult[item.id];
+                    const isTested = cardAITested.has(item.id);
 
-                        {/* Quick move buttons */}
-                        <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {PHASES.filter(p => p !== item.phase).map(targetPhase => (
-                            <button
-                              key={targetPhase}
-                              onClick={() => moveItem.mutate({ id: item.id, phase: targetPhase })}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                            >
-                              → {PHASE_CONFIG[targetPhase].label}
-                            </button>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                    return (
+                      <Card key={item.id} className="group cursor-pointer hover:shadow-md transition-shadow">
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-medium text-sm text-foreground leading-tight">{item.title}</p>
+                                {isTested && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-primary/30 text-primary">
+                                    ⚡ AI tested
+                                  </Badge>
+                                )}
+                              </div>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-primary/70 hover:text-primary"
+                                onClick={() => handleCardAITest(item)}
+                                disabled={isAILoading}
+                                title="Run AI Test"
+                              >
+                                {isAILoading ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Zap className="w-3 h-3" />
+                                )}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(item)}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => deleteMutation.mutate(item.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* AI Result inline */}
+                          {aiResult && (
+                            <AIResultPanel
+                              result={aiResult}
+                              onClose={() => setCardAIResult(prev => { const n = { ...prev }; delete n[item.id]; return n; })}
+                            />
+                          )}
+
+                          {/* Quick move buttons */}
+                          <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {PHASES.filter(p => p !== item.phase).map(targetPhase => (
+                              <button
+                                key={targetPhase}
+                                onClick={() => moveItem.mutate({ id: item.id, phase: targetPhase })}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                              >
+                                → {PHASE_CONFIG[targetPhase].label}
+                              </button>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -231,7 +372,7 @@ export default function AdminRoadmapPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Roadmap Item' : 'New Roadmap Item'}</DialogTitle>
           </DialogHeader>
@@ -244,6 +385,29 @@ export default function AdminRoadmapPage() {
               <label className="text-sm font-medium">Description</label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
             </div>
+
+            {/* Test with AI button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDialogAITest}
+              disabled={dialogAILoading || !form.title.trim()}
+              className="gap-1.5 text-primary border-primary/30 hover:bg-primary/5"
+            >
+              {dialogAILoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Zap className="w-3.5 h-3.5" />
+              )}
+              {dialogAILoading ? 'Analyzing...' : 'Test with AI'}
+            </Button>
+
+            {/* Dialog AI Result */}
+            {dialogAIResult && (
+              <AIResultPanel result={dialogAIResult} onClose={() => setDialogAIResult(null)} />
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Phase</label>
