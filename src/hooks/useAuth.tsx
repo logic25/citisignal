@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,36 +18,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const initializedRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Listen for ONGOING auth changes (does not control loading)
+    // onAuthStateChange fires immediately with the current session (or null),
+    // including OAuth hash tokens on the URL — so getSession() is redundant.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (!isMounted || !initializedRef.current) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-    );
-
-    // INITIAL load — controls loading state
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-      } finally {
-        if (isMounted) {
-          initializedRef.current = true;
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    };
-
-    initializeAuth();
+    );
 
     return () => {
       isMounted = false;

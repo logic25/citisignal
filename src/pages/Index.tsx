@@ -34,6 +34,16 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // If OAuth callback hash is present, show spinner immediately —
+  // the auth system is processing the tokens and will redirect to /dashboard.
+  if (window.location.hash.includes('access_token')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   // While auth is loading, show spinner so logged-in users
   // never see the landing page flash before being redirected
   if (loading) {
