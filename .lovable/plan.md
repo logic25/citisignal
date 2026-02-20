@@ -1,66 +1,104 @@
 
-# Interactive Product Tour
+## Fix: Google OAuth redirect loops to marketing page
 
-## What This Adds
+### Root Cause
 
-A step-by-step in-app tour that guides a user through the real dashboard UI — highlighting actual elements with a spotlight overlay and tooltip, one step at a time. Think of it like a guided demo mode that shows your instructor exactly how CitiSignal works without them needing to figure it out themselves.
+In `src/hooks/useAuth.tsx`, the `onAuthStateChange` callback has this guard:
 
-## How It Works
-
-```text
-User clicks "Take a Tour" (Help Center or Dashboard)
-        |
-Spotlight appears on the Sidebar → "This is your nav"
-        |
-Highlights Properties → "Add and monitor buildings here"
-        |
-Highlights Violations tab → "Live violations from 9 agencies"
-        |
-Highlights Work Orders → "Dispatch vendors from here"
-        |
-Highlights Notifications bell → "Alerts go here"
-        |
-Highlights AI Chat button → "Ask anything about your portfolio"
-        |
-Tour ends → Confetti / "You're ready!" message
+```typescript
+if (!isMounted || !initializedRef.current) return;
 ```
 
-## What Gets Built
+This was meant to prevent double-setState during initial load, but it has a fatal flaw for OAuth callbacks:
 
-### 1. Tour Overlay System (`TourProvider` + `TourSpotlight`)
-A lightweight overlay system built from scratch (no external library needed) with:
-- A semi-transparent dark backdrop that cuts out around the highlighted element
-- A tooltip card positioned next to the highlighted element (auto-positions above/below/left/right to stay on screen)
-- "Previous", "Next", and "Skip Tour" buttons
-- Step counter (e.g. "3 of 8")
-- Smooth transition between steps
+1. Google redirects back to `citisignal.com/#access_token=...`
+2. Supabase's `createClient` immediately detects the hash and fires `SIGNED_IN` via `onAuthStateChange`
+3. But `initializedRef.current` is still `false` at this point (it's set to `true` only after `getSession()` resolves)
+4. So the callback is **silently ignored** — the session is set in Supabase internally but the React state is never updated
+5. `getSession()` then runs and DOES return the session, setting `user` correctly
+6. But by then, `Index.tsx` has already rendered the marketing page, and the `onAuthStateChange` listener in `Index.tsx` only fires for **future** state changes — not the one that already happened
 
-### 2. Tour Steps Definition
-Each step references a CSS selector or element ID to highlight:
+### The Fix (3 files)
 
-| Step | Highlight | Message |
-|---|---|---|
-| 1 | Sidebar nav | "Your command center. Everything lives here." |
-| 2 | Properties nav item | "Start by adding your NYC buildings." |
-| 3 | Violations nav item | "Live violations from DOB, FDNY, HPD, and 6 more agencies." |
-| 4 | Work Orders nav item | "Create work orders and dispatch vendors — all from here." |
-| 5 | Notifications bell | "This is where your alerts land." |
-| 6 | AI Chat button | "Ask CitiSignal anything about your portfolio in plain English." |
-| 7 | Help Center link | "Need help? Guides and step-by-step instructions live here." |
+**1. `src/hooks/useAuth.tsx` — Remove the `initializedRef` guard from `onAuthStateChange`**
 
-### 3. Tour Entry Points
-Two ways to launch the tour:
-- **"Take a Tour" button** added to the Dashboard Overview page header (visible to all users)
-- **"Restart Tour" button** in the Help Center page (so your instructor or any user can re-run it any time)
+The listener should ALWAYS respond to auth events. The double-setState concern is harmless (React batches them). Instead, let `onAuthStateChange` handle ALL session state, and use it to also set `loading = false`. Drop the separate `getSession()` / `initializedRef` pattern:
 
-### 4. Tour State
-- Tour progress is stored in `localStorage` so it does not re-trigger every login
-- The "Restart Tour" button in Help Center resets it
-- The existing Onboarding Wizard is separate and unchanged
+```typescript
+useEffect(() => {
+  let isMounted = true;
 
-## Technical Notes
-- No external tour library is needed — the overlay is built with a fixed-position `div` + `getBoundingClientRect()` to locate the highlighted element
-- Works on both desktop and mobile (tooltip repositions on small screens)
-- Does not interfere with the existing Onboarding Wizard — the wizard runs once on first login, the tour can be run any time after
-- Tour steps use `data-tour` attributes added to the relevant elements (e.g. `data-tour="properties-nav"`) so the selector logic stays clean
-- Auto-scrolls the sidebar into view if a step's target is off-screen
+  // onAuthStateChange fires for BOTH the initial session AND future changes.
+  // It fires with the current session immediately on subscribe (including OAuth hash tokens).
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false); // Always mark loaded once we get any event
+    }
+  );
+
+  return () => {
+    isMounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
+```
+
+This is the pattern Supabase officially recommends. `onAuthStateChange` fires synchronously with the current session state when you subscribe, including detecting OAuth hash tokens in the URL — so `getSession()` becomes redundant.
+
+**2. `src/pages/Index.tsx` — Add an early hash-detection guard**
+
+Even with the AuthProvider fix, there's a brief render gap. Add an early check: if the URL hash contains `access_token`, render a full-screen spinner immediately (before auth state even loads) so the marketing page never flashes:
+
+```typescript
+// Early exit if we're handling an OAuth callback
+if (window.location.hash.includes('access_token')) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+}
+```
+
+This is placed before the `if (loading)` check, so it runs on the very first render.
+
+**3. `src/pages/Auth.tsx` — Remove `skipBrowserRedirect: true`**
+
+The `skipBrowserRedirect: true` option was added to manually control the redirect, but this actually causes the problem — it prevents Supabase from handling the OAuth callback hash automatically. Remove it so Supabase handles the full redirect flow natively:
+
+```typescript
+// BEFORE (broken):
+const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: window.location.origin,
+    skipBrowserRedirect: true,  // ← this is the problem
+  },
+});
+if (data?.url) window.location.href = data.url;
+
+// AFTER (fixed):
+const { error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: window.location.origin,
+  },
+});
+```
+
+Without `skipBrowserRedirect`, Supabase handles the OAuth redirect natively and the session is properly detected on return.
+
+### Summary of Changes
+
+| File | Change |
+|---|---|
+| `src/hooks/useAuth.tsx` | Remove `initializedRef` guard; let `onAuthStateChange` handle all session state including `loading` |
+| `src/pages/Index.tsx` | Add early hash-detection to show spinner during OAuth callback |
+| `src/pages/Auth.tsx` | Remove `skipBrowserRedirect: true` from the custom domain Google sign-in path |
+
+### Why You Do NOT Need Your Own Google OAuth Credentials
+
+The branding ("Lovable" name) and the redirect bug are two separate issues. The redirect is purely a code bug in the auth initialization order. Lovable's managed Google OAuth works perfectly fine for handling the actual authentication — it's just the post-auth redirect handling in your React app that was broken.
