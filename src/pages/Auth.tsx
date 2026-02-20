@@ -120,10 +120,12 @@ const Auth = () => {
 
       if (isCustomDomain) {
         // On custom domain: bypass auth-bridge, get OAuth URL directly
+        // redirectTo uses origin (not /dashboard) to avoid Supabase allowlist issues;
+        // the onAuthStateChange listener in Index.tsx handles the /dashboard redirect.
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/dashboard`,
+            redirectTo: window.location.origin,
             skipBrowserRedirect: true,
           },
         });
@@ -134,7 +136,7 @@ const Auth = () => {
       } else {
         // On Lovable preview domains: use managed OAuth flow
         const { error } = await lovable.auth.signInWithOAuth('google', {
-          redirect_uri: `${window.location.origin}/dashboard`,
+          redirect_uri: window.location.origin,
         });
         if (error) {
           toast.error('Failed to sign in with Google. Please try again.');
