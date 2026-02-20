@@ -1713,7 +1713,7 @@ export type Database = {
           role: string
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -1726,7 +1726,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -1739,7 +1739,7 @@ export type Database = {
           role?: string
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2806,6 +2806,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_property_member: { Args: { _property_id: string }; Returns: boolean }
       nextval_po_number: { Args: never; Returns: number }
     }
     Enums: {

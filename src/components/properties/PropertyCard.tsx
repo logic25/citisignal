@@ -33,11 +33,12 @@ interface PropertyCardProps {
     has_swo?: boolean;
     has_vacate?: boolean;
   };
+  isShared?: boolean;
   onEdit?: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export const PropertyCard = ({ property, onEdit, onDelete }: PropertyCardProps) => {
+export const PropertyCard = ({ property, isShared, onEdit, onDelete }: PropertyCardProps) => {
   const navigate = useNavigate();
 
   const getCOStatusDisplay = (status: string | null | undefined) => {
@@ -115,9 +116,16 @@ export const PropertyCard = ({ property, onEdit, onDelete }: PropertyCardProps) 
         </div>
       </div>
 
-      <h3 className="font-display font-semibold text-foreground mb-1 line-clamp-2">
-        {property.address}
-      </h3>
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="font-display font-semibold text-foreground line-clamp-2 flex-1">
+          {property.address}
+        </h3>
+        {isShared && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary shrink-0">
+            Shared
+          </Badge>
+        )}
+      </div>
       
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className={`
