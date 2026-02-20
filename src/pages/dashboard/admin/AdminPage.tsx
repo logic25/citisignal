@@ -7,6 +7,7 @@ import AdminUsersPage from "./AdminUsersPage";
 import AdminRoadmapPage from "./AdminRoadmapPage";
 import AdminFeatureRequestsPage from "./AdminFeatureRequestsPage";
 import AdminBugReportsPage from "./AdminBugReportsPage";
+import InviteCodesTab from "@/components/admin/InviteCodesTab";
 
 const AdminPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,6 +30,7 @@ const AdminPage = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="api-logs">API Logs</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="invite-codes">Invite Codes</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           <TabsTrigger value="requests">Feature Requests</TabsTrigger>
           <TabsTrigger value="bugs">Bug Reports</TabsTrigger>
@@ -37,6 +39,7 @@ const AdminPage = () => {
         <TabsContent value="overview"><AdminOverview /></TabsContent>
         <TabsContent value="api-logs"><AdminAPILogsPage /></TabsContent>
         <TabsContent value="users"><AdminUsersPage /></TabsContent>
+        <TabsContent value="invite-codes"><InviteCodesTab /></TabsContent>
         <TabsContent value="roadmap"><AdminRoadmapPage /></TabsContent>
         <TabsContent value="requests"><AdminFeatureRequestsPage /></TabsContent>
         <TabsContent value="bugs"><AdminBugReportsPage /></TabsContent>
