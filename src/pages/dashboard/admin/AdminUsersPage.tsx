@@ -1,26 +1,31 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Eye } from 'lucide-react';
+import { Eye, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminUsersPage() {
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
-      // Fetch enriched user list from admin edge function (includes email + last_sign_in_at)
       const { data: fnData, error: fnError } = await supabase.functions.invoke('admin-get-users');
       if (fnError) throw fnError;
 
       const profiles = fnData?.users ?? [];
       const userIds = profiles.map((p: any) => p.user_id);
 
-      // Get property counts per user
       const { data: properties } = await supabase
         .from('properties')
         .select('user_id')
@@ -31,7 +36,6 @@ export default function AdminUsersPage() {
         propertyCounts[p.user_id] = (propertyCounts[p.user_id] || 0) + 1;
       }
 
-      // Get admin roles
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -44,6 +48,24 @@ export default function AdminUsersPage() {
       }));
     },
   });
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { targetUserId: deleteTarget.userId },
+      });
+      if (error) throw error;
+      toast.success(`${deleteTarget.name} has been deleted`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete user');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -79,7 +101,7 @@ export default function AdminUsersPage() {
                   <TableHead>
                     <Tooltip>
                       <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Properties</TooltipTrigger>
-                      <TooltipContent>Number of properties this user has added to their portfolio</TooltipContent>
+                      <TooltipContent>Number of properties this user has added</TooltipContent>
                     </Tooltip>
                   </TableHead>
                   <TableHead>
@@ -88,12 +110,7 @@ export default function AdminUsersPage() {
                       <TooltipContent>Admin users can access the Admin Panel; regular users cannot</TooltipContent>
                     </Tooltip>
                   </TableHead>
-                  <TableHead className="w-[80px]">
-                    <Tooltip>
-                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">Detail</TooltipTrigger>
-                      <TooltipContent>View this user's full profile and activity history</TooltipContent>
-                    </Tooltip>
-                  </TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,11 +124,11 @@ export default function AdminUsersPage() {
                   </TableRow>
                 ) : (
                   users.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.user_id}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{user.display_name || 'No name'}</p>
-                          <p className="text-xs text-muted-foreground">{user.email || user.user_id}</p>
+                          <p className="text-xs text-muted-foreground">{user.email || <span className="italic">No email</span>}</p>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -119,7 +136,7 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {user.last_sign_in_at
-                          ? format(new Date(user.last_sign_in_at), 'MMM d, yyyy')
+                          ? format(new Date(user.last_sign_in_at), 'MMM d, yyyy h:mm a')
                           : <span className="text-muted-foreground/50">Never</span>}
                       </TableCell>
                       <TableCell>
@@ -133,11 +150,23 @@ export default function AdminUsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link to={`/dashboard/admin/users/${user.user_id}`}>
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link to={`/dashboard/admin/users/${user.user_id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                          </Button>
+                          {!user.isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteTarget({ userId: user.user_id, name: user.display_name || user.email || 'this user' })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -146,6 +175,27 @@ export default function AdminUsersPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete user?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <strong>{deleteTarget?.name}</strong> and all their data including properties, violations, documents, and work orders. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {deleting ? 'Deleting...' : 'Delete User'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );
