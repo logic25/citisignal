@@ -66,10 +66,18 @@ const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
     const isActive = location.pathname === item.href || 
       (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
     
+    const tourAttr = 
+      item.href === '/dashboard/properties' ? 'properties-nav' :
+      item.href === '/dashboard/violations' ? 'violations-nav' :
+      item.href === '/dashboard/work-orders' ? 'work-orders-nav' :
+      item.href === '/dashboard/help' ? 'help-center-nav' :
+      undefined;
+
     const linkContent = (
       <Link
         to={item.href}
         onClick={onNavigate}
+        {...(tourAttr ? { 'data-tour': tourAttr } : {})}
         className={cn(
           "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
           isActive 
@@ -101,6 +109,7 @@ const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
 
   return (
     <aside 
+      data-tour="sidebar-nav"
       className={cn(
         "min-h-screen bg-card border-r border-border flex flex-col transition-all duration-300",
         collapsed ? "w-16" : "w-64"

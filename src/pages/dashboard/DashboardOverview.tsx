@@ -10,6 +10,7 @@ import { ViolationTrendChart } from '@/components/dashboard/ViolationTrendChart'
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { isActiveViolation, getAgencyColor } from '@/lib/violation-utils';
+import { useTour } from '@/components/tour/TourContext';
 import { 
   Building2, 
   AlertTriangle, 
@@ -23,7 +24,8 @@ import {
   DollarSign,
   Calendar,
   Gavel,
-  TrendingUp
+  TrendingUp,
+  MapPin
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -60,6 +62,7 @@ interface RecentViolation {
 
 const DashboardOverview = () => {
   const { user } = useAuth();
+  const { startTour } = useTour();
   const { scores: portfolioScores, averageScore, averageGrade } = usePortfolioScores();
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
@@ -171,12 +174,18 @@ const DashboardOverview = () => {
             Portfolio overview — {stats.totalProperties} properties monitored
           </p>
         </div>
-        <Link to="/dashboard/properties">
-          <Button variant="hero">
-            <Plus className="w-4 h-4" />
-            Add Property
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={startTour} className="gap-2">
+            <MapPin className="w-4 h-4" />
+            Take a Tour
           </Button>
-        </Link>
+          <Link to="/dashboard/properties">
+            <Button variant="hero">
+              <Plus className="w-4 h-4" />
+              Add Property
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Top Summary Bar - spec §10.1 */}
