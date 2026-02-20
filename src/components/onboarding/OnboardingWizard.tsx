@@ -165,14 +165,14 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
       <div className="absolute top-[-200px] right-[-100px] w-[700px] h-[700px] rounded-full opacity-40 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 90% 55% / 0.25) 0%, transparent 70%)' }} />
       <div className="absolute bottom-[-150px] left-[-100px] w-[600px] h-[600px] rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(222 60% 50% / 0.2) 0%, transparent 70%)' }} />
       <div className="absolute top-[40%] left-[50%] w-[400px] h-[400px] rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 80% 60% / 0.15) 0%, transparent 70%)' }} />
-      {/* Skip setup button */}
+      {/* Skip setup button — clearly visible in top right */}
       <div className="absolute top-4 right-4 z-10">
         <button
           type="button"
           onClick={handleFinish}
-          className="text-white/40 hover:text-white/70 text-sm transition-colors flex items-center gap-1"
+          className="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm px-4 py-2 rounded-lg transition-all flex items-center gap-2"
         >
-          Skip setup → Dashboard
+          Skip → Go to Dashboard
         </button>
       </div>
 
