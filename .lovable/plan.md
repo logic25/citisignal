@@ -1,134 +1,123 @@
 
-# Team Workspace: Shared Access for Fuertes Management
+# Organization Auto-Discovery at Signup: Analysis & Plan
 
-## The Problem
-Right now CitiSignal is strictly one account = one data silo. Each of TJ, Erika, and Mike would sign up and see a completely empty dashboard. They'd each have to manually add the same Fuertes Management buildings separately — and none of them would see each other's data.
+## Your Idea, Explained Technically
 
-The `property_members` table already exists in the database, but it only gives someone read-only access to a single property. It does not allow shared property creation, shared violations, or a unified portfolio view across team members.
+You're describing this flow:
 
----
+1. TJ signs up → enters "Fuertes Management" as company name → an **organization** is created
+2. Erika goes to sign up → types her email → the system detects "Fuertes Management" exists → she sees it and clicks "Join Fuertes Management"
+3. Once she joins, she sees all of TJ's properties automatically
 
-## What Needs to Be Built
-
-The cleanest approach for the testers' scenario: **one person (say, TJ as the account owner) adds all the Fuertes Management buildings**, then invites Erika and Mike as members at the property level. Erika and Mike log in, go to their dashboard, and see those shared properties listed — along with all violations, work orders, compliance, etc.
-
-This does NOT require a complex multi-tenant org system. The `property_members` table is already the right foundation. What's missing is:
-
-1. The RLS policies on all related tables need to allow access when a user is a member (not just the owner)
-2. The Properties page needs to fetch properties where the user is either owner OR an accepted member
-3. The onboarding invites need to be matched to a real account when the invited user signs up
+This is exactly how tools like Slack, Notion, and Linear work. It's a great UX pattern. But there are real security questions to work through.
 
 ---
 
-## Technical Implementation Plan
+## The Security Flaws in the Naive Version
 
-### Step 1 — Database: Extend RLS Policies
+Here's what goes wrong if it's implemented carelessly:
 
-Currently every table (violations, work orders, applications, etc.) checks `properties.user_id = auth.uid()`. We need to add a secondary check: OR the user is an accepted member of that property.
+**Flaw 1 — Anyone can claim to be from Fuertes Management**
 
-Create a helper database function to avoid repeating the join everywhere:
+If the discovery is just "search by company name," then a random person types "Fuertes Management" during signup and gets access to all their properties and violations. Company names are guessable. This is a serious data breach risk.
 
-```sql
-CREATE OR REPLACE FUNCTION public.is_property_member(_property_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM property_members
-    WHERE property_id = _property_id
-      AND user_id = auth.uid()
-      AND status = 'accepted'
-  )
-$$;
-```
+**Flaw 2 — Email domain matching solves it, but only if they have a real domain**
 
-Then update the `SELECT` RLS policy on the `properties` table to:
-```sql
-auth.uid() = user_id OR is_property_member(id)
-```
+The safest version of this feature works like: "If you sign up with `@fuertesmgmt.com`, you automatically see the Fuertes Management org." But this only works when the company has a custom email domain — not personal emails like `@gmail.com`, `@yahoo.com`, etc. If TJ is `tj@gmail.com`, there's no reliable domain to match on.
 
-And update SELECT policies on:
-- `violations`
-- `applications`
-- `work_orders`
-- `compliance_requirements`
-- `compliance_scores`
-- `property_documents`
-- `property_activity_log`
-- `notifications`
-- `change_log`
+**Flaw 3 — Self-approval is dangerous**
 
-Members would get **read access** (SELECT) by default. Write access (INSERT/UPDATE/DELETE) stays owner-only for safety, or can be extended per role if needed.
-
-### Step 2 — Member Invite → Account Link
-
-Right now when TJ invites "mike@fuertes.com" to a property, a row is created in `property_members` with `status: 'pending'` and `user_id` set to TJ's ID (wrong — it should be empty until Mike accepts).
-
-Fix: When inserting a pending invite, set `user_id` to the owner's ID only as a temporary placeholder, OR leave it null until Mike accepts.
-
-When Mike signs up and logs in for the first time, check if any pending invites exist for his email and auto-link them:
-- Query `property_members` for rows where `email = user.email AND status = 'pending'`
-- Update those rows: set `user_id = user.id, status = 'accepted', accepted_at = now()`
-
-This can happen in the auth flow (after sign-in) or in the onboarding wizard.
-
-### Step 3 — Properties Page: Show Shared Properties
-
-Currently `PropertiesPage.tsx` only fetches `properties` where the logged-in user is the owner (`user_id = auth.uid()`). After the RLS change, it will automatically return shared properties too — but we need to visually distinguish them.
-
-Add a "Shared" badge on property cards/rows where `user_id !== currentUser.id` so team members know which properties they own vs. were added to.
-
-### Step 4 — Invite Flow Polish (Optional but Recommended)
-
-Currently the invite in `PropertySettingsTab.tsx` does:
-```js
-supabase.from('property_members').insert({
-  user_id: user.id,  // ← This is wrong — sets it to the inviter's ID
-  email: inviteEmail,
-  status: 'pending'
-})
-```
-
-Fix: Change `user_id` to be nullable (or a placeholder) until the invitee accepts. Then on first login, auto-link pending invites to the new user's `auth.uid()`.
+If a user can discover AND join an org without any approval from the existing member, that's an open door. Even with email domain matching, the org owner should confirm new members.
 
 ---
 
-## What TJ, Erika & Mike's Experience Would Look Like
+## The Right Architecture for CitiSignal
 
-```text
-TJ signs up with CITISIGNALFUERTES
-  └─ Adds all Fuertes Management buildings
-  └─ Goes to each property → Settings → Team → Invites erika@... and mike@...
+Given that your beta testers likely use personal or mixed email addresses, the cleanest and most secure approach is a **two-model hybrid**:
 
-Erika signs up with CITISIGNALFUERTES
-  └─ Logs in → System detects pending invites for her email
-  └─ Invites auto-accepted → Dashboard shows all shared buildings
-  └─ Can see all violations, work orders, compliance — read access
+### Model A — Invite-Code-Linked Organization (Recommended for Beta)
 
-Mike does the same
-  └─ All three now see identical dashboards for Fuertes Management
+When TJ redeems `CITISIGNALFUERTES`, the system:
+1. Creates TJ's account
+2. Creates an **organization** called whatever name is attached to that invite code (you set this in the admin panel when creating the code — e.g. "Fuertes Management")
+3. Sets TJ as the org **owner**
+
+When Erika redeems the **same** invite code `CITISIGNALFUERTES`:
+1. Creates Erika's account
+2. Sees the org already exists for that code
+3. Adds Erika as a **member** of "Fuertes Management" automatically
+4. She logs in and sees TJ's properties
+
+**Security:** The invite code is the gate. Only people with the correct code join the org. No guessing, no domain matching required. You already control who gets which code.
+
+### Model B — Email Domain Auto-Join (Future, for real businesses)
+
+When a company has `@fuertesmgmt.com`, the org owner can set "allow anyone with `@fuertesmgmt.com` to join." New signups with that domain see the org and request access. Owner approves. This is the Slack/Notion model.
+
+---
+
+## What Needs to Be Built for Model A
+
+### Database Changes
+
+Add an `organizations` table:
 ```
+id, name, invite_code_id (links to the code that created it), created_by, created_at
+```
+
+Add `organization_id` to the `profiles` table so each user belongs to one org.
+
+Update the `properties` table (or the RLS) so that members of the same organization can see each other's properties — without TJ having to manually invite Erika to every single building.
+
+### Edge Function: `validate-invite-code`
+
+Extend the existing function to:
+1. After creating the user, check if an organization already exists for that invite code
+2. If yes → add the new user to that org as a member
+3. If no → create the org (using the code's `notes` field or a new `org_name` field on the invite code) and set the user as owner
+
+### Onboarding Wizard Change
+
+For users joining an existing org (not the first user of that code), skip the "Add Your First Property" step — they'll already see TJ's properties when they land on the dashboard.
+
+Show a welcome screen that says: "You've joined **Fuertes Management**. You can now see all shared properties."
+
+### Properties Page
+
+Currently shows properties where `user_id = me`. Change to: properties where `user_id = me` OR `user_id is in same organization as me`. No manual per-property invites needed.
 
 ---
 
 ## Scope of Changes
 
-| Area | Change |
+| Area | What Changes |
 |---|---|
-| Database migration | New `is_property_member()` function + updated RLS on 8-10 tables |
-| `property_members` table | Fix `user_id` nullable + pending invite insert logic |
-| Auth flow / Onboarding | Auto-link pending invites on first login |
-| `PropertiesPage.tsx` | Add "Shared" badge for non-owned properties |
-| `PropertySettingsTab.tsx` | Fix invite insert (user_id placeholder) |
+| Database | New `organizations` table; `organization_id` added to `profiles`; updated RLS on `properties` |
+| `invite_codes` table | Add optional `org_name` column (what to name the org when first redeemed) |
+| `validate-invite-code` edge function | Auto-create or auto-join org based on the invite code |
+| `OnboardingWizard.tsx` | Detect if user is joining existing org; show "joined org" message instead of "add property" |
+| `PropertiesPage.tsx` | Fetch properties across org members, not just current user |
+| Admin Panel | Add `org_name` field when creating invite codes |
 
 ---
 
-## Important Note for the Beta Test
+## How This Solves the Fuertes Scenario
 
-For TJ, Erika, and Mike specifically — the fastest path for this weekend:
+- You create one invite code `CITISIGNALFUERTES` with `org_name: "Fuertes Management"` and `max_uses: 3`
+- TJ signs up first → "Fuertes Management" org is created, TJ is owner
+- TJ adds all the buildings during onboarding
+- Erika and Mike sign up with the same code → automatically join "Fuertes Management" → instantly see TJ's buildings, violations, and compliance data
+- No manual property-by-property invites needed
 
-**Have ONE of them (TJ) add all the Fuertes properties, then invite the other two from each property's Settings tab.** Once this feature is built, Erika and Mike's dashboards will automatically populate with the shared buildings when they log in and accept their invites.
+---
 
-This is a meaningful feature — probably a 2-3 hour build — but it's the right architecture and will make CitiSignal genuinely useful for any company with multiple people managing the same portfolio.
+## Security Summary
+
+| Risk | How It's Mitigated |
+|---|---|
+| Random person joins org | Only possible with the invite code — which you control |
+| Invite code leaked | Codes have a `max_uses` limit — once TJ, Erika, and Mike use it, it's closed |
+| One org member sees another's personal data | RLS policies only expose properties, violations, etc. — not passwords, billing, or personal account settings |
+| Rogue member added to wrong org | The code is the single gate; org membership is set server-side in the edge function |
+
+This is the right long-term architecture and it maps cleanly onto what you already have. It's a meaningful build (~3-4 hours) but it eliminates the manual per-property invite friction entirely.
