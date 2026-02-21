@@ -19,6 +19,7 @@ import {
   ExternalLink,
   SkipForward,
   Radio,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,18 +27,15 @@ interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-const STEPS = [
-  { id: 'welcome', label: 'Welcome', icon: Radio },
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'property', label: 'Property', icon: Building2 },
-  { id: 'telegram', label: 'Telegram', icon: MessageCircle },
-  { id: 'done', label: 'All Set', icon: Rocket },
-];
-
 const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // Org context
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [orgRole, setOrgRole] = useState<string | null>(null);
+  const [orgChecked, setOrgChecked] = useState(false);
 
   // Profile state
   const [companyName, setCompanyName] = useState('');
@@ -59,7 +57,33 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
 
   const botUsername = 'CitiSignalBot';
 
-  // Check Telegram link on mount AND when navigating to step 3
+  // Check if user belongs to an org (joining member vs owner)
+  useEffect(() => {
+    const checkOrg = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('organization_id, org_role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data?.organization_id) {
+        // Fetch org name
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', data.organization_id)
+          .maybeSingle();
+
+        setOrgName((org as any)?.name || null);
+        setOrgRole((data as any)?.org_role || 'member');
+      }
+      setOrgChecked(true);
+    };
+    checkOrg();
+  }, [user]);
+
+  // Check Telegram link
   useEffect(() => {
     checkTelegramLink();
   }, [user]);
@@ -95,7 +119,12 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
         phone: phone || null,
       }, { onConflict: 'user_id' });
       if (error) throw error;
-      setStep(2);
+      // Skip property step if joining an existing org (not owner)
+      if (isJoiningMember) {
+        setStep(3);
+      } else {
+        setStep(2);
+      }
     } catch (e) {
       console.error(e);
       toast.error('Failed to save profile');
@@ -157,7 +186,32 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
     }
   };
 
-  const currentStep = STEPS[step];
+  // Determine if this user is joining an existing org (not the owner/creator)
+  const isJoiningMember = orgChecked && orgName && orgRole === 'member';
+
+  // Build dynamic steps
+  const STEPS = isJoiningMember
+    ? [
+        { id: 'welcome', label: 'Welcome', icon: Radio },
+        { id: 'profile', label: 'Profile', icon: User },
+        { id: 'telegram', label: 'Telegram', icon: MessageCircle },
+        { id: 'done', label: 'All Set', icon: Rocket },
+      ]
+    : [
+        { id: 'welcome', label: 'Welcome', icon: Radio },
+        { id: 'profile', label: 'Profile', icon: User },
+        { id: 'property', label: 'Property', icon: Building2 },
+        { id: 'telegram', label: 'Telegram', icon: MessageCircle },
+        { id: 'done', label: 'All Set', icon: Rocket },
+      ];
+
+  const currentStepId = STEPS[step]?.id;
+
+  if (!orgChecked) return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'linear-gradient(145deg, hsl(222 47% 14%) 0%, hsl(220 35% 22%) 40%, hsl(12 40% 25%) 80%, hsl(222 47% 18%) 100%)' }}>
+      <Loader2 className="w-8 h-8 animate-spin text-white" />
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: 'linear-gradient(145deg, hsl(222 47% 14%) 0%, hsl(220 35% 22%) 40%, hsl(12 40% 25%) 80%, hsl(222 47% 18%) 100%)' }}>
@@ -165,7 +219,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
       <div className="absolute top-[-200px] right-[-100px] w-[700px] h-[700px] rounded-full opacity-40 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 90% 55% / 0.25) 0%, transparent 70%)' }} />
       <div className="absolute bottom-[-150px] left-[-100px] w-[600px] h-[600px] rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(222 60% 50% / 0.2) 0%, transparent 70%)' }} />
       <div className="absolute top-[40%] left-[50%] w-[400px] h-[400px] rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, hsl(12 80% 60% / 0.15) 0%, transparent 70%)' }} />
-      {/* Skip setup button — clearly visible in top right */}
+      {/* Skip setup button */}
       <div className="absolute top-4 right-4 z-10">
         <button
           type="button"
@@ -214,7 +268,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
       <div className="flex-1 flex items-center justify-center px-4 overflow-auto">
         <div className="w-full max-w-lg animate-fade-in">
           {/* Welcome */}
-          {step === 0 && (
+          {currentStepId === 'welcome' && (
             <div className="text-center space-y-6">
               <div className="w-20 h-20 mx-auto rounded-2xl gradient-hero flex items-center justify-center shadow-xl">
                 <Radio className="w-10 h-10 text-primary-foreground" />
@@ -223,9 +277,24 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                 <h1 className="font-display text-4xl font-bold text-white">
                   Welcome to CitiSignal
                 </h1>
-                <p className="text-lg text-white/70 max-w-md mx-auto">
-                  Your building intelligence platform. Monitor violations, track compliance, and manage your NYC properties — all in one place.
-                </p>
+                {isJoiningMember ? (
+                  <div className="space-y-3">
+                    <p className="text-lg text-white/70 max-w-md mx-auto">
+                      You've been added to
+                    </p>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-xl">
+                      <Users className="w-5 h-5 text-accent" />
+                      <span className="font-display font-bold text-xl text-white">{orgName}</span>
+                    </div>
+                    <p className="text-white/60 max-w-md mx-auto">
+                      All shared properties and compliance data are ready for you.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-lg text-white/70 max-w-md mx-auto">
+                    Your building intelligence platform. Monitor violations, track compliance, and manage your NYC properties — all in one place.
+                  </p>
+                )}
               </div>
               <Button size="xl" variant="hero" onClick={() => setStep(1)} className="mt-4">
                 Get Started <ArrowRight className="w-5 h-5 ml-1" />
@@ -234,7 +303,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           )}
 
           {/* Profile */}
-          {step === 1 && (
+          {currentStepId === 'profile' && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h2 className="font-display text-2xl font-bold text-white">Set Up Your Profile</h2>
@@ -259,7 +328,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep(2)}>
+                  <Button variant="outline" onClick={() => setStep(isJoiningMember ? 2 : 2)}>
                     <SkipForward className="w-4 h-4 mr-1" /> Skip
                   </Button>
                   <Button onClick={handleSaveProfile} disabled={saving}>
@@ -270,8 +339,8 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
             </div>
           )}
 
-          {/* Add Property */}
-          {step === 2 && (
+          {/* Add Property (skipped for joining members) */}
+          {currentStepId === 'property' && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h2 className="font-display text-2xl font-bold text-white">Add Your First Property</h2>
@@ -316,12 +385,12 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                 </Button>
                 <div className="flex gap-2">
                   {!propertyAdded && (
-                    <Button variant="outline" onClick={() => setStep(3)}>
+                    <Button variant="outline" onClick={() => setStep(step + 1)}>
                       <SkipForward className="w-4 h-4 mr-1" /> Skip
                     </Button>
                   )}
                   {propertyAdded && (
-                    <Button onClick={() => setStep(3)}>
+                    <Button onClick={() => setStep(step + 1)}>
                       Continue <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
                   )}
@@ -331,7 +400,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           )}
 
           {/* Telegram */}
-          {step === 3 && (
+          {currentStepId === 'telegram' && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h2 className="font-display text-2xl font-bold text-white">Connect Telegram</h2>
@@ -381,11 +450,11 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => setStep(2)}>
+                <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => setStep(step - 1)}>
                   <ArrowLeft className="w-4 h-4 mr-1" /> Back
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant={telegramLinked ? 'default' : 'outline'} onClick={() => setStep(4)}>
+                  <Button variant={telegramLinked ? 'default' : 'outline'} onClick={() => setStep(step + 1)}>
                     {telegramLinked ? <>Continue <ArrowRight className="w-4 h-4 ml-1" /></> : <><SkipForward className="w-4 h-4 mr-1" /> Skip</>}
                   </Button>
                 </div>
@@ -394,7 +463,7 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           )}
 
           {/* All Set */}
-          {step === 4 && (
+          {currentStepId === 'done' && (
             <div className="text-center space-y-6">
               <div className="w-20 h-20 mx-auto rounded-2xl bg-emerald-400/20 flex items-center justify-center">
                 <Rocket className="w-10 h-10 text-emerald-400" />
@@ -402,7 +471,9 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
               <div className="space-y-3">
                 <h1 className="font-display text-3xl font-bold text-white">You're All Set!</h1>
                 <p className="text-lg text-white/70 max-w-md mx-auto">
-                  Your CitiSignal account is ready. Violations sync automatically — we'll notify you when anything needs attention.
+                  {isJoiningMember
+                    ? `You've joined ${orgName}. All shared properties and compliance data are now on your dashboard.`
+                    : "Your CitiSignal account is ready. Violations sync automatically — we'll notify you when anything needs attention."}
                 </p>
               </div>
               <div className="flex flex-col items-center gap-3">
