@@ -881,6 +881,7 @@ export type Database = {
           is_active: boolean
           max_uses: number
           notes: string | null
+          org_name: string | null
           updated_at: string
           use_count: number
         }
@@ -893,6 +894,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number
           notes?: string | null
+          org_name?: string | null
           updated_at?: string
           use_count?: number
         }
@@ -905,6 +907,7 @@ export type Database = {
           is_active?: boolean
           max_uses?: number
           notes?: string | null
+          org_name?: string | null
           updated_at?: string
           use_count?: number
         }
@@ -1118,6 +1121,41 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          invite_code_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          invite_code_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          invite_code_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_invite_code_id_fkey"
+            columns: ["invite_code_id"]
+            isOneToOne: false
+            referencedRelation: "invite_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolios: {
         Row: {
           created_at: string
@@ -1153,6 +1191,8 @@ export type Database = {
           has_completed_onboarding: boolean
           id: string
           license_id: string | null
+          org_role: string | null
+          organization_id: string | null
           phone: string | null
           po_terms_and_conditions: string | null
           updated_at: string
@@ -1165,6 +1205,8 @@ export type Database = {
           has_completed_onboarding?: boolean
           id?: string
           license_id?: string | null
+          org_role?: string | null
+          organization_id?: string | null
           phone?: string | null
           po_terms_and_conditions?: string | null
           updated_at?: string
@@ -1177,12 +1219,22 @@ export type Database = {
           has_completed_onboarding?: boolean
           id?: string
           license_id?: string | null
+          org_role?: string | null
+          organization_id?: string | null
           phone?: string | null
           po_terms_and_conditions?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       properties: {
         Row: {
@@ -2806,6 +2858,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_org_member: { Args: { _user_id: string }; Returns: boolean }
       is_property_member: { Args: { _property_id: string }; Returns: boolean }
       nextval_po_number: { Args: never; Returns: number }
     }

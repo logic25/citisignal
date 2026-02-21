@@ -20,7 +20,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use service role to bypass RLS for invite code validation
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -30,7 +29,7 @@ Deno.serve(async (req) => {
     const normalizedCode = inviteCode.trim().toUpperCase();
     const { data: code, error: codeError } = await supabaseAdmin
       .from('invite_codes')
-      .select('id, code, max_uses, use_count, expires_at, is_active')
+      .select('id, code, max_uses, use_count, expires_at, is_active, org_name')
       .eq('code', normalizedCode)
       .single();
 
@@ -66,7 +65,7 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // still requires email confirmation
+      email_confirm: false,
     });
 
     if (authError) {
@@ -82,14 +81,70 @@ Deno.serve(async (req) => {
       );
     }
 
+    const userId = authData.user!.id;
+
     // Increment the use count
     await supabaseAdmin
       .from('invite_codes')
       .update({ use_count: code.use_count + 1 })
       .eq('id', code.id);
 
+    // === Organization logic ===
+    let organizationId: string | null = null;
+    let organizationName: string | null = null;
+    let orgRole = 'member';
+
+    // Check if an organization already exists for this invite code
+    const { data: existingOrg } = await supabaseAdmin
+      .from('organizations')
+      .select('id, name')
+      .eq('invite_code_id', code.id)
+      .maybeSingle();
+
+    if (existingOrg) {
+      // Join existing org as member
+      organizationId = existingOrg.id;
+      organizationName = existingOrg.name;
+      orgRole = 'member';
+    } else if (code.org_name) {
+      // First user with this code — create the org
+      const { data: newOrg, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .insert({
+          name: code.org_name,
+          invite_code_id: code.id,
+          created_by: userId,
+        })
+        .select('id, name')
+        .single();
+
+      if (!orgError && newOrg) {
+        organizationId = newOrg.id;
+        organizationName = newOrg.name;
+        orgRole = 'owner';
+      }
+    }
+
+    // Update the user's profile with org info (the trigger creates the profile row)
+    if (organizationId) {
+      // Wait briefly for the trigger to create the profile
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          organization_id: organizationId,
+          org_role: orgRole,
+        })
+        .eq('user_id', userId);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: 'Account created! Check your email to confirm your account.' }),
+      JSON.stringify({
+        success: true,
+        message: 'Account created! Check your email to confirm your account.',
+        organization: organizationName ? { name: organizationName, role: orgRole } : null,
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

@@ -61,6 +61,7 @@ const InviteCodesTab = () => {
   const [maxUses, setMaxUses] = useState('1');
   const [expiresAt, setExpiresAt] = useState('');
   const [notes, setNotes] = useState('');
+  const [orgName, setOrgName] = useState('');
 
   const { data: codes = [], isLoading } = useQuery({
     queryKey: ['invite-codes'],
@@ -84,7 +85,8 @@ const InviteCodesTab = () => {
         expires_at: expiresAt || null,
         notes: notes || null,
         created_by: user!.id,
-      });
+        org_name: orgName.trim() || null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -95,6 +97,7 @@ const InviteCodesTab = () => {
       setMaxUses('1');
       setExpiresAt('');
       setNotes('');
+      setOrgName('');
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -433,6 +436,19 @@ const InviteCodesTab = () => {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="orgName">Organization Name (optional)</Label>
+                  <Input
+                    id="orgName"
+                    placeholder="e.g. Fuertes Management"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If set, the first user to redeem this code creates the org. Subsequent users auto-join it.
+                  </p>
                 </div>
 
                 <Button
