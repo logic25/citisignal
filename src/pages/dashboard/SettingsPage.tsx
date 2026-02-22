@@ -9,9 +9,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, User, Bell, Shield, CreditCard, MessageCircle, FileText, Info } from 'lucide-react';
+import { Loader2, User, Bell, Shield, CreditCard, MessageCircle, MessageSquare, FileText, Info } from 'lucide-react';
 import EmailPreferencesTab from '@/components/settings/EmailPreferencesTab';
 import TelegramTab from '@/components/settings/TelegramTab';
+import WhatsAppTab from '@/components/settings/WhatsAppTab';
 
 const SettingsPage = () => {
   const { user } = useAuth();
@@ -144,6 +145,10 @@ const SettingsPage = () => {
                 </TooltipTrigger>
                 <TooltipContent>Connect your Telegram account to receive real-time violation alerts via bot message.</TooltipContent>
               </Tooltip>
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              WhatsApp
             </TabsTrigger>
             <TabsTrigger value="billing" className="gap-2">
               <CreditCard className="w-4 h-4" />
@@ -281,6 +286,10 @@ const SettingsPage = () => {
 
           <TabsContent value="telegram">
             <TelegramTab />
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <WhatsAppTab />
           </TabsContent>
 
           <TabsContent value="billing">
