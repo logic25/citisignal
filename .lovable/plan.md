@@ -1,123 +1,108 @@
 
-# Organization Auto-Discovery at Signup: Analysis & Plan
+# Roadmap Overhaul: Competitive Positioning vs SiteCompli and Jack Jaffa
 
-## Your Idea, Explained Technically
+## Why This Matters
 
-You're describing this flow:
+Right now the public roadmap on the landing page shows 8 "Live" items, 4 "In Progress," and 4 "Future." But it doesn't tell the story of **why someone should switch**. The roadmap needs to double as a competitive positioning tool — showing what CitiSignal already does that SiteCompli charges $300+/building/month for, and what's coming that neither competitor offers.
 
-1. TJ signs up → enters "Fuertes Management" as company name → an **organization** is created
-2. Erika goes to sign up → types her email → the system detects "Fuertes Management" exists → she sees it and clicks "Join Fuertes Management"
-3. Once she joins, she sees all of TJ's properties automatically
+## Current State
 
-This is exactly how tools like Slack, Notion, and Linear work. It's a great UX pattern. But there are real security questions to work through.
+**Email Notifications**: Fully built. The `send-email-digest` edge function sends property-grouped weekly/daily digests via Resend with severity-classified violation cards, hearing alerts, expiring docs, and application updates. Users control frequency and content in Settings > Email Preferences. Individual sequential sending (no CC/BCC). Working end-to-end.
 
----
+**WhatsApp**: Not built. The Twilio WhatsApp Sandbox has not been activated. The only code references are placeholder "coming soon" labels in the landing page (Hero, Features, HowItWorks, VendorDispatch). No webhook, no edge function, no bot logic exists. To build it, you need: (1) Twilio WhatsApp Sandbox activated, (2) a `whatsapp-webhook` edge function mirroring `telegram-webhook`, (3) phone number linking in Settings.
 
-## The Security Flaws in the Naive Version
+**Current Roadmap Items in DB** (what's shown on the public site):
 
-Here's what goes wrong if it's implemented carelessly:
-
-**Flaw 1 — Anyone can claim to be from Fuertes Management**
-
-If the discovery is just "search by company name," then a random person types "Fuertes Management" during signup and gets access to all their properties and violations. Company names are guessable. This is a serious data breach risk.
-
-**Flaw 2 — Email domain matching solves it, but only if they have a real domain**
-
-The safest version of this feature works like: "If you sign up with `@fuertesmgmt.com`, you automatically see the Fuertes Management org." But this only works when the company has a custom email domain — not personal emails like `@gmail.com`, `@yahoo.com`, etc. If TJ is `tj@gmail.com`, there's no reliable domain to match on.
-
-**Flaw 3 — Self-approval is dangerous**
-
-If a user can discover AND join an org without any approval from the existing member, that's an open door. Even with email domain matching, the org owner should confirm new members.
-
----
-
-## The Right Architecture for CitiSignal
-
-Given that your beta testers likely use personal or mixed email addresses, the cleanest and most secure approach is a **two-model hybrid**:
-
-### Model A — Invite-Code-Linked Organization (Recommended for Beta)
-
-When TJ redeems `CITISIGNALFUERTES`, the system:
-1. Creates TJ's account
-2. Creates an **organization** called whatever name is attached to that invite code (you set this in the admin panel when creating the code — e.g. "Fuertes Management")
-3. Sets TJ as the org **owner**
-
-When Erika redeems the **same** invite code `CITISIGNALFUERTES`:
-1. Creates Erika's account
-2. Sees the org already exists for that code
-3. Adds Erika as a **member** of "Fuertes Management" automatically
-4. She logs in and sees TJ's properties
-
-**Security:** The invite code is the gate. Only people with the correct code join the org. No guessing, no domain matching required. You already control who gets which code.
-
-### Model B — Email Domain Auto-Join (Future, for real businesses)
-
-When a company has `@fuertesmgmt.com`, the org owner can set "allow anyone with `@fuertesmgmt.com` to join." New signups with that domain see the org and request access. Owner approves. This is the Slack/Notion model.
-
----
-
-## What Needs to Be Built for Model A
-
-### Database Changes
-
-Add an `organizations` table:
-```
-id, name, invite_code_id (links to the code that created it), created_by, created_at
-```
-
-Add `organization_id` to the `profiles` table so each user belongs to one org.
-
-Update the `properties` table (or the RLS) so that members of the same organization can see each other's properties — without TJ having to manually invite Erika to every single building.
-
-### Edge Function: `validate-invite-code`
-
-Extend the existing function to:
-1. After creating the user, check if an organization already exists for that invite code
-2. If yes → add the new user to that org as a member
-3. If no → create the org (using the code's `notes` field or a new `org_name` field on the invite code) and set the user as owner
-
-### Onboarding Wizard Change
-
-For users joining an existing org (not the first user of that code), skip the "Add Your First Property" step — they'll already see TJ's properties when they land on the dashboard.
-
-Show a welcome screen that says: "You've joined **Fuertes Management**. You can now see all shared properties."
-
-### Properties Page
-
-Currently shows properties where `user_id = me`. Change to: properties where `user_id = me` OR `user_id is in same organization as me`. No manual per-property invites needed.
-
----
-
-## Scope of Changes
-
-| Area | What Changes |
+| Phase | Items |
 |---|---|
-| Database | New `organizations` table; `organization_id` added to `profiles`; updated RLS on `properties` |
-| `invite_codes` table | Add optional `org_name` column (what to name the org when first redeemed) |
-| `validate-invite-code` edge function | Auto-create or auto-join org based on the invite code |
-| `OnboardingWizard.tsx` | Detect if user is joining existing org; show "joined org" message instead of "add property" |
-| `PropertiesPage.tsx` | Fetch properties across org members, not just current user |
-| Admin Panel | Add `org_name` field when creating invite codes |
+| Live (8) | Core violation tracking, 6-agency sync, SMS/Telegram alerts, A-F scoring, Lease Q&A AI, Work orders/vendors, CO detection, Help Center |
+| In Progress (4) | WhatsApp bot, OATH hearing/penalty sync, SWO/Vacate refinement, TCO expiration alerts |
+| Next Up (0) | Empty — nothing in this phase |
+| Future (4) | Portfolio analytics, Google Calendar sync, White-label, Enhanced RAG |
 
----
+## The Problem
 
-## How This Solves the Fuertes Scenario
+1. The roadmap doesn't mention **half of what's actually live** (email digests, Telegram AI bot, vendor dispatching, compliance calendar, tenant management, insurance tracking, tax module, document management, org/team accounts)
+2. "Next Up" is empty — signals no near-term momentum
+3. Missing features that would directly counter SiteCompli/Jack Jaffa aren't listed
+4. No competitive framing — a prospect comparing you to SiteCompli sees a short feature list
 
-- You create one invite code `CITISIGNALFUERTES` with `org_name: "Fuertes Management"` and `max_uses: 3`
-- TJ signs up first → "Fuertes Management" org is created, TJ is owner
-- TJ adds all the buildings during onboarding
-- Erika and Mike sign up with the same code → automatically join "Fuertes Management" → instantly see TJ's buildings, violations, and compliance data
-- No manual property-by-property invites needed
+## Plan: Update Roadmap Items in Database
 
----
+### New "Live" Items to Add (things already built but not on roadmap)
 
-## Security Summary
-
-| Risk | How It's Mitigated |
+| Title | Why It Matters vs Competitors |
 |---|---|
-| Random person joins org | Only possible with the invite code — which you control |
-| Invite code leaked | Codes have a `max_uses` limit — once TJ, Erika, and Mike use it, it's closed |
-| One org member sees another's personal data | RLS policies only expose properties, violations, etc. — not passwords, billing, or personal account settings |
-| Rogue member added to wrong org | The code is the single gate; org membership is set server-side in the edge function |
+| Email compliance digests (daily/weekly) | SiteCompli charges extra for alerts. Yours is included. |
+| Telegram AI property bot | Neither competitor has AI-powered messaging. |
+| Vendor dispatch via Telegram | SiteCompli has no messenger-based vendor workflow. |
+| Compliance calendar with deadline reminders | Direct SiteCompli feature parity. |
+| Tenant & lease management | Expanding beyond pure compliance — PM territory. |
+| Insurance/COI tracking with expiration alerts | Jack Jaffa charges separately for this. |
+| Tax assessment & exemption tracking | Neither competitor bundles tax data. |
+| Document management with expiration alerts | Core feature, not listed. |
+| Team/organization accounts | Multi-user orgs with invite codes — just shipped. |
+| In-app notification center with priority routing | Real-time bell + date-grouped history. |
+| AI property chat (per-property intelligence) | Unique differentiator. No competitor has this. |
+| Purchase order generation & e-signature | End-to-end work order lifecycle. |
 
-This is the right long-term architecture and it maps cleanly onto what you already have. It's a meaningful build (~3-4 hours) but it eliminates the manual per-property invite friction entirely.
+### Move/Update "In Progress" Items
+
+Keep as-is — WhatsApp, OATH sync, SWO refinement, TCO alerts are accurate.
+
+### New "Next Up" Items (fill the empty phase)
+
+| Title | Strategic Rationale |
+|---|---|
+| Owner entity resolution (ACRIS integration) | The "B-level" intelligence discussed in audit — links properties by owner |
+| Penalty exposure calculator | Dollar-amount risk per violation — underwriting language |
+| Historical violation trend lines | "Getting better or worse" — key for portfolio managers |
+| Portfolio-wide compliance dashboard | Aggregate scores, violation density, trend comparison across buildings |
+
+### Keep "Future" Items
+
+Google Calendar sync, White-label, Enhanced RAG stay. Add:
+
+| Title | Why |
+|---|---|
+| Predictive compliance risk scoring | Needs 18-24 months of stored data first |
+| ACRIS deed/mortgage integration | Underwriting-grade title data layer |
+| API access for enterprise integrations | API-first architecture for data consumers |
+
+## Technical Implementation
+
+### Step 1: Database Updates
+Insert ~12 new roadmap items into the `roadmap_items` table for "Live" phase, 4 for "Next Up," and 3 for "Future." Reorder `sort_order` values so the most impressive/differentiating features appear first within each phase.
+
+### Step 2: Update Landing Page Stats Bar
+The stats bar in `Roadmap.tsx` currently shows:
+- 9 NYC Agencies Monitored
+- 3 Messaging Channels
+- A-F Compliance Grading
+- 24/7 Automated Sync
+
+Update to reflect actual scale:
+- **9** NYC Agencies
+- **20+** Live Features
+- **A-F** Compliance Grading
+- **3** Alert Channels (Email, SMS, Telegram)
+
+### Step 3: Add Roadmap Section to Landing Page
+The Roadmap component exists (`src/components/landing/Roadmap.tsx`) but is **not rendered** in `Index.tsx`. Add it to the landing page between LeaseQA and CTA sections so prospects can actually see it.
+
+### Step 4: WhatsApp Status
+Mark WhatsApp as "In Progress" (accurate — architecture is designed, awaiting Twilio sandbox activation). No code changes needed for WhatsApp until sandbox is live.
+
+## What This Gives You in a Sales Conversation
+
+When someone asks "why leave SiteCompli?":
+
+- **20+ live features** vs their basic violation monitoring
+- **AI-powered property intelligence** — they have none
+- **Telegram/SMS/Email alerts included** — SiteCompli charges per channel
+- **Vendor dispatch + work orders + POs** — end-to-end workflow
+- **Tenant, insurance, tax management** — they don't offer this
+- **Team accounts with invite codes** — simpler than their enterprise onboarding
+- **Free during beta** — they charge $300+/building/month
+
+The roadmap also shows a clear trajectory toward **owner intelligence and portfolio analytics** — features that would take SiteCompli years to build because their architecture isn't designed for it.
