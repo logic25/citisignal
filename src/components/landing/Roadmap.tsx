@@ -19,10 +19,10 @@ const phaseConfig: Record<string, { label: string; icon: typeof Clock; bg: strin
 const phaseOrder = ["live", "in_progress", "next_up", "future"];
 
 const stats = [
-  { value: "9", label: "NYC Agencies Monitored" },
-  { value: "3", label: "Messaging Channels" },
+  { value: "9", label: "NYC Agencies" },
+  { value: "20+", label: "Live Features" },
   { value: "A–F", label: "Compliance Grading" },
-  { value: "24/7", label: "Automated Sync" },
+  { value: "3", label: "Alert Channels" },
 ];
 
 const Roadmap = () => {
