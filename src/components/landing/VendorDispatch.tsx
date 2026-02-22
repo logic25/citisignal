@@ -37,7 +37,7 @@ const VendorDispatch = () => {
                 {
                   icon: Send,
                   title: "Dispatch vendor in one tap",
-                  description: "Select your contractor, hit send. They get the job details via Telegram. SMS & WhatsApp coming soon.",
+                  description: "Select your contractor, hit send. They get the job details via Telegram, SMS, or WhatsApp.",
                   color: "accent",
                 },
                 {

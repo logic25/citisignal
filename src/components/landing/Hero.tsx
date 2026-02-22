@@ -24,7 +24,7 @@ const Hero = () => {
           </h1>
 
           <p className="text-lg sm:text-xl text-primary-foreground/70 mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Real-time violation monitoring across 9 NYC agencies. Auto-alerts via Telegram — SMS & WhatsApp coming soon. The cheapest insurance your portfolio has.
+            Real-time violation monitoring across 9 NYC agencies. Auto-alerts via Telegram, SMS & WhatsApp. The cheapest insurance your portfolio has.
           </p>
 
           {/* CTAs */}
@@ -47,8 +47,8 @@ const Hero = () => {
             {[
               { icon: Shield, label: "9 NYC Agencies", soon: false },
               { icon: Bell, label: "Telegram", soon: false },
-              { icon: Phone, label: "SMS", soon: true },
-              { icon: MessageSquare, label: "WhatsApp", soon: true },
+              { icon: Phone, label: "SMS", soon: false },
+              { icon: MessageSquare, label: "WhatsApp", soon: false },
             ].map((item, i) => (
               <div
                 key={i}
