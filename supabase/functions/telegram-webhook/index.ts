@@ -18,7 +18,25 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    const update = await req.json();
+    const body = await req.json();
+
+    // Handle webhook setup request
+    if (body.action === "setup_webhook") {
+      const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-webhook`;
+      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: webhookUrl }),
+      });
+      const result = await res.json();
+      console.log("setWebhook result:", JSON.stringify(result));
+      return new Response(JSON.stringify(result), {
+        status: res.ok ? 200 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const update = body;
     console.log("Telegram update:", JSON.stringify(update).slice(0, 500));
 
     const message = update.message;
