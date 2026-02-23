@@ -127,9 +127,25 @@ Deno.serve(async (req) => {
 
     // Update the user's profile with org info (the trigger creates the profile row)
     if (organizationId) {
-      // Wait briefly for the trigger to create the profile
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      // Poll for the profile row created by the trigger instead of a fixed timeout
+      let profileFound = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: profileRow } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (profileRow) {
+          profileFound = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      if (!profileFound) {
+        console.error('Profile not created after signup for user:', userId);
+      }
+
       await supabaseAdmin
         .from('profiles')
         .update({

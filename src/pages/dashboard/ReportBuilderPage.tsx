@@ -38,6 +38,23 @@ const DATA_SOURCES = [
   { value: 'properties', label: 'Properties' },
 ];
 
+interface ReportFilters {
+  property_id?: string | null;
+  date_start?: string;
+  date_end?: string;
+}
+
+interface ReportTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  report_type: string;
+  data_sources: string[];
+  filters: ReportFilters;
+  created_at: string;
+}
+
 export default function ReportBuilderPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -64,7 +81,7 @@ export default function ReportBuilderPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from('report_templates').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []) as unknown as ReportTemplate[];
     },
     enabled: !!user,
   });
@@ -106,14 +123,14 @@ export default function ReportBuilderPage() {
   });
 
   const runReport = useMutation({
-    mutationFn: async (template: any) => {
-      const filters = template.filters as any || {};
-      const dataSources = (template.data_sources as any[]) || [];
+    mutationFn: async (template: ReportTemplate) => {
+      const filters: ReportFilters = template.filters || {};
+      const dataSources: string[] = template.data_sources || [];
       const results: Record<string, any[]> = {};
       let totalRows = 0;
 
       for (const source of dataSources) {
-        let query = supabase.from(source).select('*');
+        let query = supabase.from(source as any).select('*');
         if (filters.property_id) {
           query = query.eq('property_id', filters.property_id);
         }
@@ -125,7 +142,7 @@ export default function ReportBuilderPage() {
         }
         const { data, error } = await query.limit(500);
         if (!error && data) {
-          results[source] = data;
+          results[source] = data as any[];
           totalRows += data.length;
         }
       }
@@ -135,11 +152,11 @@ export default function ReportBuilderPage() {
         user_id: user!.id,
         name: template.name,
         report_type: template.report_type,
-        parameters: filters,
-        result_data: results,
+        parameters: filters as any,
+        result_data: results as any,
         row_count: totalRows,
         status: 'completed',
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -297,7 +314,7 @@ export default function ReportBuilderPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {templates.map(t => {
-                const sources = (t.data_sources as any[]) || [];
+                const sources: string[] = t.data_sources || [];
                 return (
                   <Card key={t.id} className="flex flex-col">
                     <CardHeader className="pb-2">
