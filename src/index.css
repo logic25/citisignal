@@ -43,6 +43,10 @@
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
 
+    /* Info - teal for informational elements */
+    --info: 190 80% 42%;
+    --info-foreground: 0 0% 100%;
+
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 222 47% 15%;
@@ -102,6 +106,9 @@
 
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
+
+    --info: 190 75% 50%;
+    --info-foreground: 222 47% 11%;
 
     --border: 222 30% 18%;
     --input: 222 30% 18%;

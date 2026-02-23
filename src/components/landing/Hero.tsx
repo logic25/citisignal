@@ -44,7 +44,7 @@ const Hero = () => {
 
           {/* Channel pills */}
           <div className="flex flex-wrap items-center justify-center gap-3 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            {[
+          {[
               { icon: Shield, label: "9 NYC Agencies" },
               { icon: Bell, label: "Telegram" },
               { icon: Phone, label: "SMS" },
@@ -54,7 +54,7 @@ const Hero = () => {
                 key={i}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10"
               >
-                <item.icon className="w-4 h-4 text-accent" />
+                <item.icon className="w-4 h-4 text-info" />
                 <span className="text-sm font-medium text-white/80">{item.label}</span>
               </div>
             ))}
