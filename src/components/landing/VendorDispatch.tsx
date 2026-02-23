@@ -1,5 +1,36 @@
 import { MessageSquare, ClipboardList, Send, CheckCircle, Phone } from "lucide-react";
 
+const steps = [
+  {
+    icon: MessageSquare,
+    title: "Violation alert hits your phone",
+    description: "FDNY sprinkler violation detected at 708 E Tremont. You get an instant Telegram alert.",
+    iconBg: "bg-destructive/10",
+    iconColor: "text-destructive",
+  },
+  {
+    icon: ClipboardList,
+    title: "Work order auto-created",
+    description: "A work order is generated with violation details, severity, and deadline pre-filled.",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
+  },
+  {
+    icon: Send,
+    title: "Dispatch vendor in one tap",
+    description: "Select your contractor, hit send. They get the job details via Telegram, SMS, or WhatsApp.",
+    iconBg: "bg-accent/10",
+    iconColor: "text-accent",
+  },
+  {
+    icon: CheckCircle,
+    title: "Track to resolution",
+    description: "Vendor updates, certificate uploads, and compliance score changes — all in one thread.",
+    iconBg: "bg-success/10",
+    iconColor: "text-success",
+  },
+];
+
 const VendorDispatch = () => {
   return (
     <section id="vendor-dispatch" className="py-24 bg-secondary/30">
@@ -21,35 +52,10 @@ const VendorDispatch = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             {/* Left: Flow steps */}
             <div className="space-y-6">
-              {[
-                {
-                  icon: MessageSquare,
-                  title: "Violation alert hits your phone",
-                  description: "FDNY sprinkler violation detected at 708 E Tremont. You get an instant Telegram alert.",
-                  color: "destructive",
-                },
-                {
-                  icon: ClipboardList,
-                  title: "Work order auto-created",
-                  description: "A work order is generated with violation details, severity, and deadline pre-filled.",
-                  color: "warning",
-                },
-                {
-                  icon: Send,
-                  title: "Dispatch vendor in one tap",
-                  description: "Select your contractor, hit send. They get the job details via Telegram, SMS, or WhatsApp.",
-                  color: "accent",
-                },
-                {
-                  icon: CheckCircle,
-                  title: "Track to resolution",
-                  description: "Vendor updates, certificate uploads, and compliance score changes — all in one thread.",
-                  color: "success",
-                },
-              ].map((step, i) => (
+              {steps.map((step, i) => (
                 <div key={i} className="flex gap-4">
-                  <div className={`w-10 h-10 rounded-xl bg-${step.color}/10 flex items-center justify-center shrink-0`}>
-                    <step.icon className={`w-5 h-5 text-${step.color}`} />
+                  <div className={`w-10 h-10 rounded-xl ${step.iconBg} flex items-center justify-center shrink-0`}>
+                    <step.icon className={`w-5 h-5 ${step.iconColor}`} />
                   </div>
                   <div>
                     <h3 className="font-display font-semibold text-foreground mb-1">{step.title}</h3>
@@ -78,26 +84,22 @@ const VendorDispatch = () => {
 
                 {/* Messages */}
                 <div className="p-4 space-y-3">
-                  {/* System alert */}
                   <div className="px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
                     ⚠️ FDNY Violation — Sprinkler inspection overdue at 708 E Tremont Ave. Due Mar 1.
                   </div>
 
-                  {/* Outgoing */}
                   <div className="flex justify-end">
                     <div className="max-w-[85%] px-4 py-2 rounded-2xl rounded-tr-none bg-primary text-primary-foreground text-sm">
                       Hi Mike, sprinkler inspection needed at 708 E Tremont. FDNY violation, due Mar 1. Can you handle this week?
                     </div>
                   </div>
 
-                  {/* Incoming */}
                   <div className="flex justify-start">
                     <div className="max-w-[85%] px-4 py-2 rounded-2xl rounded-tl-none bg-secondary text-secondary-foreground text-sm">
                       Got it. I can be there Thursday. I'll bring the inspection cert.
                     </div>
                   </div>
 
-                  {/* System update */}
                   <div className="px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-xs text-success">
                     ✅ Work Order #1234 updated: Vendor confirmed for Thursday. Status → In Progress.
                   </div>

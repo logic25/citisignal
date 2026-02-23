@@ -9,7 +9,8 @@ import Features from "@/components/landing/Features";
 import HowItWorks from "@/components/landing/HowItWorks";
 import VendorDispatch from "@/components/landing/VendorDispatch";
 import LeaseQA from "@/components/landing/LeaseQA";
-import Roadmap from "@/components/landing/Roadmap";
+import SocialProof from "@/components/landing/SocialProof";
+import Pricing from "@/components/landing/Pricing";
 import CTA from "@/components/landing/CTA";
 import Footer from "@/components/landing/Footer";
 
@@ -66,7 +67,8 @@ const Index = () => {
       <HowItWorks />
       <VendorDispatch />
       <LeaseQA />
-      <Roadmap />
+      <SocialProof />
+      <Pricing />
       <CTA />
       <Footer />
     </div>

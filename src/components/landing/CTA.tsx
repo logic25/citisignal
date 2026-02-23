@@ -15,7 +15,7 @@ const CTA = () => {
             {[Building2, Shield, MessageSquare].map((Icon, i) => (
               <div
                 key={i}
-                className="w-12 h-12 rounded-xl bg-primary-foreground/10 border border-primary-foreground/20 flex items-center justify-center animate-float"
+                className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center animate-float"
                 style={{ animationDelay: `${i * 0.2}s` }}
               >
                 <Icon className="w-6 h-6 text-accent" />
@@ -23,20 +23,20 @@ const CTA = () => {
             ))}
           </div>
 
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-foreground mb-6">
-            A single ECB fine runs $2,000 to $25,000.
+          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
+            Stop finding out about violations
             <br />
-            <span className="text-gradient">CitiSignal pays for itself with one catch.</span>
+            <span className="text-gradient">from your tenants.</span>
           </h2>
 
-          <p className="text-lg text-primary-foreground/70 mb-10 max-w-xl mx-auto">
+          <p className="text-lg text-white/70 mb-10 max-w-xl mx-auto">
             Join property owners and expeditors who protect their bottom line from their phone — not a dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link to="/auth">
               <Button variant="hero" size="xl">
-                Get Started
+                Claim My Spot
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
@@ -47,7 +47,7 @@ const CTA = () => {
             </a>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-primary-foreground/60">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-success" />
               Telegram alerts live
