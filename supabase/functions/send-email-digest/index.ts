@@ -416,7 +416,7 @@ Deno.serve(async (req) => {
     const totalExpiring = allDocs.length;
     const totalApplications = allApps.length;
 
-    const appUrl = "https://id-preview--9d9b6494-36da-4c50-a4c2-79428913d706.lovable.app";
+    const appUrl = Deno.env.get("APP_URL") || "https://app.citisignal.com";
     const digestDate = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
     const html = buildEmailHtml({
@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "CitiSignal <onboarding@resend.dev>",
+        from: Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>",
         to: [userEmail],
         subject: `🛡️ Weekly Compliance Digest — ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
         html,

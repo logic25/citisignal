@@ -6,6 +6,98 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function generatePOHtml(data: {
+  poNumber: string;
+  date: string;
+  propertyAddress: string;
+  vendorName: string;
+  vendorPhone: string;
+  vendorEmail: string;
+  vendorLicense: string;
+  ownerName: string;
+  scope: string;
+  amount: number | null;
+  terms: string;
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Purchase Order ${data.poNumber}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; color: #1e293b; }
+    .header { text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { font-size: 28px; font-weight: 800; margin: 0; }
+    .header .subtitle { color: #64748b; font-size: 14px; margin-top: 4px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+    .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .info-box h3 { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; margin: 0 0 8px; }
+    .info-box p { margin: 4px 0; font-size: 14px; }
+    .section { margin-bottom: 24px; }
+    .section h2 { font-size: 14px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+    .amount { font-size: 32px; font-weight: 800; color: #0f172a; text-align: center; padding: 20px; background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; margin: 20px 0; }
+    .scope { white-space: pre-line; line-height: 1.6; font-size: 14px; }
+    .terms { font-size: 12px; color: #64748b; line-height: 1.6; white-space: pre-line; }
+    .signature-section { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    .sig-line { border-top: 1px solid #1e293b; padding-top: 8px; margin-top: 60px; }
+    .sig-line p { margin: 2px 0; font-size: 12px; color: #64748b; }
+    @media print { body { margin: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📡 CitiSignal</h1>
+    <div class="subtitle">Purchase Order</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Purchase Order</h3>
+      <p><strong>${data.poNumber}</strong></p>
+      <p>Date: ${data.date}</p>
+      <p>Property: ${data.propertyAddress}</p>
+    </div>
+    <div class="info-box">
+      <h3>Vendor</h3>
+      <p><strong>${data.vendorName}</strong></p>
+      <p>Phone: ${data.vendorPhone}</p>
+      <p>Email: ${data.vendorEmail}</p>
+      ${data.vendorLicense !== 'N/A' ? `<p>License: ${data.vendorLicense}</p>` : ''}
+    </div>
+  </div>
+
+  <div class="amount">$${(data.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+
+  <div class="section">
+    <h2>Scope of Work</h2>
+    <div class="scope">${data.scope}</div>
+  </div>
+
+  <div class="section">
+    <h2>Terms & Conditions</h2>
+    <div class="terms">${data.terms}</div>
+  </div>
+
+  <div class="signature-section">
+    <div>
+      <div class="sig-line">
+        <p><strong>Owner / Authorized Representative</strong></p>
+        <p>${data.ownerName}</p>
+        <p>Date: ${data.date}</p>
+      </div>
+    </div>
+    <div>
+      <div class="sig-line">
+        <p><strong>Vendor Signature</strong></p>
+        <p>${data.vendorName}</p>
+        <p>Date: _______________</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -114,6 +206,44 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Generate PO HTML document and store as PDF-ready content
+    const poHtml = generatePOHtml({
+      poNumber,
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      propertyAddress: wo.property?.address || 'N/A',
+      vendorName: vendor?.name || 'N/A',
+      vendorPhone: vendor?.phone_number || 'N/A',
+      vendorEmail: vendor?.email || 'N/A',
+      vendorLicense: vendor?.license_number || 'N/A',
+      ownerName: wo.property?.owner_name || 'N/A',
+      scope: wo.scope || '',
+      amount: wo.approved_amount,
+      terms: terms || 'Standard terms apply.',
+    });
+
+    // Upload HTML as document to storage
+    const fileName = `po/${po.id}/${poNumber}.html`;
+    const { error: uploadErr } = await supabase.storage
+      .from('property-documents')
+      .upload(fileName, new Blob([poHtml], { type: 'text/html' }), {
+        contentType: 'text/html',
+        upsert: true,
+      });
+
+    if (!uploadErr) {
+      const { data: urlData } = supabase.storage
+        .from('property-documents')
+        .getPublicUrl(fileName);
+
+      // Update PO with PDF URL
+      await supabase
+        .from('purchase_orders')
+        .update({ pdf_url: urlData.publicUrl })
+        .eq('id', po.id);
+    } else {
+      console.error('PO upload error:', uploadErr);
+    }
+
     // Link PO to work order
     await supabase
       .from("work_orders")
@@ -125,7 +255,7 @@ Deno.serve(async (req) => {
     if (vendor?.telegram_chat_id) {
       const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
       if (TELEGRAM_BOT_TOKEN) {
-        const appUrl = Deno.env.get("APP_URL") || "https://id-preview--9d9b6494-36da-4c50-a4c2-79428913d706.lovable.app";
+        const appUrl = Deno.env.get("APP_URL") || "https://app.citisignal.com";
         const vendorSignUrl = `${appUrl}/sign-po/${po.vendor_sign_token}`;
 
         const telegramText = `📋 *Purchase Order ${poNumber}*\n\n` +

@@ -94,7 +94,6 @@ function isCommercialOrOffice(p: PropertyForCompliance): boolean {
 }
 
 function isMultipleDwelling(p: PropertyForCompliance): boolean {
-  // NYC MDL defines multiple dwelling as 3+ independent dwelling units
   return (p.dwelling_units ?? 0) >= 3;
 }
 
@@ -113,6 +112,21 @@ function annualDue(month: number, day: number): string {
   return `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+/**
+ * Calculate the current or next cycle year dynamically based on a starting year and period.
+ */
+function getCurrentCycleYear(cycleStartYear: number, cyclePeriod: number): number {
+  const currentYear = new Date().getFullYear();
+  const cyclesSinceStart = Math.floor((currentYear - cycleStartYear) / cyclePeriod);
+  return cycleStartYear + (cyclesSinceStart * cyclePeriod);
+}
+
+function getNextCycleYear(cycleStartYear: number, cyclePeriod: number): number {
+  const current = getCurrentCycleYear(cycleStartYear, cyclePeriod);
+  const currentYear = new Date().getFullYear();
+  return currentYear > current ? current + cyclePeriod : current;
+}
+
 // ============================================================
 // CATEGORY 1: DOB — FACADE, EXTERIOR & STRUCTURAL
 // ============================================================
@@ -128,9 +142,12 @@ function checkLL11(p: PropertyForCompliance): LocalLawRequirement {
 
   if (applies && blockDigit !== null) {
     // Cycle 10: 5-year sub-cycles based on block last digit
-    if (blockDigit <= 3) { cycleYear = 2023; nextDue = '2023-02-21'; }
-    else if (blockDigit <= 6) { cycleYear = 2026; nextDue = '2026-02-21'; }
-    else { cycleYear = 2029; nextDue = '2029-02-21'; }
+    // FISP Cycle 10 started 2020, 5-year sub-cycles based on block last digit
+    // Sub-cycle A (digits 0-3): 2020+3=2023, Sub-cycle B (digits 4-6): 2020+6=2026, Sub-cycle C (digits 7-9): 2020+9=2029
+    // Each full cycle is 15 years; sub-cycles repeat within that
+    const subCycleBase = blockDigit <= 3 ? 2023 : blockDigit <= 6 ? 2026 : 2029;
+    cycleYear = getNextCycleYear(subCycleBase, 15);
+    nextDue = `${cycleYear}-02-21`;
   }
 
   return {
@@ -299,7 +316,7 @@ function checkLL88(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 1500 : null,
     penalty_description: applies ? 'DOB violation; fines for non-compliance' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://accelerator.nyc/building-laws',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/local-laws.page',
     tooltip: 'Lighting upgrades and sub-metering for buildings ≥25,000 SF. Compliance deadline was Jan 1, 2025.',
   };
 }
@@ -337,7 +354,7 @@ function checkLL32(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 10000 : null,
     penalty_description: applies ? 'Up to $10,000 per violation' : null,
     status: calcStatus(applies, applies ? '2027-07-01' : null),
-    learn_more_url: 'https://accelerator.nyc/no.4-phaseout',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/oil-to-gas-conversions.page',
     tooltip: 'No. 4 oil must be phased out by July 2027.',
   };
 }
@@ -367,7 +384,7 @@ function checkLL85(_p: PropertyForCompliance): LocalLawRequirement {
     cycle_year: null, next_due_date: null, filing_deadline: null,
     penalty_amount: null, penalty_description: 'DOB violation for non-compliant work',
     status: 'exempt',
-    learn_more_url: 'https://accelerator.nyc/building-laws',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/local-laws.page',
     tooltip: 'Applies to renovation/alteration projects only.',
   };
 }
@@ -382,7 +399,7 @@ function checkLL154(_p: PropertyForCompliance): LocalLawRequirement {
     cycle_year: null, next_due_date: null, filing_deadline: null,
     penalty_amount: null, penalty_description: 'DOB violation for non-compliant new construction',
     status: 'exempt',
-    learn_more_url: 'https://accelerator.nyc/building-laws',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/local-laws.page',
     tooltip: 'Applies to new construction only.',
   };
 }
@@ -399,9 +416,9 @@ function checkLL152(p: PropertyForCompliance): LocalLawRequirement {
   let nextDue: string | null = null;
 
   if (applies && blockDigit !== null) {
-    if (blockDigit <= 3) { cycleYear = 2025; }
-    else if (blockDigit <= 6) { cycleYear = 2027; }
-    else { cycleYear = 2029; }
+    // LL152: 4-year cycle. Initial sub-cycles: digits 0-3 → 2021, digits 4-6 → 2023, digits 7-9 → 2025
+    const ll152Base = blockDigit <= 3 ? 2021 : blockDigit <= 6 ? 2023 : 2025;
+    cycleYear = getNextCycleYear(ll152Base, 4);
     nextDue = `${cycleYear}-12-31`;
   }
 
