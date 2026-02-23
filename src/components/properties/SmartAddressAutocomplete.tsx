@@ -439,12 +439,22 @@ export const SmartAddressAutocomplete = ({
           if (component.types.includes('route')) {
             streetName = component.short_name;
           }
-          if (component.types.includes('sublocality_level_1') || component.types.includes('locality')) {
+          // Check multiple component types for borough detection
+          if (
+            component.types.includes('sublocality_level_1') || 
+            component.types.includes('sublocality') ||
+            component.types.includes('locality') || 
+            component.types.includes('political') ||
+            component.types.includes('neighborhood')
+          ) {
             const boroughMap: Record<string, string> = {
-              'Manhattan': '1', 'New York': '1', 'Bronx': '2', 
+              'Manhattan': '1', 'New York': '1', 'Bronx': '2', 'The Bronx': '2',
               'Brooklyn': '3', 'Queens': '4', 'Staten Island': '5'
             };
-            borough = boroughMap[component.long_name] || '';
+            const mapped = boroughMap[component.long_name];
+            if (mapped && !borough) {
+              borough = mapped;
+            }
           }
         });
 
