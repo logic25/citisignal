@@ -4,7 +4,6 @@ import { HowToGuides } from "@/components/helpdesk/HowToGuides";
 import { FeatureRequests } from "@/components/helpdesk/FeatureRequests";
 import { BugReports } from "@/components/helpdesk/BugReports";
 import { AIUsageDashboard } from "@/components/helpdesk/AIUsageDashboard";
-import { ClarityPlaceholder } from "@/components/helpdesk/ClarityPlaceholder";
 import { Button } from "@/components/ui/button";
 import { useTour } from "@/components/tour/TourContext";
 import { useAdminRole } from "@/hooks/useAdminRole";
@@ -37,7 +36,6 @@ const HelpCenterPage = () => {
           <TabsTrigger value="bugs">Bug Reports</TabsTrigger>
           <TabsTrigger value="requests">Feature Requests</TabsTrigger>
           {isAdmin && <TabsTrigger value="ai-usage">AI Usage</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="session-analytics">Session Analytics</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="guides"><HowToGuides /></TabsContent>
@@ -45,9 +43,6 @@ const HelpCenterPage = () => {
         <TabsContent value="requests"><FeatureRequests /></TabsContent>
         {isAdmin && (
           <TabsContent value="ai-usage"><AIUsageDashboard /></TabsContent>
-        )}
-        {isAdmin && (
-          <TabsContent value="session-analytics"><ClarityPlaceholder /></TabsContent>
         )}
       </Tabs>
     </div>

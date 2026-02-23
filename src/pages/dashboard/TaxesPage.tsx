@@ -214,7 +214,13 @@ const TaxesPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(taxes || []).map(tax => (
+              {(taxes || []).map(tax => {
+                const isDueSoon = tax.due_date && tax.payment_status !== 'paid' && tax.payment_status !== 'exempt' && (() => {
+                  const days = Math.ceil((new Date(tax.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  return days > 0 && days <= 30;
+                })();
+                const isOverdue = tax.due_date && tax.payment_status !== 'paid' && tax.payment_status !== 'exempt' && new Date(tax.due_date) < new Date();
+                return (
                 <TableRow key={tax.id} className="cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/dashboard/properties/${tax.property_id}`)}>
                   <TableCell className="font-medium text-sm max-w-[200px] truncate">{tax.properties?.address || '—'}</TableCell>
                   <TableCell className="font-medium">{tax.tax_year}</TableCell>
@@ -225,7 +231,13 @@ const TaxesPage = () => {
                       ? <span className="text-destructive">${tax.balance_due.toLocaleString()}</span>
                       : <span className="text-success">$0</span>}
                   </TableCell>
-                  <TableCell><Badge variant="outline" className={PAYMENT_STATUS_COLORS[tax.payment_status] || ''}>{tax.payment_status}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className={PAYMENT_STATUS_COLORS[tax.payment_status] || ''}>{tax.payment_status}</Badge>
+                      {isOverdue && <Badge variant="destructive" className="text-[10px] py-0">Overdue</Badge>}
+                      {isDueSoon && <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px] py-0">Due Soon</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{tax.due_date ? format(new Date(tax.due_date), 'MM/dd/yy') : '—'}</TableCell>
                   <TableCell>
                     {tax.protest_status && tax.protest_status !== 'none' && (
@@ -236,7 +248,7 @@ const TaxesPage = () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground truncate max-w-[120px]">{tax.tenant_responsible ? (tax.tenant_name || 'Yes') : '—'}</TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
           </Table>
         </div>

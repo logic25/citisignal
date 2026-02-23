@@ -159,7 +159,32 @@ Deno.serve(async (req) => {
       try {
         // Check user preferences
         const { data: prefs } = await supabase.from("email_preferences").select("*").eq("user_id", userId).single();
-        if (prefs && !(prefs.notify_status_changes ?? true)) continue;
+        
+        // Check individual notification flags
+        const notifyViolations = prefs?.notify_new_violations ?? true;
+        const notifyStatusChanges = prefs?.notify_status_changes ?? true;
+        const notifyApplications = prefs?.notify_new_applications ?? true;
+        
+        // If ALL relevant preferences are false, skip entirely
+        if (!notifyViolations && !notifyStatusChanges && !notifyApplications) {
+          console.log(`Skipping digest for user ${userId} — all notifications disabled`);
+          continue;
+        }
+        
+        // Filter changes based on preferences
+        const filteredChanges = userChanges.filter(c => {
+          if (c.entity_type === 'violation' && c.change_type === 'new' && !notifyViolations) return false;
+          if (c.entity_type === 'violation' && c.change_type === 'status_change' && !notifyStatusChanges) return false;
+          if (c.entity_type === 'application' && !notifyApplications) return false;
+          return true;
+        });
+        
+        if (filteredChanges.length === 0) {
+          console.log(`Skipping digest for user ${userId} — no changes match preferences`);
+          // Still mark as notified
+          changeIds.push(...userChanges.map(c => c.id));
+          continue;
+        }
 
         // Get user info
         const { data: { user } } = await supabase.auth.admin.getUserById(userId);
@@ -172,9 +197,9 @@ Deno.serve(async (req) => {
         const { data: propData } = await supabase.from("properties").select("id, address").in("id", propertyIds);
         const propMap = new Map((propData || []).map(p => [p.id, p.address]));
 
-        // Group changes by property
+        // Group filtered changes by property
         const byProperty = new Map<string, any[]>();
-        for (const c of userChanges) {
+        for (const c of filteredChanges) {
           const addr = propMap.get(c.property_id) || "Unknown";
           if (!byProperty.has(addr)) byProperty.set(addr, []);
           byProperty.get(addr)!.push(c);
@@ -199,7 +224,7 @@ Deno.serve(async (req) => {
         const html = buildChangeSummaryHtml({
           userName: profile?.display_name || "",
           properties: propertyData,
-          totalChanges: userChanges.length,
+          totalChanges: filteredChanges.length,
           appUrl,
           date,
         });
@@ -211,7 +236,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>",
             to: [user.email],
-            subject: `🔄 ${userChanges.length} changes detected — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+            subject: `🔄 ${filteredChanges.length} changes detected — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
             html,
           }),
         });
@@ -224,7 +249,7 @@ Deno.serve(async (req) => {
           await supabase.from("email_log").insert({
             user_id: userId,
             email_type: "change_summary",
-            subject: `${userChanges.length} changes detected`,
+            subject: `${filteredChanges.length} changes detected`,
             recipient_email: user.email,
             metadata: { total_changes: userChanges.length, properties_count: propertyIds.length },
           });

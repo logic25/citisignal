@@ -238,6 +238,108 @@ Deno.serve(async (req) => {
       console.error("Error calling generate_deadline_reminders:", e);
     }
 
+    // Check insurance policies expiring within 30 days and create notifications
+    try {
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
+      
+      const { data: expiringPolicies } = await supabase
+        .from("tenant_insurance_policies")
+        .select("id, policy_type, carrier_name, expiration_date, property_id, properties!inner(address, user_id), tenants(company_name)")
+        .gte("expiration_date", today)
+        .lte("expiration_date", thirtyDaysFromNow)
+        .eq("status", "active");
+      
+      if (expiringPolicies && expiringPolicies.length > 0) {
+        const notifications = [];
+        for (const policy of expiringPolicies) {
+          const prop = policy.properties as any;
+          const tenant = (policy as any).tenants;
+          const daysLeft = Math.ceil((new Date(policy.expiration_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          
+          // Check if notification already exists for this policy
+          const { data: existing } = await supabase
+            .from("notifications")
+            .select("id")
+            .eq("entity_id", policy.id)
+            .eq("entity_type", "insurance_policy")
+            .eq("category", "insurance")
+            .limit(1);
+          
+          if (!existing || existing.length === 0) {
+            notifications.push({
+              user_id: prop.user_id,
+              title: `Insurance Policy Expiring`,
+              message: `${tenant?.company_name || 'Tenant'} ${policy.policy_type} policy from ${policy.carrier_name || 'Unknown carrier'} at ${prop.address} expires in ${daysLeft} days (${policy.expiration_date}).`,
+              priority: 'high' as const,
+              category: 'insurance',
+              entity_id: policy.id,
+              entity_type: 'insurance_policy',
+              property_id: policy.property_id,
+            });
+          }
+        }
+        
+        if (notifications.length > 0) {
+          const { error: notifError } = await supabase.from("notifications").insert(notifications);
+          if (notifError) console.error("Error creating insurance notifications:", notifError);
+          else console.log(`Created ${notifications.length} insurance expiration notifications`);
+        }
+      }
+    } catch (e) {
+      console.error("Error checking insurance expirations:", e);
+    }
+
+    // Check tax records due within 30 days and create notifications
+    try {
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
+      
+      const { data: upcomingTaxes } = await supabase
+        .from("property_taxes")
+        .select("id, tax_year, tax_amount, due_date, payment_status, property_id, properties!inner(address, user_id)")
+        .gte("due_date", today)
+        .lte("due_date", thirtyDaysFromNow)
+        .in("payment_status", ["unpaid", "partial"]);
+      
+      if (upcomingTaxes && upcomingTaxes.length > 0) {
+        const notifications = [];
+        for (const tax of upcomingTaxes) {
+          const prop = tax.properties as any;
+          const daysLeft = Math.ceil((new Date(tax.due_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          
+          const { data: existing } = await supabase
+            .from("notifications")
+            .select("id")
+            .eq("entity_id", tax.id)
+            .eq("entity_type", "property_tax")
+            .eq("category", "tax")
+            .limit(1);
+          
+          if (!existing || existing.length === 0) {
+            notifications.push({
+              user_id: prop.user_id,
+              title: `Property Tax Due Soon`,
+              message: `${tax.tax_year} property tax of $${Number(tax.tax_amount).toLocaleString()} for ${prop.address} is due in ${daysLeft} days (${tax.due_date}).`,
+              priority: 'high' as const,
+              category: 'tax',
+              entity_id: tax.id,
+              entity_type: 'property_tax',
+              property_id: tax.property_id,
+            });
+          }
+        }
+        
+        if (notifications.length > 0) {
+          const { error: notifError } = await supabase.from("notifications").insert(notifications);
+          if (notifError) console.error("Error creating tax notifications:", notifError);
+          else console.log(`Created ${notifications.length} tax deadline notifications`);
+        }
+      }
+    } catch (e) {
+      console.error("Error checking tax deadlines:", e);
+    }
+
     console.log(`Scheduled sync complete: ${results.synced} synced, ${results.errors} errors, ${results.new_violations} new violations, ${results.changes_detected} changes detected`);
 
     return new Response(JSON.stringify({ success: true, ...results }), {

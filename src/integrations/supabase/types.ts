@@ -285,6 +285,53 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string | null
+          event_type: string
+          id: string
+          property_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          event_type?: string
+          id?: string
+          property_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          event_type?: string
+          id?: string
+          property_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cam_budgets: {
         Row: {
           budget_year: number
