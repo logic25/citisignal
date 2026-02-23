@@ -1,108 +1,97 @@
 
-# Roadmap Overhaul: Competitive Positioning vs SiteCompli and Jack Jaffa
+# Landing Page Color Scheme Overhaul
 
-## Why This Matters
+## Problem
+The navy + orange palette is conceptually right for CitiSignal (trust + urgency), but the execution has three issues:
+- Orange is overused -- when everything screams "urgent," nothing does
+- Light sections feel disconnected from dark hero/CTA sections
+- Feature cards lack depth and visual hierarchy
 
-Right now the public roadmap on the landing page shows 8 "Live" items, 4 "In Progress," and 4 "Future." But it doesn't tell the story of **why someone should switch**. The roadmap needs to double as a competitive positioning tool — showing what CitiSignal already does that SiteCompli charges $300+/building/month for, and what's coming that neither competitor offers.
+## Solution: Refined Navy + Orange with Teal Secondary
 
-## Current State
+Keep the core identity but add a **teal/cyan secondary** (`190 80% 50%`) for informational, non-urgent elements. This creates three semantic layers:
 
-**Email Notifications**: Fully built. The `send-email-digest` edge function sends property-grouped weekly/daily digests via Resend with severity-classified violation cards, hearing alerts, expiring docs, and application updates. Users control frequency and content in Settings > Email Preferences. Individual sequential sending (no CC/BCC). Working end-to-end.
+| Color | Role | Where |
+|-------|------|-------|
+| Navy (`222 47% 11-15%`) | Trust, brand, structure | Hero bg, navbar, footer, headings |
+| Orange (`12 90% 55%`) | Urgency, action, alerts | Primary CTAs only, violation badges, "signal" accent |
+| Teal (`190 80% 42%`) | Information, features, calm | Feature icons, secondary badges, info elements, step numbers |
 
-**WhatsApp**: Not built. The Twilio WhatsApp Sandbox has not been activated. The only code references are placeholder "coming soon" labels in the landing page (Hero, Features, HowItWorks, VendorDispatch). No webhook, no edge function, no bot logic exists. To build it, you need: (1) Twilio WhatsApp Sandbox activated, (2) a `whatsapp-webhook` edge function mirroring `telegram-webhook`, (3) phone number linking in Settings.
+## Changes
 
-**Current Roadmap Items in DB** (what's shown on the public site):
+### 1. Update CSS Variables (`src/index.css`)
+- Add a new `--info` color token: `190 80% 42%` (teal)
+- Lighten `--background` slightly for better card contrast: `220 20% 98%`
+- Add `--gradient-feature` for the features section: subtle warm-to-cool gradient
+- Adjust `--accent` usage -- keep it but reduce where it auto-applies
 
-| Phase | Items |
-|---|---|
-| Live (8) | Core violation tracking, 6-agency sync, SMS/Telegram alerts, A-F scoring, Lease Q&A AI, Work orders/vendors, CO detection, Help Center |
-| In Progress (4) | WhatsApp bot, OATH hearing/penalty sync, SWO/Vacate refinement, TCO expiration alerts |
-| Next Up (0) | Empty — nothing in this phase |
-| Future (4) | Portfolio analytics, Google Calendar sync, White-label, Enhanced RAG |
+### 2. Update Tailwind Config (`tailwind.config.ts`)
+- Add `info` color token to the theme colors (with foreground)
+- This makes `bg-info`, `text-info`, etc. available throughout
 
-## The Problem
+### 3. Rework Hero Section (`src/components/landing/Hero.tsx`)
+- Make headline white with stronger contrast (currently readable but could pop more)
+- Change the "CitiSignal catches it first" gradient to be more vivid
+- Make the channel pills use teal icons instead of orange -- these are informational, not urgent
+- Add a subtle gradient overlay to improve text contrast
 
-1. The roadmap doesn't mention **half of what's actually live** (email digests, Telegram AI bot, vendor dispatching, compliance calendar, tenant management, insurance tracking, tax module, document management, org/team accounts)
-2. "Next Up" is empty — signals no near-term momentum
-3. Missing features that would directly counter SiteCompli/Jack Jaffa aren't listed
-4. No competitive framing — a prospect comparing you to SiteCompli sees a short feature list
+### 4. Refine Features Section (`src/components/landing/Features.tsx`)
+- Give feature cards subtle shadows and a light border for depth
+- Use teal for feature icon backgrounds instead of having all icons in different random colors
+- Keep the "9 Agencies" / "3 Channels" badges but use muted teal instead of plain gray
+- Add a light background tint to the section (`bg-secondary/50`)
 
-## Plan: Update Roadmap Items in Database
+### 5. Update How It Works (`src/components/landing/HowItWorks.tsx`)
+- Change step number circles from navy to teal -- they're informational, not brand elements
+- Add a subtle connecting line between steps for visual flow
 
-### New "Live" Items to Add (things already built but not on roadmap)
+### 6. Tighten Pricing Section (`src/components/landing/Pricing.tsx`)
+- Keep the orange "Most Popular" badge (urgency = correct here)
+- Use teal checkmarks instead of green -- creates consistency with the new palette
+- Add subtle card hover effects for interactivity
 
-| Title | Why It Matters vs Competitors |
-|---|---|
-| Email compliance digests (daily/weekly) | SiteCompli charges extra for alerts. Yours is included. |
-| Telegram AI property bot | Neither competitor has AI-powered messaging. |
-| Vendor dispatch via Telegram | SiteCompli has no messenger-based vendor workflow. |
-| Compliance calendar with deadline reminders | Direct SiteCompli feature parity. |
-| Tenant & lease management | Expanding beyond pure compliance — PM territory. |
-| Insurance/COI tracking with expiration alerts | Jack Jaffa charges separately for this. |
-| Tax assessment & exemption tracking | Neither competitor bundles tax data. |
-| Document management with expiration alerts | Core feature, not listed. |
-| Team/organization accounts | Multi-user orgs with invite codes — just shipped. |
-| In-app notification center with priority routing | Real-time bell + date-grouped history. |
-| AI property chat (per-property intelligence) | Unique differentiator. No competitor has this. |
-| Purchase order generation & e-signature | End-to-end work order lifecycle. |
+### 7. Polish CTA Section (`src/components/landing/CTA.tsx`)
+- Keep orange for the primary "Claim My Spot" button (correct usage)
+- Change the green status dots to teal for palette consistency
 
-### Move/Update "In Progress" Items
+### 8. Update Social Proof (`src/components/landing/SocialProof.tsx`)
+- Use teal for stat numbers/highlights instead of orange
+- Orange should only appear if something is "urgent" or action-oriented
 
-Keep as-is — WhatsApp, OATH sync, SWO refinement, TCO alerts are accurate.
+### 9. Footer polish (`src/components/landing/Footer.tsx`)
+- System status dot: teal instead of green (palette consistency)
 
-### New "Next Up" Items (fill the empty phase)
+## Technical Details
 
-| Title | Strategic Rationale |
-|---|---|
-| Owner entity resolution (ACRIS integration) | The "B-level" intelligence discussed in audit — links properties by owner |
-| Penalty exposure calculator | Dollar-amount risk per violation — underwriting language |
-| Historical violation trend lines | "Getting better or worse" — key for portfolio managers |
-| Portfolio-wide compliance dashboard | Aggregate scores, violation density, trend comparison across buildings |
+### New CSS token additions in `src/index.css`:
+- Light mode: `--info: 190 80% 42%; --info-foreground: 0 0% 100%;`
+- Dark mode: `--info: 190 75% 50%; --info-foreground: 222 47% 11%;`
 
-### Keep "Future" Items
+### New Tailwind token in `tailwind.config.ts`:
+```
+info: {
+  DEFAULT: "hsl(var(--info))",
+  foreground: "hsl(var(--info-foreground))",
+}
+```
 
-Google Calendar sync, White-label, Enhanced RAG stay. Add:
+### Files to modify:
+1. `src/index.css` -- add info tokens, adjust background
+2. `tailwind.config.ts` -- add info color
+3. `src/components/landing/Hero.tsx` -- teal for info pills, stronger headline contrast
+4. `src/components/landing/Features.tsx` -- teal icon bgs, card depth
+5. `src/components/landing/HowItWorks.tsx` -- teal step numbers
+6. `src/components/landing/Pricing.tsx` -- teal checkmarks, card polish
+7. `src/components/landing/CTA.tsx` -- teal status dots
+8. `src/components/landing/SocialProof.tsx` -- teal stat highlights
+9. `src/components/landing/Footer.tsx` -- teal status dot
 
-| Title | Why |
-|---|---|
-| Predictive compliance risk scoring | Needs 18-24 months of stored data first |
-| ACRIS deed/mortgage integration | Underwriting-grade title data layer |
-| API access for enterprise integrations | API-first architecture for data consumers |
+### What stays the same:
+- Navy hero/CTA backgrounds (brand identity)
+- Orange primary CTA buttons ("Claim My Spot", "Request Invite")
+- Orange for violation/alert related UI
+- Space Grotesk + Inter font pairing
+- Overall page layout and section structure
 
-## Technical Implementation
-
-### Step 1: Database Updates
-Insert ~12 new roadmap items into the `roadmap_items` table for "Live" phase, 4 for "Next Up," and 3 for "Future." Reorder `sort_order` values so the most impressive/differentiating features appear first within each phase.
-
-### Step 2: Update Landing Page Stats Bar
-The stats bar in `Roadmap.tsx` currently shows:
-- 9 NYC Agencies Monitored
-- 3 Messaging Channels
-- A-F Compliance Grading
-- 24/7 Automated Sync
-
-Update to reflect actual scale:
-- **9** NYC Agencies
-- **20+** Live Features
-- **A-F** Compliance Grading
-- **3** Alert Channels (Email, SMS, Telegram)
-
-### Step 3: Add Roadmap Section to Landing Page
-The Roadmap component exists (`src/components/landing/Roadmap.tsx`) but is **not rendered** in `Index.tsx`. Add it to the landing page between LeaseQA and CTA sections so prospects can actually see it.
-
-### Step 4: WhatsApp Status
-Mark WhatsApp as "In Progress" (accurate — architecture is designed, awaiting Twilio sandbox activation). No code changes needed for WhatsApp until sandbox is live.
-
-## What This Gives You in a Sales Conversation
-
-When someone asks "why leave SiteCompli?":
-
-- **20+ live features** vs their basic violation monitoring
-- **AI-powered property intelligence** — they have none
-- **Telegram/SMS/Email alerts included** — SiteCompli charges per channel
-- **Vendor dispatch + work orders + POs** — end-to-end workflow
-- **Tenant, insurance, tax management** — they don't offer this
-- **Team accounts with invite codes** — simpler than their enterprise onboarding
-- **Free during beta** — they charge $300+/building/month
-
-The roadmap also shows a clear trajectory toward **owner intelligence and portfolio analytics** — features that would take SiteCompli years to build because their architecture isn't designed for it.
+## Result
+Orange regains its power as the "act now" signal. Teal handles everything informational. Navy stays the trusted backbone. The page feels cohesive instead of monochrome-with-one-accent.
