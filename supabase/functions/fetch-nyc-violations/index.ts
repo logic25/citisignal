@@ -320,19 +320,71 @@ Deno.serve(async (req) => {
     const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB"];
     const now = new Date().toISOString();
 
-    const safeFetch = async (url: string, agency: string): Promise<unknown[]> => {
+    // Fetch with timeout and single retry
+    async function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        console.log(`Fetching ${agency}: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.error(`${agency} API error: ${response.status}`);
+        const response = await fetch(url, { signal: controller.signal });
+        return response;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    // Robust date normalization for various NYC API formats
+    function normalizeDate(dateStr: string | null | undefined): string | null {
+      if (!dateStr) return null;
+      const cleaned = dateStr.trim();
+      // ISO format: 2024-01-15T00:00:00
+      if (cleaned.includes('T')) return cleaned.split('T')[0];
+      // MM/DD/YYYY
+      const slashMatch = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slashMatch) {
+        const [, m, d, y] = slashMatch;
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+      // YYYYMMDD (common in NYC Open Data)
+      const compactMatch = cleaned.match(/^(\d{4})(\d{2})(\d{2})$/);
+      if (compactMatch) {
+        return `${compactMatch[1]}-${compactMatch[2]}-${compactMatch[3]}`;
+      }
+      // YYYY-MM-DD already
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
+      // Last resort
+      const parsed = new Date(cleaned);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+      return null;
+    }
+
+    const safeFetch = async (url: string, agency: string): Promise<unknown[]> => {
+      const attempt = async (): Promise<unknown[]> => {
+        try {
+          console.log(`Fetching ${agency}: ${url}`);
+          const response = await fetchWithTimeout(url);
+          if (!response.ok) {
+            console.error(`${agency} API error: ${response.status}`);
+            return [];
+          }
+          return await response.json();
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            console.error(`${agency} fetch timeout after 15s`);
+          } else {
+            console.error(`${agency} fetch error:`, error);
+          }
           return [];
         }
-        return await response.json();
-      } catch (error) {
-        console.error(`${agency} fetch error:`, error);
-        return [];
+      };
+
+      // First attempt
+      let result = await attempt();
+      // Retry once on empty result (timeout or server error)
+      if (result.length === 0) {
+        console.log(`${agency}: Retrying once...`);
+        result = await attempt();
       }
+      return result;
     };
 
     const boroughNames: Record<string, string> = {
@@ -414,8 +466,8 @@ Deno.serve(async (req) => {
           violations.push({
             agency,
             violation_number: String(violationNum),
-            issued_date: issueDate.split("T")[0],
-            hearing_date: v.hearing_date ? (v.hearing_date as string).split("T")[0] : null,
+            issued_date: normalizeDate(issueDate) || issueDate,
+            hearing_date: normalizeDate(v.hearing_date as string),
             cure_due_date: null,
             description_raw: description,
             property_id,
@@ -461,7 +513,7 @@ Deno.serve(async (req) => {
           violations.push({
             agency: "DOB",
             violation_number: violationNum,
-            issued_date: issueDate.split("T")[0],
+            issued_date: normalizeDate(issueDate) || issueDate,
             hearing_date: null,
             cure_due_date: null,
             description_raw: descRaw,
@@ -496,9 +548,9 @@ Deno.serve(async (req) => {
           violations.push({
             agency: "DOB",
             violation_number: violationNum,
-            issued_date: issueDate.split("T")[0],
+            issued_date: normalizeDate(issueDate) || issueDate,
             hearing_date: null,
-            cure_due_date: v.cure_date ? (v.cure_date as string).split("T")[0] : null,
+            cure_due_date: normalizeDate(v.cure_date as string),
             description_raw: descRawNew,
             property_id,
             severity: v.violation_type as string || null,
@@ -540,8 +592,8 @@ Deno.serve(async (req) => {
           violations.push({
             agency: "ECB",
             violation_number: violationNum,
-            issued_date: issueDate.split("T")[0],
-            hearing_date: v.scheduled_hearing_date ? (v.scheduled_hearing_date as string).split("T")[0] : null,
+            issued_date: normalizeDate(issueDate) || issueDate,
+            hearing_date: normalizeDate(v.scheduled_hearing_date as string),
             cure_due_date: null,
             description_raw: ecbDescRaw,
             property_id,
@@ -586,9 +638,9 @@ Deno.serve(async (req) => {
           violations.push({
             agency: "HPD",
             violation_number: String(violationNum),
-            issued_date: issueDate.split("T")[0],
+            issued_date: normalizeDate(issueDate) || issueDate,
             hearing_date: null,
-            cure_due_date: v.certifieddate ? (v.certifieddate as string).split("T")[0] : null,
+            cure_due_date: normalizeDate(v.certifieddate as string),
             description_raw: hpdDescRaw,
             property_id,
             severity: hpdClass,
@@ -638,7 +690,7 @@ Deno.serve(async (req) => {
           violations.push({
             agency: "DOB",
             violation_number: `COMP-${complaintNum}`,
-            issued_date: dateEntered.split("T")[0],
+            issued_date: normalizeDate(dateEntered) || dateEntered,
             hearing_date: null,
             cure_due_date: null,
             description_raw: descRaw || `DOB Complaint #${complaintNum}`,

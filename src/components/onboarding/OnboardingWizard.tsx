@@ -75,8 +75,8 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           .eq('id', data.organization_id)
           .maybeSingle();
 
-        setOrgName((org as any)?.name || null);
-        setOrgRole((data as any)?.org_role || 'member');
+        setOrgName(org?.name || null);
+        setOrgRole(data?.org_role || 'member');
       }
       setOrgChecked(true);
     };

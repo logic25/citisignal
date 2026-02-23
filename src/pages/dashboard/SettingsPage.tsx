@@ -43,8 +43,8 @@ const SettingsPage = () => {
             display_name: data.display_name || '',
             company_name: data.company_name || '',
             phone: data.phone || '',
-            license_id: (data as any).license_id || '',
-            po_terms_and_conditions: (data as any).po_terms_and_conditions || '',
+            license_id: data.license_id || '',
+            po_terms_and_conditions: data.po_terms_and_conditions || '',
           });
         }
       } catch (error) {
@@ -69,7 +69,7 @@ const SettingsPage = () => {
           phone: profile.phone || null,
           license_id: profile.license_id || null,
           po_terms_and_conditions: profile.po_terms_and_conditions || null,
-        } as any, { onConflict: 'user_id' });
+        }, { onConflict: 'user_id' });
 
       if (error) throw error;
       toast.success('Profile updated successfully');
