@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Radio, MessageSquare, Shield, Bell, Phone } from "lucide-react";
+import { ArrowRight, Radio, Shield, Bell, Phone, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Hero = () => {
@@ -14,16 +14,16 @@ const Hero = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-8 animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse-soft" />
-            <span className="text-sm font-medium text-primary-foreground/80">Built for NYC Property Owners & Expeditors</span>
+            <span className="text-sm font-medium text-white/80">Invite-Only Beta · Built for NYC Property Owners</span>
           </div>
 
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 leading-tight animate-slide-up">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight animate-slide-up">
             One missed violation costs $25,000.
             <br />
             <span className="text-gradient">CitiSignal catches it first.</span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-primary-foreground/70 mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <p className="text-lg sm:text-xl text-white/70 mb-10 max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.1s' }}>
             Real-time violation monitoring across 9 NYC agencies. Auto-alerts via Telegram, SMS & WhatsApp. The cheapest insurance your portfolio has.
           </p>
 
@@ -31,7 +31,7 @@ const Hero = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-slide-up" style={{ animationDelay: '0.2s' }}>
             <Link to="/auth">
               <Button variant="hero" size="xl">
-                Get Started
+                Claim My Spot
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
@@ -45,20 +45,17 @@ const Hero = () => {
           {/* Channel pills */}
           <div className="flex flex-wrap items-center justify-center gap-3 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             {[
-              { icon: Shield, label: "9 NYC Agencies", soon: false },
-              { icon: Bell, label: "Telegram", soon: false },
-              { icon: Phone, label: "SMS", soon: false },
-              { icon: MessageSquare, label: "WhatsApp", soon: false },
+              { icon: Shield, label: "9 NYC Agencies" },
+              { icon: Bell, label: "Telegram" },
+              { icon: Phone, label: "SMS" },
+              { icon: MessageSquare, label: "WhatsApp" },
             ].map((item, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-foreground/5 border border-primary-foreground/10"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10"
               >
                 <item.icon className="w-4 h-4 text-accent" />
-                <span className="text-sm font-medium text-primary-foreground/80">{item.label}</span>
-                {item.soon && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded">Soon</span>
-                )}
+                <span className="text-sm font-medium text-white/80">{item.label}</span>
               </div>
             ))}
           </div>
@@ -68,7 +65,7 @@ const Hero = () => {
         <div className="mt-20 relative animate-slide-up" style={{ animationDelay: '0.4s' }}>
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
           <div className="max-w-5xl mx-auto">
-            <div className="rounded-xl border border-primary-foreground/10 bg-card/5 backdrop-blur-sm p-2 shadow-elevated">
+            <div className="rounded-xl border border-white/10 bg-card/5 backdrop-blur-sm p-2 shadow-elevated">
               <div className="rounded-lg bg-card overflow-hidden">
                 <div className="p-6">
                   {/* Top Bar */}

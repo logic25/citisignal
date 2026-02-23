@@ -15,43 +15,49 @@ const features = [
     icon: Bell,
     title: "Multi-Agency Violation Monitoring",
     description: "Real-time alerts from DOB, ECB, FDNY, HPD, DEP, DOT, DSNY, LPC & DOF. Violations are auto-classified by severity with aging deadlines.",
-    color: "destructive",
     highlight: "9 Agencies",
+    iconBg: "bg-destructive/10",
+    iconColor: "text-destructive",
   },
   {
     icon: MessageSquare,
     title: "Telegram, SMS & WhatsApp Alerts",
     description: "Instant violation alerts and vendor communication via Telegram, SMS, and WhatsApp. Every message saved to the record.",
-    color: "success",
     highlight: "3 Channels",
+    iconBg: "bg-success/10",
+    iconColor: "text-success",
   },
   {
     icon: Shield,
     title: "Compliance Scoring",
     description: "Letter-grade compliance scores per property. Track violation history, resolution rates, and local law requirements at a glance.",
-    color: "warning",
     highlight: "A–F Grades",
+    iconBg: "bg-warning/10",
+    iconColor: "text-warning",
   },
   {
     icon: FileCheck,
     title: "Permit & Application Tracking",
     description: "Full BIS and DOB NOW integration. Track Initial, Subsequent & Post-Approval filings with decoded statuses and CO detection.",
-    color: "accent",
     highlight: "BIS + DOB NOW",
+    iconBg: "bg-accent/10",
+    iconColor: "text-accent",
   },
   {
     icon: BookOpen,
     title: "Property Intelligence & Lease Q&A",
     description: "Ask any question about your properties or leases via web or Telegram. Get cited answers backed by your actual data — violations, deadlines, and documents.",
-    color: "primary",
     highlight: "AI + Telegram",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
   },
   {
     icon: Sparkles,
     title: "Team Property Chat",
     description: "Collaborative chat per property. Leave notes, tag the AI with @ai, and track Telegram messages — all in one thread with full audit trail.",
-    color: "primary",
     highlight: "Collaboration",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
   },
 ];
 
@@ -86,8 +92,8 @@ const Features = () => {
                 </span>
               </div>
 
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-${feature.color}/10`}>
-                <feature.icon className={`w-6 h-6 text-${feature.color}`} />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${feature.iconBg}`}>
+                <feature.icon className={`w-6 h-6 ${feature.iconColor}`} />
               </div>
 
               <h3 className="font-display text-xl font-semibold text-foreground mb-2">
