@@ -144,7 +144,7 @@ function checkLL11(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 1000 : null,
     penalty_description: applies ? '$1,000/month for late filing; $1,000/month for failure to correct unsafe conditions' : null,
     status: calcStatus(applies, nextDue),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/facade-inspection-safety-program-fisp.page',
+    learn_more_url: 'https://www.nyc.gov/assets/buildings/pdf/facadecycle-sn.pdf',
     tooltip: 'Buildings >6 stories must have facades inspected every 5 years as part of Cycle 10.',
   };
 }
@@ -164,7 +164,7 @@ function checkLL126Parapet(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: 10000,
     penalty_description: 'Min $1,250, max $10,000 for failure to provide report upon request',
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/parapet-inspections.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/parapets.page',
     tooltip: 'Annual parapet observation required. Unsafe conditions must be corrected within 90 days.',
   };
 }
@@ -200,7 +200,7 @@ function checkLL37(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 1000 : null,
     penalty_description: applies ? 'Up to $1,000/year for non-compliance' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/retaining-wall-compliance-filings.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/retaining-wall.page',
     tooltip: '5-year inspection cycle for retaining walls ≥10 ft facing public right-of-way.',
   };
 }
@@ -278,7 +278,7 @@ function checkLL87(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 3000 : null,
     penalty_description: applies ? '$3,000 first year; $5,000/year thereafter' : null,
     status: calcStatus(applies, nextDue),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/energy-audits.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/codes/ll87-energy-audits-retro-commissioning.page',
     tooltip: '10-year energy audit cycle based on block number.',
   };
 }
@@ -450,7 +450,7 @@ function checkLL159(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 1000 : null,
     penalty_description: applies ? 'DOB/HPD violation' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/gas-piping-and-gas-safety.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/property-or-business-owner/ll152-faqs.page',
     tooltip: 'Ongoing: post gas leak notice at all times.',
   };
 }
@@ -468,7 +468,7 @@ function checkLL33PostGas(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 10000 : null,
     penalty_description: applies ? 'DOB violation; potential criminal liability' : null,
     status: !applies ? 'exempt' : 'pending',
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/gas-piping-and-gas-safety.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/property-or-business-owner/ll152-faqs.page',
     tooltip: 'Event-triggered: report gas incidents to DOB and utility immediately.',
   };
 }
@@ -491,7 +491,7 @@ function checkLL62(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'DOB violation; potential shutdown order; civil penalties per device' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/elevators.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/elevator-frequently-asked-questions.page',
     tooltip: 'Annual CAT1 and periodic CAT5 testing for elevators.',
   };
 }
@@ -510,7 +510,7 @@ function checkBoilerInspection(p: PropertyForCompliance): LocalLawRequirement {
     penalty_amount: applies ? 5000 : null,
     penalty_description: applies ? 'DOB violation; potential shutdown for unsafe conditions' : null,
     status: calcStatus(applies, nextDue, 3),
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/boilers.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/industry/dob-now-safety-boiler-faqs.page',
     tooltip: 'Annual boiler inspection by DOB-licensed inspector.',
   };
 }
@@ -926,7 +926,7 @@ function checkLL196(_p: PropertyForCompliance): LocalLawRequirement {
     cycle_year: null, next_due_date: null, filing_deadline: null,
     penalty_amount: null, penalty_description: 'DOB violation; stop work order',
     status: 'exempt',
-    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/site-safety-training.page',
+    learn_more_url: 'https://www.nyc.gov/site/buildings/safety/sst-worker-information.page',
     tooltip: 'Construction site safety training. Applies during active construction.',
   };
 }
