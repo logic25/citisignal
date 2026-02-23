@@ -49,7 +49,8 @@ const financeItems = [
   { icon: DollarSign, label: 'Owner Statements', href: '/dashboard/owner-statements' },
   { icon: Landmark, label: 'Taxes', href: '/dashboard/taxes' },
   { icon: ShieldCheckIcon, label: 'Insurance', href: '/dashboard/insurance' },
-  { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
+  // DD Reports hidden — overlaps with BinCheck NYC product
+  // { icon: BarChart3, label: 'Reports', href: '/dashboard/reports' },
 ];
 
 const adminItems = [
