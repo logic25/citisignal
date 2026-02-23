@@ -125,18 +125,20 @@ function buildEmailHtml(data: {
     upcomingHearings: Array<{ violation_number: string; hearing_date: string; agency: string; description_raw: string }>;
     expiringDocs: Array<{ document_name: string; expiration_date: string; document_type: string }>;
     applications: Array<{ application_number: string; application_type: string; status: string; agency: string }>;
+    insuranceAlerts: Array<{ tenant_name: string; policy_type: string; expiration_date: string; days_remaining: number; is_expired: boolean }>;
   }>;
   appUrl: string;
   totalViolations: number;
   totalHearings: number;
   totalExpiring: number;
   totalApplications: number;
+  totalInsuranceAlerts: number;
   digestDate: string;
 }): string {
-  const { userName, properties, appUrl, totalViolations, totalHearings, totalExpiring, totalApplications, digestDate } = data;
+  const { userName, properties, appUrl, totalViolations, totalHearings, totalExpiring, totalApplications, totalInsuranceAlerts, digestDate } = data;
 
   const propertySections = properties.map(prop => {
-    const hasContent = prop.violations.length > 0 || prop.upcomingHearings.length > 0 || prop.expiringDocs.length > 0 || prop.applications.length > 0;
+    const hasContent = prop.violations.length > 0 || prop.upcomingHearings.length > 0 || prop.expiringDocs.length > 0 || prop.applications.length > 0 || prop.insuranceAlerts.length > 0;
     if (!hasContent) return "";
 
     const violationCards = prop.violations.map(v => {
@@ -189,6 +191,13 @@ function buildEmailHtml(data: {
       </div>
     `).join("");
 
+    const insuranceCards = prop.insuranceAlerts.map(i => `
+      <div style="background:${i.is_expired ? '#fef2f2' : '#fff7ed'};border-left:4px solid ${i.is_expired ? '#ef4444' : '#f59e0b'};border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+        <div style="font-weight:600;color:${i.is_expired ? '#991b1b' : '#92400e'};font-size:14px;margin-bottom:4px;">🛡️ ${i.tenant_name} — ${i.policy_type.replace(/_/g, ' ')}</div>
+        <p style="color:${i.is_expired ? '#7f1d1d' : '#78350f'};font-size:13px;margin:0;">${i.is_expired ? 'EXPIRED' : `Expires in ${i.days_remaining} day${i.days_remaining !== 1 ? 's' : ''}`} · ${formatDate(i.expiration_date)}</p>
+      </div>
+    `).join("");
+
     return `
       <div style="background:#ffffff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;">
         <h2 style="color:#0f172a;font-size:18px;font-weight:700;margin:0 0 16px 0;padding-bottom:12px;border-bottom:2px solid #f1f5f9;">
@@ -198,6 +207,7 @@ function buildEmailHtml(data: {
         ${hearingCards ? `<h3 style="color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px 0;">Upcoming Hearings</h3>${hearingCards}` : ""}
         ${expiringCards ? `<h3 style="color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px 0;">Expiring Documents</h3>${expiringCards}` : ""}
         ${appCards ? `<h3 style="color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px 0;">Application Updates</h3>${appCards}` : ""}
+        ${insuranceCards ? `<h3 style="color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 10px 0;">Insurance Alerts</h3>${insuranceCards}` : ""}
       </div>
     `;
   }).filter(Boolean).join("");
@@ -372,7 +382,7 @@ Deno.serve(async (req) => {
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Fetch all data in parallel
-    const [violationsRes, docsRes, applicationsRes] = await Promise.all([
+    const [violationsRes, docsRes, applicationsRes, insuranceRes] = await Promise.all([
       notifyViolations
         ? supabase.from("violations").select("*").in("property_id", propertyIds).eq("status", "open").order("severity")
         : Promise.resolve({ data: [] }),
@@ -382,11 +392,17 @@ Deno.serve(async (req) => {
       notifyApplications
         ? supabase.from("applications").select("*").in("property_id", propertyIds).order("updated_at", { ascending: false }).limit(50)
         : Promise.resolve({ data: [] }),
+      supabase.from("tenant_insurance_policies")
+        .select("*, tenants(company_name)")
+        .in("property_id", propertyIds)
+        .lte("expiration_date", new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        .in("status", ["active", "expired"]),
     ]);
 
     const allViolations = violationsRes.data || [];
     const allDocs = docsRes.data || [];
     const allApps = applicationsRes.data || [];
+    const allInsurance = insuranceRes.data || [];
 
     // Group by property with calculated severity
     const propertyData = properties.map(prop => {
@@ -394,6 +410,18 @@ Deno.serve(async (req) => {
       const upcomingHearings = violations.filter((v: any) => v.hearing_date && new Date(v.hearing_date) <= sevenDaysFromNow && new Date(v.hearing_date) >= now);
       const expiringDocs = allDocs.filter((d: any) => d.property_id === prop.id);
       const applications = allApps.filter((a: any) => a.property_id === prop.id).slice(0, 5);
+      const insuranceAlerts = allInsurance
+        .filter((i: any) => i.property_id === prop.id)
+        .map((i: any) => {
+          const daysRemaining = Math.ceil((new Date(i.expiration_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            tenant_name: (i as any).tenants?.company_name || "Tenant",
+            policy_type: i.policy_type,
+            expiration_date: i.expiration_date,
+            days_remaining: daysRemaining,
+            is_expired: daysRemaining < 0,
+          };
+        });
 
       return {
         address: prop.address,
@@ -408,6 +436,7 @@ Deno.serve(async (req) => {
         upcomingHearings,
         expiringDocs,
         applications,
+        insuranceAlerts,
       };
     });
 
@@ -415,6 +444,7 @@ Deno.serve(async (req) => {
     const totalHearings = propertyData.reduce((sum, p) => sum + p.upcomingHearings.length, 0);
     const totalExpiring = allDocs.length;
     const totalApplications = allApps.length;
+    const totalInsuranceAlerts = allInsurance.length;
 
     const appUrl = Deno.env.get("APP_URL") || "https://app.citisignal.com";
     const digestDate = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -427,6 +457,7 @@ Deno.serve(async (req) => {
       totalHearings,
       totalExpiring,
       totalApplications,
+      totalInsuranceAlerts,
       digestDate,
     });
 
