@@ -235,6 +235,9 @@ const InsurancePage = () => {
             <TableBody>
               {all.map(p => {
                 const compliance = getComplianceInfo(p);
+                const daysLeft = p.expiration_date ? differenceInDays(parseISO(p.expiration_date), new Date()) : null;
+                const isExpired = daysLeft !== null && daysLeft < 0;
+                const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
                 return (
                   <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/dashboard/properties/${p.property_id}`)}>
                     <TableCell className="text-sm max-w-[180px] truncate">{p.properties?.address || '—'}</TableCell>
@@ -242,7 +245,13 @@ const InsurancePage = () => {
                     <TableCell className="text-sm">{POLICY_TYPES[p.policy_type] || p.policy_type}</TableCell>
                     <TableCell className="text-sm">{p.carrier_name || '—'}</TableCell>
                     <TableCell className="text-sm">{p.coverage_amount ? `$${Number(p.coverage_amount).toLocaleString()}` : '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.expiration_date ? format(parseISO(p.expiration_date), 'MM/dd/yy') : '—'}</TableCell>
+                    <TableCell className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{p.expiration_date ? format(parseISO(p.expiration_date), 'MM/dd/yy') : '—'}</span>
+                        {isExpired && <Badge variant="destructive" className="text-[10px] py-0">Expired</Badge>}
+                        {isExpiringSoon && <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px] py-0">{daysLeft}d left</Badge>}
+                      </div>
+                    </TableCell>
                     <TableCell><Badge variant="outline" className={compliance.color}>{compliance.label}</Badge></TableCell>
                   </TableRow>
                 );

@@ -514,6 +514,123 @@ export default function CAMPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Reconciliation Summary */}
+                    {lineItems.length > 0 && allocations.length > 0 && showAllocations === budget.id && (
+                      <div className="border-t pt-4 space-y-3">
+                        <h3 className="font-semibold flex items-center gap-2"><Calculator className="w-4 h-4" />Reconciliation Summary</h3>
+                        <p className="text-xs text-muted-foreground">Compares budgeted vs actual and calculates each tenant's share of the variance.</p>
+                        
+                        {/* Line Item Variance Table */}
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Category</TableHead>
+                              <TableHead className="text-right">Budgeted</TableHead>
+                              <TableHead className="text-right">Actual</TableHead>
+                              <TableHead className="text-right">Variance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {lineItems.map(item => {
+                              const budgeted = Number(item.budgeted_amount);
+                              const actual = Number(item.actual_amount);
+                              const itemVariance = actual - budgeted;
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell className="capitalize">{item.category.replace('_', ' ')}</TableCell>
+                                  <TableCell className="text-right tabular-nums">${budgeted.toLocaleString()}</TableCell>
+                                  <TableCell className="text-right tabular-nums">${actual.toLocaleString()}</TableCell>
+                                  <TableCell className={`text-right tabular-nums font-medium ${itemVariance > 0 ? 'text-destructive' : itemVariance < 0 ? 'text-green-600' : ''}`}>
+                                    {itemVariance > 0 ? '+' : ''}${itemVariance.toLocaleString()}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                            <TableRow className="font-bold border-t-2">
+                              <TableCell>Total</TableCell>
+                              <TableCell className="text-right tabular-nums">${totalBudgeted.toLocaleString()}</TableCell>
+                              <TableCell className="text-right tabular-nums">${totalActual.toLocaleString()}</TableCell>
+                              <TableCell className={`text-right tabular-nums ${(totalActual - totalBudgeted) > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                {(totalActual - totalBudgeted) > 0 ? '+' : ''}${(totalActual - totalBudgeted).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+
+                        {/* Tenant Reconciliation */}
+                        <h4 className="text-sm font-semibold mt-4">Tenant Variance Shares</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Tenant</TableHead>
+                              <TableHead className="text-right">Allocation %</TableHead>
+                              <TableHead className="text-right">Est. Annual</TableHead>
+                              <TableHead className="text-right">Actual Share</TableHead>
+                              <TableHead className="text-right">Reconciliation</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(() => {
+                              const totalVarianceAmt = totalActual - totalBudgeted;
+                              const totalAllocatedPct = allocations.reduce((sum: number, a: any) => {
+                                if (a.allocation_method === 'pro_rata_sqft') {
+                                  const totalSqft = budget.property?.building_area_sqft || 1;
+                                  return sum + (Number(a.tenant_sqft) / totalSqft) * 100;
+                                }
+                                if (a.allocation_method === 'percentage') return sum + Number(a.allocation_percentage || 0);
+                                if (a.allocation_method === 'fixed_amount') return sum + (totalBudgeted > 0 ? (Number(a.fixed_amount) / totalBudgeted) * 100 : 0);
+                                return sum;
+                              }, 0);
+                              
+                              let totalRecon = 0;
+                              const rows = allocations.map((a: any) => {
+                                let pct = 0;
+                                if (a.allocation_method === 'pro_rata_sqft') {
+                                  const totalSqft = budget.property?.building_area_sqft || 1;
+                                  pct = (Number(a.tenant_sqft) / totalSqft) * 100;
+                                } else if (a.allocation_method === 'percentage') {
+                                  pct = Number(a.allocation_percentage || 0);
+                                } else if (a.allocation_method === 'fixed_amount') {
+                                  pct = totalBudgeted > 0 ? (Number(a.fixed_amount) / totalBudgeted) * 100 : 0;
+                                }
+                                const actualShare = totalActual * (pct / 100);
+                                const reconAmount = actualShare - Number(a.estimated_annual);
+                                totalRecon += reconAmount;
+                                return (
+                                  <TableRow key={a.id}>
+                                    <TableCell className="font-medium">{a.tenant?.company_name}</TableCell>
+                                    <TableCell className="text-right tabular-nums">{pct.toFixed(1)}%</TableCell>
+                                    <TableCell className="text-right tabular-nums">${Number(a.estimated_annual).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right tabular-nums">${actualShare.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                                    <TableCell className={`text-right tabular-nums font-medium ${reconAmount > 0 ? 'text-destructive' : reconAmount < 0 ? 'text-green-600' : ''}`}>
+                                      {reconAmount > 0 ? '+' : ''}${reconAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              });
+                              return (
+                                <>
+                                  {rows}
+                                  <TableRow className="font-bold border-t-2">
+                                    <TableCell>Net Reconciliation</TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell className={`text-right tabular-nums ${totalRecon > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                      {totalRecon > 0 ? '+' : ''}${totalRecon.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </TableCell>
+                                  </TableRow>
+                                </>
+                              );
+                            })()}
+                          </TableBody>
+                        </Table>
+                        <p className="text-xs text-muted-foreground">
+                          Positive = tenant owes additional. Negative = tenant is owed a credit.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>

@@ -1,23 +1,31 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle, FileStack, ClipboardList, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle, FileStack, ClipboardList, FileText, Plus, Star } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMonths, subMonths, startOfWeek, endOfWeek, isPast, isBefore, addDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface CalendarEvent {
   id: string;
   date: Date;
   title: string;
   subtitle: string;
-  type: 'hearing' | 'cure_deadline' | 'certification' | 'permit_expiration' | 'document_expiration' | 'work_order';
+  type: 'hearing' | 'cure_deadline' | 'certification' | 'permit_expiration' | 'document_expiration' | 'work_order' | 'custom';
   propertyId: string;
   propertyAddress: string;
   urgent: boolean;
+  description?: string;
+  time?: string;
 }
 
 const EVENT_COLORS: Record<CalendarEvent['type'], string> = {
@@ -27,6 +35,7 @@ const EVENT_COLORS: Record<CalendarEvent['type'], string> = {
   permit_expiration: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border-orange-300/30',
   document_expiration: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-300/30',
   work_order: 'bg-muted text-muted-foreground border-muted',
+  custom: 'bg-primary/15 text-primary border-primary/30',
 };
 
 const EVENT_LABELS: Record<CalendarEvent['type'], string> = {
@@ -36,6 +45,7 @@ const EVENT_LABELS: Record<CalendarEvent['type'], string> = {
   permit_expiration: 'Permit Expires',
   document_expiration: 'Doc Expires',
   work_order: 'Work Order',
+  custom: 'Custom',
 };
 
 const EVENT_ICONS: Record<CalendarEvent['type'], typeof AlertTriangle> = {
@@ -45,13 +55,48 @@ const EVENT_ICONS: Record<CalendarEvent['type'], typeof AlertTriangle> = {
   permit_expiration: FileStack,
   document_expiration: FileText,
   work_order: ClipboardList,
+  custom: Star,
 };
 
 const CalendarPage = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const navigate = useNavigate();
+
+  const [newEvent, setNewEvent] = useState({
+    title: '', description: '', event_date: format(new Date(), 'yyyy-MM-dd'),
+    event_time: '', property_id: '', event_type: 'custom',
+  });
+
+  // Fetch properties
+  const { data: properties } = useQuery({
+    queryKey: ['calendar-properties'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('properties').select('id, address').order('address');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch custom events
+  const { data: customEvents } = useQuery({
+    queryKey: ['calendar-custom-events'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*, properties(address)')
+        .order('event_date');
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!user,
+  });
 
   // Fetch violations with dates
   const { data: violations } = useQuery({
@@ -92,10 +137,44 @@ const CalendarPage = () => {
     },
   });
 
+  // Create custom event
+  const createEvent = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('calendar_events').insert({
+        user_id: user!.id,
+        title: newEvent.title,
+        description: newEvent.description || null,
+        event_date: newEvent.event_date,
+        event_time: newEvent.event_time || null,
+        property_id: newEvent.property_id || null,
+        event_type: newEvent.event_type,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-custom-events'] });
+      setShowCreateEvent(false);
+      setNewEvent({ title: '', description: '', event_date: format(new Date(), 'yyyy-MM-dd'), event_time: '', property_id: '', event_type: 'custom' });
+      toast.success('Event created');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   // Build events
   const events = useMemo<CalendarEvent[]>(() => {
     const result: CalendarEvent[] = [];
     const sevenDaysFromNow = addDays(new Date(), 7);
+
+    // Custom events
+    (customEvents || []).forEach((ce: any) => {
+      const d = new Date(ce.event_date);
+      const addr = ce.properties?.address || '';
+      result.push({
+        id: `custom-${ce.id}`, date: d, title: ce.title, subtitle: ce.description || '',
+        type: 'custom', propertyId: ce.property_id || '', propertyAddress: addr,
+        urgent: false, description: ce.description, time: ce.event_time,
+      });
+    });
 
     (violations || []).forEach((v: any) => {
       const addr = (v.properties as any)?.address || 'Unknown';
@@ -150,7 +229,7 @@ const CalendarPage = () => {
     });
 
     return result;
-  }, [violations, applications, documents]);
+  }, [violations, applications, documents, customEvents]);
 
   const filteredEvents = useMemo(() => {
     if (typeFilter === 'all') return events;
@@ -191,19 +270,75 @@ const CalendarPage = () => {
             Track hearings, deadlines, permit expirations, and certifications across all properties
           </p>
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="All Events" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Events</SelectItem>
-            <SelectItem value="hearing">Hearings</SelectItem>
-            <SelectItem value="cure_deadline">Cure Deadlines</SelectItem>
-            <SelectItem value="certification">Certifications</SelectItem>
-            <SelectItem value="permit_expiration">Permit Expirations</SelectItem>
-            <SelectItem value="document_expiration">Document Expirations</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Dialog open={showCreateEvent} onOpenChange={setShowCreateEvent}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="w-4 h-4 mr-1" />Create Event</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Create Calendar Event</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Title *</Label>
+                  <Input value={newEvent.title} onChange={e => setNewEvent(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Inspection scheduled" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Date *</Label>
+                    <Input type="date" value={newEvent.event_date} onChange={e => setNewEvent(p => ({ ...p, event_date: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Time (optional)</Label>
+                    <Input type="time" value={newEvent.event_time} onChange={e => setNewEvent(p => ({ ...p, event_time: e.target.value }))} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Event Type</Label>
+                  <Select value={newEvent.event_type} onValueChange={v => setNewEvent(p => ({ ...p, event_type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="custom">Custom</SelectItem>
+                      <SelectItem value="hearing">Hearing</SelectItem>
+                      <SelectItem value="inspection">Inspection</SelectItem>
+                      <SelectItem value="deadline">Deadline</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Property (optional)</Label>
+                  <Select value={newEvent.property_id} onValueChange={v => setNewEvent(p => ({ ...p, property_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select property" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {(properties || []).map(p => <SelectItem key={p.id} value={p.id}>{p.address}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Description (optional)</Label>
+                  <Textarea value={newEvent.description} onChange={e => setNewEvent(p => ({ ...p, description: e.target.value }))} rows={2} />
+                </div>
+                <Button onClick={() => createEvent.mutate()} disabled={!newEvent.title || !newEvent.event_date} className="w-full">
+                  Create Event
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Events" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Events</SelectItem>
+              <SelectItem value="hearing">Hearings</SelectItem>
+              <SelectItem value="cure_deadline">Cure Deadlines</SelectItem>
+              <SelectItem value="certification">Certifications</SelectItem>
+              <SelectItem value="permit_expiration">Permit Expirations</SelectItem>
+              <SelectItem value="document_expiration">Document Expirations</SelectItem>
+              <SelectItem value="custom">Custom Events</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats Bar */}
@@ -246,25 +381,15 @@ const CalendarPage = () => {
               <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCurrentMonth(new Date());
-                  setSelectedDay(new Date());
-                }}
-                className="text-xs"
-              >
+              <Button variant="outline" size="sm" onClick={() => { setCurrentMonth(new Date()); setSelectedDay(new Date()); }} className="text-xs">
                 Today
               </Button>
               <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <h2 className="font-display text-lg font-semibold">
-              {format(currentMonth, 'MMMM yyyy')}
-            </h2>
-            <div className="w-24" /> {/* spacer for centering */}
+            <h2 className="font-display text-lg font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
+            <div className="w-24" />
           </div>
 
           {/* Day headers */}
@@ -281,7 +406,6 @@ const CalendarPage = () => {
               const inMonth = isSameMonth(day, currentMonth);
               const today = isToday(day);
               const isSelected = selectedDay && isSameDay(day, selectedDay);
-              const hasUrgent = dayEvents.some(e => e.urgent);
 
               return (
                 <button
@@ -343,22 +467,20 @@ const CalendarPage = () => {
                           isOverdue ? 'border-destructive/40 bg-destructive/5' :
                           ev.urgent ? 'border-warning/40 bg-warning/5' : 'border-border'
                         }`}
-                        onClick={() => navigate(`/dashboard/properties/${ev.propertyId}`)}
+                        onClick={() => setSelectedEvent(ev)}
                       >
                         <div className="flex items-start gap-2">
                           <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isOverdue ? 'text-destructive' : ev.urgent ? 'text-warning' : 'text-muted-foreground'}`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-medium text-foreground">{ev.title}</span>
-                              {isOverdue && (
-                                <Badge variant="destructive" className="text-[10px] py-0">Overdue</Badge>
-                              )}
+                              {isOverdue && <Badge variant="destructive" className="text-[10px] py-0">Overdue</Badge>}
                             </div>
                             <Badge variant="outline" className={`text-[10px] mb-1 ${EVENT_COLORS[ev.type]}`}>
                               {EVENT_LABELS[ev.type]}
                             </Badge>
                             <p className="text-xs text-muted-foreground truncate">{ev.subtitle}</p>
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">{ev.propertyAddress}</p>
+                            {ev.propertyAddress && <p className="text-xs text-muted-foreground truncate mt-0.5">{ev.propertyAddress}</p>}
                           </div>
                         </div>
                       </div>
@@ -385,19 +507,16 @@ const CalendarPage = () => {
                     <div
                       key={ev.id}
                       className={`p-2.5 rounded-lg border cursor-pointer transition-colors hover:bg-muted/30 ${ev.urgent ? 'border-destructive/40 bg-destructive/5' : 'border-border'}`}
-                      onClick={() => navigate(`/dashboard/properties/${ev.propertyId}`)}
+                      onClick={() => setSelectedEvent(ev)}
                     >
                       <div className="flex items-start gap-2">
                         <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${ev.urgent ? 'text-destructive' : 'text-muted-foreground'}`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium text-foreground truncate">{ev.title}</span>
-                            <span className={`text-[10px] font-medium whitespace-nowrap ${ev.urgent ? 'text-destructive' : 'text-muted-foreground'}`}>
-                              {format(ev.date, 'MM/dd/yy')}
-                            </span>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{format(ev.date, 'MMM d')}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate">{ev.subtitle}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{ev.propertyAddress}</p>
+                          <p className="text-xs text-muted-foreground truncate">{ev.propertyAddress}</p>
                         </div>
                       </div>
                     </div>
@@ -408,6 +527,43 @@ const CalendarPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Event Detail Sheet */}
+      <Sheet open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <SheetContent>
+          {selectedEvent && (() => {
+            const Icon = EVENT_ICONS[selectedEvent.type];
+            const daysAway = Math.ceil((selectedEvent.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            return (
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Icon className="w-5 h-5" />
+                  {selectedEvent.title}
+                </SheetTitle>
+                <div className="space-y-3 pt-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={EVENT_COLORS[selectedEvent.type]}>{EVENT_LABELS[selectedEvent.type]}</Badge>
+                    {daysAway < 0 && <Badge variant="destructive">Overdue by {Math.abs(daysAway)} days</Badge>}
+                    {daysAway >= 0 && daysAway <= 7 && <Badge className="bg-warning/10 text-warning border-warning/20">In {daysAway} days</Badge>}
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{format(selectedEvent.date, 'EEEE, MMMM d, yyyy')}</span></div>
+                    {selectedEvent.time && <div><span className="text-muted-foreground">Time:</span> <span className="font-medium">{selectedEvent.time}</span></div>}
+                    {selectedEvent.propertyAddress && <div><span className="text-muted-foreground">Property:</span> <span className="font-medium">{selectedEvent.propertyAddress}</span></div>}
+                    {selectedEvent.subtitle && <div><span className="text-muted-foreground">Details:</span> <span className="font-medium">{selectedEvent.subtitle}</span></div>}
+                    {selectedEvent.description && <div><span className="text-muted-foreground">Description:</span> <p className="mt-1">{selectedEvent.description}</p></div>}
+                  </div>
+                  {selectedEvent.propertyId && (
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedEvent(null); navigate(`/dashboard/properties/${selectedEvent.propertyId}`); }}>
+                      View Property →
+                    </Button>
+                  )}
+                </div>
+              </SheetHeader>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
