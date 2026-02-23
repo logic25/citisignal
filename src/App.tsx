@@ -68,7 +68,8 @@ const App = () => (
                 <Route path="work-orders" element={<WorkOrdersPage />} />
                 <Route path="cam" element={<CAMPage />} />
                 <Route path="owner-statements" element={<OwnerStatementsPage />} />
-                <Route path="reports" element={<ReportBuilderPage />} />
+                {/* DD Reports hidden — overlaps with BinCheck NYC product */}
+                {/* <Route path="reports" element={<ReportBuilderPage />} /> */}
                 <Route path="taxes" element={<TaxesPage />} />
                 <Route path="insurance" element={<InsurancePage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
