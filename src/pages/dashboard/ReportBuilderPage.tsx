@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { Plus, FileText, Play, Download, Clock, Trash2, Copy } from 'lucide-react';
+import { Plus, FileText, Play, Download, Clock, Trash2, Copy, Table as TableIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -161,6 +161,34 @@ export default function ReportBuilderPage() {
   });
 
   const [viewRun, setViewRun] = useState<any>(null);
+
+  const exportCSV = useCallback((run: any) => {
+    if (!run?.result_data) return;
+    const resultData = run.result_data as Record<string, any[]>;
+    const lines: string[] = [];
+    for (const [source, rows] of Object.entries(resultData)) {
+      if (!rows.length) continue;
+      lines.push(`--- ${source.replace('_', ' ').toUpperCase()} ---`);
+      const cols = Object.keys(rows[0]).filter(k => !['raw_data', 'result_data', 'metadata'].includes(k));
+      lines.push(cols.join(','));
+      for (const row of rows) {
+        lines.push(cols.map(c => {
+          const v = row[c];
+          if (v === null || v === undefined) return '';
+          const str = typeof v === 'object' ? JSON.stringify(v) : String(v);
+          return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        }).join(','));
+      }
+      lines.push('');
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${run.name || 'report'}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -334,9 +362,14 @@ export default function ReportBuilderPage() {
                         </TableCell>
                         <TableCell className="tabular-nums">{format(new Date(r.generated_at), 'MM/dd/yy h:mm a')}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => setViewRun(r)}>
-                            <FileText className="w-4 h-4 mr-1" />View
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setViewRun(r)}>
+                              <FileText className="w-4 h-4 mr-1" />View
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => exportCSV(r)} title="Export CSV">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -352,7 +385,12 @@ export default function ReportBuilderPage() {
       <Dialog open={!!viewRun} onOpenChange={() => setViewRun(null)}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{viewRun?.name}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>{viewRun?.name}</DialogTitle>
+              <Button size="sm" variant="outline" onClick={() => exportCSV(viewRun)}>
+                <Download className="w-4 h-4 mr-1" />Export CSV
+              </Button>
+            </div>
           </DialogHeader>
           {viewRun?.result_data && Object.entries(viewRun.result_data as Record<string, any[]>).map(([source, rows]) => (
             <div key={source} className="space-y-2">

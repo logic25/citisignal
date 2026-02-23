@@ -140,6 +140,9 @@ const WorkOrdersPage = () => {
   const [poData, setPoData] = useState<Record<string, PurchaseOrder>>({});
   const [vendorDetails, setVendorDetails] = useState<Record<string, Vendor>>({});
 
+  // Dispatch state
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
+
   // Completion flow state
   const [completeDialogWO, setCompleteDialogWO] = useState<WorkOrder | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
@@ -314,6 +317,78 @@ const WorkOrdersPage = () => {
       fetchMessages(woId);
       toast.success('Message added');
     } catch { toast.error('Failed to send message'); }
+  };
+
+  // === Dispatch Work Order ===
+  const handleDispatch = async (wo: WorkOrder) => {
+    if (!wo.vendor) {
+      toast.error('Assign a vendor before dispatching');
+      return;
+    }
+    setDispatchingId(wo.id);
+    try {
+      // 1. Update status to dispatched
+      const { error: updateErr } = await supabase
+        .from('work_orders')
+        .update({ status: 'dispatched' as any, dispatched_at: new Date().toISOString() })
+        .eq('id', wo.id);
+      if (updateErr) throw updateErr;
+
+      // 2. Get full vendor info for email/phone
+      const { data: vendorData } = await supabase
+        .from('vendors')
+        .select('email, phone_number, name, telegram_chat_id')
+        .eq('id', wo.vendor.id)
+        .single();
+
+      // 3. Send email notification via edge function
+      if (vendorData?.email) {
+        await supabase.functions.invoke('send-work-order-notification', {
+          body: {
+            vendor_email: vendorData.email,
+            vendor_name: vendorData.name,
+            property_address: wo.property?.address || '',
+            scope_of_work: wo.scope,
+            work_order_id: wo.id,
+          },
+        });
+      }
+
+      // 4. Send SMS if vendor has a phone and property has SMS enabled
+      if (vendorData?.phone_number && wo.property?.id) {
+        const { data: propData } = await supabase
+          .from('properties')
+          .select('sms_enabled, assigned_phone_number')
+          .eq('id', wo.property.id)
+          .single();
+        if (propData?.sms_enabled && propData?.assigned_phone_number) {
+          await supabase.functions.invoke('send-sms', {
+            body: {
+              to: vendorData.phone_number,
+              from: propData.assigned_phone_number,
+              message: `New work order from CitiSignal: ${wo.property?.address || 'Property'} - ${wo.scope.substring(0, 100)}. Check your email for details.`,
+            },
+          });
+        }
+      }
+
+      // 5. Log dispatch in property_activity_log
+      if (wo.property?.id) {
+        await supabase.from('property_activity_log').insert({
+          property_id: wo.property.id,
+          activity_type: 'work_order_dispatched',
+          title: `Work order dispatched to ${vendorData?.name || wo.vendor.name}`,
+          description: wo.scope.substring(0, 200),
+        });
+      }
+
+      toast.success(`Work order dispatched to ${vendorData?.name || wo.vendor.name}`);
+      fetchData();
+    } catch (e: any) {
+      toast.error('Failed to dispatch: ' + (e.message || ''));
+    } finally {
+      setDispatchingId(null);
+    }
   };
 
   // === Simulate Vendor Sign ===
@@ -913,7 +988,7 @@ const WorkOrdersPage = () => {
                             </div>
                           )}
 
-                          {/* Approved + PO Pending Vendor Sign */}
+                          {/* Approved + Dispatch / PO Pending Vendor Sign */}
                           {workOrder.status === 'approved' && workOrder.approved_amount != null && (
                             <div className="mt-4 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
                               <div className="flex items-center gap-2">
@@ -925,22 +1000,34 @@ const WorkOrdersPage = () => {
                                   <Badge className="bg-emerald-100 text-emerald-700 ml-2">PO Generated</Badge>
                                 )}
                               </div>
-                              {workOrder.po_id && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <p className="text-sm text-muted-foreground">
-                                    Purchase order sent to vendor for signing.
-                                  </p>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                                    onClick={() => handleSimulateVendorSign(workOrder)}
-                                  >
-                                    <Play className="w-3 h-3 mr-1" />
-                                    Simulate Vendor Sign
-                                  </Button>
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                {/* Dispatch Button */}
+                                <Button
+                                  size="sm"
+                                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                                  onClick={() => handleDispatch(workOrder)}
+                                  disabled={dispatchingId === workOrder.id}
+                                >
+                                  {dispatchingId === workOrder.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+                                  Dispatch to Vendor
+                                </Button>
+                                {workOrder.po_id && (
+                                  <>
+                                    <p className="text-sm text-muted-foreground">
+                                      PO sent to vendor for signing.
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                      onClick={() => handleSimulateVendorSign(workOrder)}
+                                    >
+                                      <Play className="w-3 h-3 mr-1" />
+                                      Simulate Vendor Sign
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           )}
 
