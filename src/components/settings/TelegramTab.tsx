@@ -13,7 +13,7 @@ const TelegramTab = () => {
   const [telegramUser, setTelegramUser] = useState<any>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
 
-  const botUsername = 'CitiSignalBot';
+  const botUsername = 'ComplianceIQBot';
 
   useEffect(() => {
     fetchTelegramLink();
