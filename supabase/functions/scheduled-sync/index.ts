@@ -238,53 +238,113 @@ Deno.serve(async (req) => {
       console.error("Error calling generate_deadline_reminders:", e);
     }
 
-    // Check insurance policies expiring within 30 days and create notifications
+    // Check insurance policies expiring within 30 days and auto-expire past-due policies
     try {
-      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       const today = new Date().toISOString().split("T")[0];
-      
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+      // Find already-expired policies still marked active and auto-expire them
+      const { data: expiredPolicies } = await supabase
+        .from("tenant_insurance_policies")
+        .select("id, policy_type, expiration_date, property_id, properties!inner(address, user_id), tenants(company_name, contact_email)")
+        .lt("expiration_date", today)
+        .eq("status", "active");
+
+      const notifications: any[] = [];
+
+      for (const policy of (expiredPolicies || [])) {
+        const prop = policy.properties as any;
+        const tenant = (policy as any).tenants;
+
+        await supabase
+          .from("tenant_insurance_policies")
+          .update({ status: "expired" })
+          .eq("id", policy.id);
+
+        notifications.push({
+          user_id: prop.user_id,
+          title: "Insurance policy expired",
+          message: `${tenant?.company_name || "Tenant"}'s ${policy.policy_type?.replace(/_/g, " ")} policy at ${prop.address} has expired (${policy.expiration_date}).`,
+          priority: "critical",
+          category: "insurance",
+          entity_id: policy.id,
+          entity_type: "insurance_policy",
+          property_id: policy.property_id,
+        });
+      }
+
+      // Find policies expiring in the next 30 days — only notify at 30/14/7/3/1 day marks
       const { data: expiringPolicies } = await supabase
         .from("tenant_insurance_policies")
-        .select("id, policy_type, carrier_name, expiration_date, property_id, properties!inner(address, user_id), tenants(company_name)")
+        .select("id, policy_type, carrier_name, expiration_date, property_id, properties!inner(address, user_id), tenants(company_name, contact_email)")
         .gte("expiration_date", today)
         .lte("expiration_date", thirtyDaysFromNow)
         .eq("status", "active");
-      
-      if (expiringPolicies && expiringPolicies.length > 0) {
-        const notifications = [];
-        for (const policy of expiringPolicies) {
-          const prop = policy.properties as any;
-          const tenant = (policy as any).tenants;
-          const daysLeft = Math.ceil((new Date(policy.expiration_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-          
-          // Check if notification already exists for this policy
-          const { data: existing } = await supabase
-            .from("notifications")
-            .select("id")
-            .eq("entity_id", policy.id)
-            .eq("entity_type", "insurance_policy")
-            .eq("category", "insurance")
-            .limit(1);
-          
-          if (!existing || existing.length === 0) {
-            notifications.push({
-              user_id: prop.user_id,
-              title: `Insurance Policy Expiring`,
-              message: `${tenant?.company_name || 'Tenant'} ${policy.policy_type} policy from ${policy.carrier_name || 'Unknown carrier'} at ${prop.address} expires in ${daysLeft} days (${policy.expiration_date}).`,
-              priority: 'high' as const,
-              category: 'insurance',
-              entity_id: policy.id,
-              entity_type: 'insurance_policy',
-              property_id: policy.property_id,
-            });
+
+      for (const policy of (expiringPolicies || [])) {
+        const prop = policy.properties as any;
+        const tenant = (policy as any).tenants;
+        const daysLeft = Math.ceil((new Date(policy.expiration_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+        if (![30, 14, 7, 3, 1].includes(daysLeft)) continue;
+
+        // Check if this specific interval notification already exists
+        const { data: existing } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("entity_id", policy.id)
+          .eq("entity_type", "insurance_policy")
+          .eq("category", "insurance")
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        if (existing && existing.length > 0) continue;
+
+        notifications.push({
+          user_id: prop.user_id,
+          title: `Insurance expiring in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
+          message: `${tenant?.company_name || "Tenant"}'s ${policy.policy_type?.replace(/_/g, " ")} policy (${policy.carrier_name || "Unknown carrier"}) at ${prop.address} expires ${policy.expiration_date}.`,
+          priority: daysLeft <= 7 ? "high" : "normal",
+          category: "insurance",
+          entity_id: policy.id,
+          entity_type: "insurance_policy",
+          property_id: policy.property_id,
+        });
+
+        // Send courtesy email to tenant at 14 and 3 days
+        if ([14, 3].includes(daysLeft) && tenant?.contact_email) {
+          try {
+            const resendApiKey = Deno.env.get("RESEND_API_KEY");
+            const fromAddress = Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>";
+            if (resendApiKey) {
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+                body: JSON.stringify({
+                  from: fromAddress,
+                  to: [tenant.contact_email],
+                  subject: `Insurance renewal reminder — ${prop.address}`,
+                  html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+                    <h2 style="color:#0f172a;">Insurance Renewal Reminder</h2>
+                    <p>Hi ${tenant.company_name || "Tenant"},</p>
+                    <p>Your <strong>${policy.policy_type?.replace(/_/g, " ")}</strong> insurance policy for <strong>${prop.address}</strong> expires in <strong>${daysLeft} days</strong> (${policy.expiration_date}).</p>
+                    <p>Please provide an updated Certificate of Insurance (COI) to your property manager at your earliest convenience.</p>
+                    <p style="color:#64748b;font-size:13px;margin-top:24px;">— CitiSignal Compliance Alerts</p>
+                  </div>`,
+                }),
+              });
+              console.log(`  -> Sent insurance reminder email to ${tenant.contact_email}`);
+            }
+          } catch (emailErr) {
+            console.error("Error sending tenant insurance email:", emailErr);
           }
         }
-        
-        if (notifications.length > 0) {
-          const { error: notifError } = await supabase.from("notifications").insert(notifications);
-          if (notifError) console.error("Error creating insurance notifications:", notifError);
-          else console.log(`Created ${notifications.length} insurance expiration notifications`);
-        }
+      }
+
+      if (notifications.length > 0) {
+        const { error: notifError } = await supabase.from("notifications").insert(notifications);
+        if (notifError) console.error("Error creating insurance notifications:", notifError);
+        else console.log(`Created ${notifications.length} insurance notifications`);
       }
     } catch (e) {
       console.error("Error checking insurance expirations:", e);

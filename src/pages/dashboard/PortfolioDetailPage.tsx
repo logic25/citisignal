@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { PortfolioOverviewTab } from '@/components/portfolios/PortfolioOverviewTab';
 import {
   Table,
   TableBody,
@@ -74,9 +75,10 @@ const PortfolioDetailPage = () => {
   const [violations, setViolations] = useState<(Violation & { property_address?: string; property_bbl?: string | null })[]>([]);
   const [availableProperties, setAvailableProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('violations');
+  const [activeTab, setActiveTab] = useState('overview');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [workOrderCount, setWorkOrderCount] = useState(0);
 
   const fetchData = async () => {
     if (!id) return;
@@ -116,19 +118,26 @@ const PortfolioDetailPage = () => {
 
       setAvailableProperties(availableData || []);
 
-      // Fetch all violations for properties in this portfolio
+      // Fetch all violations and work orders for properties in this portfolio
       if (propertiesData && propertiesData.length > 0) {
         const propertyIds = propertiesData.map(p => p.id);
-        const { data: violationsData, error: violationsError } = await supabase
-          .from('violations')
-          .select('*')
-          .in('property_id', propertyIds)
-          .order('issued_date', { ascending: false });
+        const [violationsRes, workOrdersRes] = await Promise.all([
+          supabase
+            .from('violations')
+            .select('*')
+            .in('property_id', propertyIds)
+            .order('issued_date', { ascending: false }),
+          supabase
+            .from('work_orders')
+            .select('*', { count: 'exact', head: true })
+            .in('property_id', propertyIds)
+            .neq('status', 'completed'),
+        ]);
 
-        if (violationsError) throw violationsError;
+        if (violationsRes.error) throw violationsRes.error;
 
         // Add property address and bbl to each violation
-        const violationsWithAddress = (violationsData || []).map(v => {
+        const violationsWithAddress = (violationsRes.data || []).map(v => {
           const property = propertiesData.find(p => p.id === v.property_id);
           return {
             ...v,
@@ -138,8 +147,10 @@ const PortfolioDetailPage = () => {
         });
 
         setViolations(violationsWithAddress);
+        setWorkOrderCount(workOrdersRes.count || 0);
       } else {
         setViolations([]);
+        setWorkOrderCount(0);
       }
     } catch (error) {
       console.error('Error fetching portfolio:', error);
@@ -272,6 +283,9 @@ const PortfolioDetailPage = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
+          <TabsTrigger value="overview">
+            Overview
+          </TabsTrigger>
           <TabsTrigger value="violations">
             All Violations {violations.length > 0 && `(${violations.length})`}
           </TabsTrigger>
@@ -279,6 +293,14 @@ const PortfolioDetailPage = () => {
             Properties {properties.length > 0 && `(${properties.length})`}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          <PortfolioOverviewTab
+            properties={properties}
+            violations={violations}
+            workOrderCount={workOrderCount}
+          />
+        </TabsContent>
 
         <TabsContent value="violations" className="mt-6">
           <PortfolioViolationsView 

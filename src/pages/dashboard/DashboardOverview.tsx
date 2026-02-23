@@ -7,6 +7,8 @@ import CriticalViolationsWidget from '@/components/dashboard/CriticalViolationsW
 import { usePortfolioScores } from '@/hooks/useComplianceScore';
 import { ComplianceScoreCard } from '@/components/dashboard/ComplianceScoreCard';
 import { ViolationTrendChart } from '@/components/dashboard/ViolationTrendChart';
+import BoroughHeatmap from '@/components/dashboard/BoroughHeatmap';
+import TopPropertiesCard from '@/components/dashboard/TopPropertiesCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { isActiveViolation, getAgencyColor } from '@/lib/violation-utils';
@@ -76,6 +78,7 @@ const DashboardOverview = () => {
   const [agencyBreakdown, setAgencyBreakdown] = useState<AgencyBreakdown[]>([]);
   const [recentViolations, setRecentViolations] = useState<RecentViolation[]>([]);
   const [allViolations, setAllViolations] = useState<{ id: string; issued_date: string; severity: string | null }[]>([]);
+  const [allProperties, setAllProperties] = useState<{ id: string; address: string; borough: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,7 +87,7 @@ const DashboardOverview = () => {
 
       try {
         const [propertiesRes, violationsRes, vendorsRes, workOrdersRes] = await Promise.all([
-          supabase.from('properties').select('*', { count: 'exact', head: true }),
+          supabase.from('properties').select('id, address, borough', { count: 'exact' }),
           supabase.from('violations').select('id, agency, violation_number, description_raw, status, oath_status, violation_class, issued_date, hearing_date, penalty_amount, is_stop_work_order, is_vacate_order, property:properties(id, address)').order('created_at', { ascending: false }),
           supabase.from('vendors').select('*', { count: 'exact', head: true }),
           supabase.from('work_orders').select('*', { count: 'exact', head: true }).neq('status', 'completed'),
@@ -124,7 +127,7 @@ const DashboardOverview = () => {
           .sort((a, b) => b.count - a.count);
 
         setStats({
-          totalProperties: propertiesRes.count || 0,
+          totalProperties: propertiesRes.count || (propertiesRes.data?.length ?? 0),
           activeViolations: active.length,
           totalVendors: vendorsRes.count || 0,
           openWorkOrders: workOrdersRes.count || 0,
@@ -132,6 +135,8 @@ const DashboardOverview = () => {
           upcomingHearings,
           violationsLast90Days,
         });
+
+        setAllProperties(propertiesRes.data || []);
 
         setAgencyBreakdown(breakdown);
 
@@ -263,6 +268,38 @@ const DashboardOverview = () => {
           </div>
         </div>
       )}
+
+      {/* Borough Heatmap */}
+      {allProperties.length > 0 && (
+        <BoroughHeatmap
+          properties={allProperties}
+          violations={recentViolations.map(v => ({ property_id: v.property?.id || '' }))}
+          propertyBoroughMap={Object.fromEntries(allProperties.map(p => [p.id, p.borough]))}
+        />
+      )}
+
+      {/* Top Properties by Violations */}
+      <TopPropertiesCard
+        properties={(() => {
+          const countMap: Record<string, number> = {};
+          recentViolations.forEach(v => {
+            if (v.property?.id) countMap[v.property.id] = (countMap[v.property.id] || 0) + 1;
+          });
+          return Object.entries(countMap)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5)
+            .map(([propId, count]) => {
+              const prop = allProperties.find(p => p.id === propId);
+              const score = portfolioScores.find(s => s.property_id === propId);
+              return {
+                id: propId,
+                address: prop?.address || 'Unknown',
+                violationCount: count,
+                grade: score?.grade || null,
+              };
+            });
+        })()}
+      />
 
       {/* Violation Trend Chart */}
       <ViolationTrendChart violations={allViolations} />
