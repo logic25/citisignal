@@ -57,7 +57,7 @@ const Pricing = () => {
     <section id="pricing" className="py-24 bg-background">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-info/10 text-info text-sm font-medium mb-4">
             <Zap className="w-4 h-4" />
             Beta Pricing
           </div>
@@ -99,7 +99,7 @@ const Pricing = () => {
               <ul className="space-y-3 mb-8">
                 {tier.features.map((feature, j) => (
                   <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <Check className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                    <Check className="w-4 h-4 text-info shrink-0 mt-0.5" />
                     {feature}
                   </li>
                 ))}

@@ -67,13 +67,13 @@ const HowItWorks = () => {
                 <div className="absolute left-6 top-12 w-px h-[calc(100%-3rem)] bg-border" />
               )}
 
-              <div className="relative z-10 w-12 h-12 rounded-full bg-primary flex items-center justify-center shrink-0">
-                <span className="text-sm font-bold text-primary-foreground">{step.number}</span>
+              <div className="relative z-10 w-12 h-12 rounded-full bg-info flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-info-foreground">{step.number}</span>
               </div>
 
               <div className="flex-1 pt-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <step.icon className="w-5 h-5 text-accent" />
+                  <step.icon className="w-5 h-5 text-info" />
                   <h3 className="font-display text-xl font-semibold text-foreground">
                     {step.title}
                   </h3>

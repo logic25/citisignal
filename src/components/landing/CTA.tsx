@@ -18,7 +18,7 @@ const CTA = () => {
                 className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center animate-float"
                 style={{ animationDelay: `${i * 0.2}s` }}
               >
-                <Icon className="w-6 h-6 text-accent" />
+                <Icon className="w-6 h-6 text-info" />
               </div>
             ))}
           </div>
@@ -49,15 +49,15 @@ const CTA = () => {
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/60">
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span className="w-1.5 h-1.5 rounded-full bg-info" />
               Telegram alerts live
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span className="w-1.5 h-1.5 rounded-full bg-info" />
               9 NYC agency integrations
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span className="w-1.5 h-1.5 rounded-full bg-info" />
               AI-powered property intelligence
             </span>
           </div>
