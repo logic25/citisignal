@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
           })),
         }));
 
-        const appUrl = "https://id-preview--9d9b6494-36da-4c50-a4c2-79428913d706.lovable.app";
+        const appUrl = Deno.env.get("APP_URL") || "https://app.citisignal.com";
         const date = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
         const html = buildChangeSummaryHtml({
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
           body: JSON.stringify({
-            from: "CitiSignal <onboarding@resend.dev>",
+            from: Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>",
             to: [user.email],
             subject: `🔄 ${userChanges.length} changes detected — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
             html,

@@ -205,9 +205,46 @@ export const CreateWorkOrderDialog = ({
         }
       }
 
-      // TODO: Send email if selected (requires email integration)
-      if (sendEmail) {
-        toast.info('Email sending coming soon');
+      // Send email notification if selected and vendor has email
+      if (sendEmail && selectedVendorId && selectedVendorId !== 'none') {
+        const selectedVendor = vendors.find(v => v.id === selectedVendorId);
+        // Fetch vendor email (vendors table may have email field)
+        try {
+          const { data: vendorData } = await supabase
+            .from('vendors')
+            .select('email')
+            .eq('id', selectedVendorId)
+            .single();
+          
+          if (vendorData?.email) {
+            // Get property address for the email
+            const { data: propData } = await supabase
+              .from('properties')
+              .select('address')
+              .eq('id', propertyId)
+              .single();
+
+            const { error: emailError } = await supabase.functions.invoke('send-work-order-notification', {
+              body: {
+                vendor_email: vendorData.email,
+                vendor_name: selectedVendor?.name,
+                property_address: propData?.address || '',
+                scope_of_work: scope.trim(),
+                work_order_id: workOrder.id,
+              },
+            });
+            if (emailError) {
+              console.error('Email error:', emailError);
+              toast.warning('Work order created but email failed to send');
+            } else {
+              toast.success('Email sent to vendor');
+            }
+          } else {
+            toast.info('Vendor has no email on file');
+          }
+        } catch (emailErr) {
+          console.error('Email notification error:', emailErr);
+        }
       }
 
       toast.success('Work order created successfully');
@@ -367,14 +404,13 @@ export const CreateWorkOrderDialog = ({
                   id="sendEmail"
                   checked={sendEmail}
                   onCheckedChange={(checked) => setSendEmail(checked === true)}
-                  disabled
                 />
                 <label
                   htmlFor="sendEmail"
-                  className="text-sm flex items-center gap-2 cursor-pointer text-muted-foreground"
+                  className="text-sm flex items-center gap-2 cursor-pointer"
                 >
                   <Mail className="w-4 h-4" />
-                  Send Email (coming soon)
+                  Send Email
                 </label>
               </div>
             </div>

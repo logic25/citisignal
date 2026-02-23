@@ -4,6 +4,23 @@ import { Loader2, MapPin, Building2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBoroughCode, getBoroughName } from '@/lib/property-utils';
 
+// Street suffix normalization for NYC dataset matching
+const STREET_SUFFIX_MAP: Record<string, string> = {
+  'ROAD': 'RD', 'AVENUE': 'AVE', 'STREET': 'ST', 'BOULEVARD': 'BLVD',
+  'DRIVE': 'DR', 'PLACE': 'PL', 'COURT': 'CT', 'LANE': 'LN',
+  'TERRACE': 'TER', 'CIRCLE': 'CIR', 'HIGHWAY': 'HWY', 'PARKWAY': 'PKWY',
+  'EXPRESSWAY': 'EXPY', 'TURNPIKE': 'TPKE', 'SQUARE': 'SQ',
+};
+
+function normalizeStreetSuffix(street: string): string {
+  const parts = street.split(' ');
+  const lastPart = parts[parts.length - 1];
+  if (STREET_SUFFIX_MAP[lastPart]) {
+    parts[parts.length - 1] = STREET_SUFFIX_MAP[lastPart];
+  }
+  return parts.join(' ');
+}
+
 // Google Maps API key - set in .env as VITE_GOOGLE_MAPS_API_KEY
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
@@ -175,7 +192,7 @@ export const SmartAddressAutocomplete = ({
         return true;
       });
       
-      const streetQuery = streetParts.join(' ');
+      const streetQuery = normalizeStreetSuffix(streetParts.join(' '));
       const url = new URL('https://data.cityofnewyork.us/resource/64uk-42ks.json');
       let whereClause = `upper(address) LIKE '%${houseNumber} ${streetQuery}%'`;
       if (boroughCode) {
@@ -264,7 +281,7 @@ export const SmartAddressAutocomplete = ({
         return true;
       });
       
-      const streetQuery = streetParts.join(' ');
+      const streetQuery = normalizeStreetSuffix(streetParts.join(' '));
 
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
 
@@ -329,12 +346,20 @@ export const SmartAddressAutocomplete = ({
         })
       );
 
-      // If DOB Jobs returned no results, fall back to PLUTO (covers all lots)
-      if (results.length === 0) {
-        return searchPLUTO(query);
+      // Run DOB Jobs and PLUTO searches in parallel, merge results
+      const [dobResults, plutoResults] = await Promise.all([
+        Promise.resolve(results),
+        searchPLUTO(query),
+      ]);
+
+      // Merge: prefer DOB Jobs matches, add PLUTO results for addresses not in DOB
+      if (dobResults.length > 0) {
+        const dobAddresses = new Set(dobResults.map(r => r.address.toUpperCase()));
+        const uniquePluto = plutoResults.filter(r => !dobAddresses.has(r.address.toUpperCase()));
+        return [...dobResults, ...uniquePluto].slice(0, 10);
       }
 
-      return results;
+      return plutoResults;
     } catch (error) {
       console.error('Error searching NYC buildings:', error);
       return [];

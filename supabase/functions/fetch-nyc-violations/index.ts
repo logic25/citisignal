@@ -1581,7 +1581,7 @@ Deno.serve(async (req) => {
               .limit(1);
 
             if (!existingCODoc || existingCODoc.length === 0) {
-              let fileUrl = `http://a810-bisweb.nyc.gov/bisweb/COsByLocationServlet?allbin=${bin}`;
+              let fileUrl = `https://a810-bisweb.nyc.gov/bisweb/COsByLocationServlet?allbin=${bin}`;
               let fileType = 'link';
               let fileSizeBytes: number | null = null;
               const coDescription = `BIS Certificate of Occupancy — Job #${jobNumber} (${jobType}), ${statusLabel} on ${signoffDate}`;
@@ -1589,7 +1589,7 @@ Deno.serve(async (req) => {
               // Attempt to fetch the CO PDF listing page and download the PDF
               try {
                 // Use COsByLocationServlet which lists all COs for a BIN
-                const pdfListUrl = `http://a810-bisweb.nyc.gov/bisweb/COsByLocationServlet?requestid=0&allbin=${bin}`;
+                const pdfListUrl = `https://a810-bisweb.nyc.gov/bisweb/COsByLocationServlet?requestid=0&allbin=${bin}`;
                 console.log(`Fetching CO PDF listing: ${pdfListUrl}`);
                 
                 const pdfListResp = await fetch(pdfListUrl, {
@@ -1613,7 +1613,7 @@ Deno.serve(async (req) => {
                     // Use the first (or best matching) PDF
                     const pdfFilename = pdfMatches[0];
                     // The actual PDF download URL from BIS
-                    const pdfUrl = `http://a810-bisweb.nyc.gov/bisweb/${pdfFilename}`;
+                    const pdfUrl = `https://a810-bisweb.nyc.gov/bisweb/${pdfFilename}`;
                     
                     console.log(`Downloading CO PDF: ${pdfUrl}`);
                     
