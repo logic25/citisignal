@@ -86,30 +86,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── VENDOR DETECTION ──
-    const { data: vendorMatch } = await supabase
-      .from("vendors")
-      .select("id, name, phone_number")
-      .not("phone_number", "is", null)
-      .limit(100);
-
-    const matchedVendor = (vendorMatch || []).find((v: any) => {
-      const vPhone = (v.phone_number || "").replace(/\D/g, "").slice(-10);
-      return vPhone === normalizedPhone && vPhone.length === 10;
-    });
-
-    if (matchedVendor) {
-      console.log(`Vendor detected: ${matchedVendor.name} (${matchedVendor.id})`);
-      return await handleVendorMessage(supabase, matchedVendor, body, messageSid, lovableApiKey);
-    }
-
-    // ── LINKED USER LOOKUP ──
+    // ── LINKED USER LOOKUP (check first to prioritize user over vendor) ──
     const { data: waUser } = await supabase
       .from("whatsapp_users")
       .select("user_id, is_active")
       .eq("phone_number", rawPhone)
       .eq("is_active", true)
       .maybeSingle();
+
+    // ── VENDOR DETECTION (only if NOT a linked user) ──
+    if (!waUser) {
+      const { data: vendorMatch } = await supabase
+        .from("vendors")
+        .select("id, name, phone_number")
+        .not("phone_number", "is", null)
+        .limit(100);
+
+      const matchedVendor = (vendorMatch || []).find((v: any) => {
+        const vPhone = (v.phone_number || "").replace(/\D/g, "").slice(-10);
+        return vPhone === normalizedPhone && vPhone.length === 10;
+      });
+
+      if (matchedVendor) {
+        console.log(`Vendor detected: ${matchedVendor.name} (${matchedVendor.id})`);
+        return await handleVendorMessage(supabase, matchedVendor, body, messageSid, lovableApiKey);
+      }
+    }
 
     if (!waUser) {
       return twimlResponse(
