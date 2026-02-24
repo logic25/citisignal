@@ -166,9 +166,13 @@ const WhatsAppTab = () => {
                 </div>
 
                 <div className="mt-3 p-2 rounded bg-muted/50 border border-border">
-                  <p className="text-xs font-mono text-muted-foreground break-all">
-                    LINK {getLinkCode()}
-                  </p>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`LINK ${getLinkCode()}`}
+                    className="w-full text-xs font-mono text-muted-foreground bg-transparent border-none outline-none select-all cursor-text"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
                 </div>
               </div>
             </div>
