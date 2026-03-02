@@ -206,7 +206,7 @@ const PropertyDetailPage = () => {
             bin: property.bin, 
             bbl: property.bbl,
             property_id: property.id,
-            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY']
+            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD']
           }
         }),
       ]);
