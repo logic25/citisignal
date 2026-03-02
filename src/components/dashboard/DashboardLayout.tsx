@@ -20,17 +20,26 @@ const DashboardLayout = () => {
 
   useEffect(() => {
     const checkOnboarding = async () => {
-      if (!user) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('has_completed_onboarding')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      if (!user) {
+        setShowOnboarding(false);
+        setOnboardingChecked(true);
+        return;
+      }
 
-      // Show wizard if no profile or hasn't completed onboarding
-      setShowOnboarding(!data || !(data as any).has_completed_onboarding);
-      setOnboardingChecked(true);
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('has_completed_onboarding')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // Show wizard if no profile or hasn't completed onboarding
+        setShowOnboarding(!data || !(data as any).has_completed_onboarding);
+      } finally {
+        setOnboardingChecked(true);
+      }
     };
+
     checkOnboarding();
   }, [user]);
 

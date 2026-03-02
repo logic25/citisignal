@@ -28,19 +28,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       async (event, session) => {
         if (!isMounted) return;
 
-        // Gate: if a user just signed in via OAuth and has no org, reject them
+        // Gate: block only brand-new OAuth users that do not have a profile yet
         if (event === 'SIGNED_IN' && session?.user) {
           const provider = session.user.app_metadata?.provider;
           if (provider && provider !== 'email') {
-            // Check if they have an org (i.e. signed up with an invite code)
+            // Existing users are allowed if a profile row already exists
             const { data: profile } = await supabase
               .from('profiles')
-              .select('organization_id')
+              .select('id')
               .eq('user_id', session.user.id)
               .maybeSingle();
 
-            if (!profile?.organization_id) {
-              // New OAuth user without an invite code — kick them out
+            if (!profile) {
+              // New OAuth user without prior signup — kick them out
               await supabase.auth.signOut();
               if (isMounted) {
                 setSession(null);
