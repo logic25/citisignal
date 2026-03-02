@@ -1,11 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -61,6 +58,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Security Fix 19: Atomic increment BEFORE creating user to prevent race conditions
+    const { data: updatedCode, error: updateErr } = await supabaseAdmin
+      .from('invite_codes')
+      .update({ use_count: code.use_count + 1 })
+      .eq('id', code.id)
+      .lt('use_count', code.max_uses)
+      .select()
+      .single();
+
+    if (updateErr || !updatedCode) {
+      return new Response(
+        JSON.stringify({ error: 'This invite code has already been fully redeemed.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Create the user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -69,6 +82,12 @@ Deno.serve(async (req) => {
     });
 
     if (authError) {
+      // Rollback the use_count increment since user creation failed
+      await supabaseAdmin
+        .from('invite_codes')
+        .update({ use_count: updatedCode.use_count - 1 })
+        .eq('id', code.id);
+
       if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
         return new Response(
           JSON.stringify({ error: 'This email is already registered. Please sign in instead.' }),
@@ -82,12 +101,6 @@ Deno.serve(async (req) => {
     }
 
     const userId = authData.user!.id;
-
-    // Increment the use count
-    await supabaseAdmin
-      .from('invite_codes')
-      .update({ use_count: code.use_count + 1 })
-      .eq('id', code.id);
 
     // === Organization logic ===
     let organizationId: string | null = null;

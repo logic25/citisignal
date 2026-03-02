@@ -86,11 +86,22 @@ const DashboardOverview = () => {
       if (!user) return;
 
       try {
-        const [propertiesRes, violationsRes, vendorsRes, workOrdersRes] = await Promise.all([
-          supabase.from('properties').select('id, address, borough', { count: 'exact' }),
-          supabase.from('violations').select('id, agency, violation_number, description_raw, status, oath_status, violation_class, issued_date, hearing_date, penalty_amount, is_stop_work_order, is_vacate_order, property:properties(id, address)').order('created_at', { ascending: false }),
+        // Security Fix 21: Scope all queries to user's properties
+        const propertiesRes = await supabase
+          .from('properties')
+          .select('id, address, borough', { count: 'exact' })
+          .eq('user_id', user.id);
+
+        const propIds = (propertiesRes.data || []).map(p => p.id);
+
+        const [violationsRes, vendorsRes, workOrdersRes] = await Promise.all([
+          propIds.length > 0
+            ? supabase.from('violations').select('id, agency, violation_number, description_raw, status, oath_status, violation_class, issued_date, hearing_date, penalty_amount, is_stop_work_order, is_vacate_order, property:properties(id, address)').in('property_id', propIds).order('created_at', { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
           supabase.from('vendors').select('*', { count: 'exact', head: true }),
-          supabase.from('work_orders').select('*', { count: 'exact', head: true }).neq('status', 'completed'),
+          propIds.length > 0
+            ? supabase.from('work_orders').select('*', { count: 'exact', head: true }).in('property_id', propIds).neq('status', 'completed')
+            : Promise.resolve({ count: 0, data: null, error: null }),
         ]);
 
         const fetchedViolations = violationsRes.data || [];

@@ -1,12 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -47,12 +43,26 @@ Deno.serve(async (req) => {
     const now = new Date();
     let followUpCount = 0;
 
+    // Security Fix 3: Scope work order queries to user's properties only
+    const { data: userProperties } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("user_id", user.id);
+
+    const userPropertyIds = (userProperties || []).map((p: any) => p.id);
+    if (userPropertyIds.length === 0) {
+      return new Response(JSON.stringify({ success: true, follow_ups: 0, message: "No properties found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 1. Dispatched > 24h with no vendor response → send follow-up via Telegram
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const { data: staleDispatched } = await supabase
       .from("work_orders")
       .select("id, scope, vendor_id, property_id, dispatched_at")
       .eq("status", "dispatched")
+      .in("property_id", userPropertyIds)
       .lt("dispatched_at", twentyFourHoursAgo);
 
     for (const wo of staleDispatched || []) {
@@ -137,6 +147,7 @@ Deno.serve(async (req) => {
       .from("work_orders")
       .select("id, scope, vendor_id, approved_at, property_id")
       .eq("status", "approved")
+      .in("property_id", userPropertyIds)
       .lt("approved_at", fortyEightHoursAgo);
 
     for (const wo of staleApproved || []) {
@@ -210,6 +221,7 @@ Deno.serve(async (req) => {
       .from("work_orders")
       .select("id, scope, property_id, updated_at")
       .eq("status", "in_progress")
+      .in("property_id", userPropertyIds)
       .lt("updated_at", sevenDaysAgo);
 
     for (const wo of staleInProgress || []) {

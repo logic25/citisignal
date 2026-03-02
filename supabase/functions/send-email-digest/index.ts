@@ -1,10 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // ─── Severity Calculation (mirrors client-side violation-severity.ts) ───
 
@@ -316,6 +311,7 @@ function buildEmailHtml(data: {
 // ─── Main Handler ───
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -334,6 +330,17 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Security Fix 4: Validate caller authentication and restrict to own digest
+    const authHeader = req.headers.get("Authorization");
+    let callerUserId: string | null = null;
+    if (authHeader?.startsWith("Bearer ")) {
+      const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "", {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: callerUser } } = await authClient.auth.getUser();
+      callerUserId = callerUser?.id || null;
+    }
+
     let body: { user_id?: string; test_mode?: boolean; preview_only?: boolean } = {};
     try {
       body = await req.json();
@@ -341,6 +348,14 @@ Deno.serve(async (req) => {
 
     const userId = body.user_id;
     if (!userId) throw new Error("user_id is required");
+
+    // If the caller is authenticated, they can only trigger their own digest
+    if (callerUserId && callerUserId !== userId) {
+      return new Response(JSON.stringify({ error: "Forbidden — can only send your own digest" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get user email from auth
     const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);

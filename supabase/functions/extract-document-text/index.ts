@@ -1,10 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Simple PDF text extractor - extracts text streams from PDF without heavy libraries
 async function extractTextFromPdf(pdfBytes: Uint8Array): Promise<string> {
@@ -85,6 +80,7 @@ async function extractTextFromPdf(pdfBytes: Uint8Array): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -98,8 +94,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    // Security Fix 22: Validate required environment variables
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     
     const supabaseClient = createClient(
       supabaseUrl,
@@ -122,6 +125,20 @@ Deno.serve(async (req) => {
     if (!documentId || !fileUrl) {
       return new Response(JSON.stringify({ error: "documentId and fileUrl are required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Security Fix 1: Verify user owns this document's property
+    const { data: doc, error: docErr } = await supabaseAdmin
+      .from('property_documents')
+      .select('id, property_id, properties!inner(user_id)')
+      .eq('id', documentId)
+      .single();
+
+    if (docErr || !doc || (doc as any).properties?.user_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

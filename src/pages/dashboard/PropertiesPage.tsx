@@ -63,18 +63,22 @@ const PropertiesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  // Security Fix 23: Validate localStorage input against allowed values
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('propertiesViewMode') as ViewMode) || 'table';
+    const stored = localStorage.getItem('propertiesViewMode');
+    const validModes: ViewMode[] = ['table', 'cards'];
+    return validModes.includes(stored as ViewMode) ? (stored as ViewMode) : 'table';
   });
 
   const fetchProperties = async () => {
     if (!user) return;
 
     try {
-      // First fetch properties
+      // Security Fix 9: Scope properties query to authenticated user
       const { data: propertiesData, error: propertiesError } = await supabase
         .from('properties')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (propertiesError) throw propertiesError;

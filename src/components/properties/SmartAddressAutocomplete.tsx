@@ -4,6 +4,11 @@ import { Loader2, MapPin, Building2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBoroughCode, getBoroughName } from '@/lib/property-utils';
 
+// Security Fix 7: Sanitize input for SoQL queries — allow only safe characters
+function sanitizeSoQL(input: string): string {
+  return input.replace(/[^a-zA-Z0-9\s\-\.]/g, '').trim();
+}
+
 // Street suffix normalization for NYC dataset matching
 const STREET_SUFFIX_MAP: Record<string, string> = {
   'ROAD': 'RD', 'AVENUE': 'AVE', 'STREET': 'ST', 'BOULEVARD': 'BLVD',
@@ -194,9 +199,12 @@ export const SmartAddressAutocomplete = ({
       
       const streetQuery = normalizeStreetSuffix(streetParts.join(' '));
       const url = new URL('https://data.cityofnewyork.us/resource/64uk-42ks.json');
-      let whereClause = `upper(address) LIKE '%${houseNumber} ${streetQuery}%'`;
+      const safeHouse = sanitizeSoQL(houseNumber);
+      const safeStreet = sanitizeSoQL(streetQuery);
+      let whereClause = `upper(address) LIKE '%${safeHouse} ${safeStreet}%'`;
       if (boroughCode) {
-        whereClause += ` AND borough = '${boroughCode}'`;
+        const safeBoro = sanitizeSoQL(boroughCode);
+        whereClause += ` AND borough = '${safeBoro}'`;
       }
       url.searchParams.set('$where', whereClause);
       url.searchParams.set('$limit', '10');
@@ -285,12 +293,15 @@ export const SmartAddressAutocomplete = ({
 
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
 
-      let whereClause = `house__ LIKE '%${houseNumber}%'`;
+      const safeHouse = sanitizeSoQL(houseNumber);
+      let whereClause = `house__ LIKE '%${safeHouse}%'`;
       if (streetQuery) {
-        whereClause += ` AND upper(street_name) LIKE '%${streetQuery}%'`;
+        const safeStreet = sanitizeSoQL(streetQuery);
+        whereClause += ` AND upper(street_name) LIKE '%${safeStreet}%'`;
       }
       if (boroughFilter) {
-        whereClause += ` AND borough = '${boroughFilter}'`;
+        const safeBoro = sanitizeSoQL(boroughFilter);
+        whereClause += ` AND borough = '${safeBoro}'`;
       }
       url.searchParams.set('$where', whereClause);
       url.searchParams.set('$limit', '25');

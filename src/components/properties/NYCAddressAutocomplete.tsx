@@ -3,6 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Loader2, MapPin, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Security Fix 7: Sanitize input for SoQL queries — allow only safe characters
+function sanitizeSoQL(input: string): string {
+  return input.replace(/[^a-zA-Z0-9\s\-\.]/g, '').trim();
+}
+
 interface NYCBuildingData {
   bin_: string;
   house_: string;
@@ -68,11 +73,13 @@ export const NYCAddressAutocomplete = ({
 
       // Search NYC DOB Buildings dataset
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
+      const safeHouse = sanitizeSoQL(houseNumber);
+      const safeStreet = sanitizeSoQL(streetQuery);
       
-      if (streetQuery) {
-        url.searchParams.set('$where', `house_ LIKE '%${houseNumber}%' AND upper(street_name) LIKE '%${streetQuery}%'`);
+      if (safeStreet) {
+        url.searchParams.set('$where', `house_ LIKE '%${safeHouse}%' AND upper(street_name) LIKE '%${safeStreet}%'`);
       } else {
-        url.searchParams.set('$where', `house_ LIKE '%${houseNumber}%'`);
+        url.searchParams.set('$where', `house_ LIKE '%${safeHouse}%'`);
       }
       url.searchParams.set('$limit', '10');
 
