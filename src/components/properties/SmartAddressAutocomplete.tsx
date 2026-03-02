@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
-import { Loader2, MapPin, Building2, Check } from 'lucide-react';
+import { Loader2, MapPin, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBoroughCode, getBoroughName } from '@/lib/property-utils';
 
@@ -25,9 +25,6 @@ function normalizeStreetSuffix(street: string): string {
   }
   return parts.join(' ');
 }
-
-// Google Maps API key - set in .env as VITE_GOOGLE_MAPS_API_KEY
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 interface NYCBuildingData {
   bin__: string;
@@ -60,15 +57,6 @@ interface PLUTOData {
   ownername: string;
 }
 
-interface PlacePrediction {
-  place_id: string;
-  description: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
-}
-
 interface AutocompleteResult {
   bin: string;
   address: string;
@@ -98,44 +86,14 @@ export const SmartAddressAutocomplete = ({
   placeholder = "Start typing a NYC address...",
   disabled = false,
 }: SmartAddressAutocompleteProps) => {
-  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [nycResults, setNycResults] = useState<AutocompleteResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [useGoogleMaps, setUseGoogleMaps] = useState(false);
-  
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-
-  // Load Google Maps API if key is available
-  useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) return;
-
-    if (window.google?.maps?.places) {
-      setUseGoogleMaps(true);
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const dummyDiv = document.createElement('div');
-      placesServiceRef.current = new google.maps.places.PlacesService(dummyDiv);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setUseGoogleMaps(true);
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      const dummyDiv = document.createElement('div');
-      placesServiceRef.current = new google.maps.places.PlacesService(dummyDiv);
-    };
-    document.head.appendChild(script);
-  }, []);
 
   // Handle click outside
   useEffect(() => {
@@ -148,7 +106,7 @@ export const SmartAddressAutocomplete = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch PLUTO data by BBL for accurate building characteristics (same as ZoLa uses)
+  // Fetch PLUTO data by BBL for accurate building characteristics
   const fetchPLUTODataByBBL = async (bbl: string): Promise<PLUTOData | null> => {
     if (!bbl || bbl.length < 10) return null;
 
@@ -168,7 +126,7 @@ export const SmartAddressAutocomplete = ({
     }
   };
 
-  // Fallback: search PLUTO dataset directly (covers ALL NYC lots, not just those with DOB filings)
+  // Fallback: search PLUTO dataset directly
   const searchPLUTO = async (query: string): Promise<AutocompleteResult[]> => {
     if (query.length < 3) return [];
 
@@ -176,14 +134,13 @@ export const SmartAddressAutocomplete = ({
       const parts = query.trim().split(/\s+/);
       const houseNumber = parts[0];
       let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
-      
-      // Strip borough names from search (PLUTO address doesn't include borough)
+
       const streetAbbreviations = new Set(['ST', 'AVE', 'AV', 'RD', 'DR', 'PL', 'CT', 'LN', 'BLVD', 'WAY']);
       const boroughMap: Record<string, string> = {
         'BK': 'BK', 'BX': 'BX', 'MN': 'MN', 'QN': 'QN', 'SI': 'SI',
       };
       const boroughPrefixMap: [string, string, number][] = [
-        ['MANHATTAN', 'MN', 3], ['BRONX', 'BX', 3], ['BROOKLYN', 'BK', 3], 
+        ['MANHATTAN', 'MN', 3], ['BRONX', 'BX', 3], ['BROOKLYN', 'BK', 3],
         ['QUEENS', 'QN', 3], ['STATEN', 'SI', 5],
       ];
       let boroughCode = '';
@@ -196,7 +153,7 @@ export const SmartAddressAutocomplete = ({
         if (['NY', 'NEW', 'YORK', 'NYC'].includes(p)) return false;
         return true;
       });
-      
+
       const streetQuery = normalizeStreetSuffix(streetParts.join(' '));
       const url = new URL('https://data.cityofnewyork.us/resource/64uk-42ks.json');
       const safeHouse = sanitizeSoQL(houseNumber);
@@ -214,7 +171,7 @@ export const SmartAddressAutocomplete = ({
       if (!response.ok) return [];
 
       const data: PLUTOData[] = await response.json();
-      
+
       const seenBbls = new Set<string>();
       return data.filter(p => {
         if (!p.bbl || seenBbls.has(p.bbl)) return false;
@@ -250,16 +207,11 @@ export const SmartAddressAutocomplete = ({
     try {
       const parts = query.trim().split(/\s+/);
       const houseNumber = parts[0];
-      // Strip ordinal suffixes (1st->1, 2nd->2, 73rd->73, 4th->4) since DOB stores "73 STREET" not "73RD STREET"
       let streetParts = parts.slice(1).map(p => p.toUpperCase().replace(/^(\d+)(ST|ND|RD|TH)$/g, '$1'));
-      
-      // Extract and remove borough names from search (DOB stores borough separately)
-      // Common street abbreviations that should NOT be treated as borough prefixes
+
       const streetAbbreviations = new Set(['ST', 'AVE', 'AV', 'RD', 'DR', 'PL', 'CT', 'LN', 'BLVD', 'WAY']);
-      // DOB Jobs stores borough as text (MANHATTAN, BROOKLYN, etc.)
       const boroughPrefixes: [string, string, number][] = [
-        // [name, boroughTextForQuery, minPrefixLength]
-        ['MANHATTAN', 'MANHATTAN', 3], ['BRONX', 'BRONX', 3], ['BROOKLYN', 'BROOKLYN', 3], 
+        ['MANHATTAN', 'MANHATTAN', 3], ['BRONX', 'BRONX', 3], ['BROOKLYN', 'BROOKLYN', 3],
         ['QUEENS', 'QUEENS', 3], ['STATEN', 'STATEN ISLAND', 5],
       ];
       const boroughExact: Record<string, string> = {
@@ -267,32 +219,17 @@ export const SmartAddressAutocomplete = ({
       };
       let boroughFilter = '';
       streetParts = streetParts.filter(p => {
-        // Skip common street abbreviations - never treat as borough
         if (streetAbbreviations.has(p)) return true;
-        // Exact match on abbreviations
-        if (boroughExact[p]) {
-          boroughFilter = boroughExact[p];
-          return false;
-        }
-        // Prefix match on full borough names (with minimum length)
-        const match = boroughPrefixes.find(([name, , minLen]) => 
-          name.startsWith(p) && p.length >= minLen
-        );
-        if (match) {
-          boroughFilter = match[1];
-          return false;
-        }
-        // Also handle "STATEN ISLAND" -> skip "ISLAND" too
+        if (boroughExact[p]) { boroughFilter = boroughExact[p]; return false; }
+        const match = boroughPrefixes.find(([name, , minLen]) => name.startsWith(p) && p.length >= minLen);
+        if (match) { boroughFilter = match[1]; return false; }
         if (p === 'ISLAND' && boroughFilter === '5') return false;
-        // Skip common suffixes that aren't street names: "NY", "NEW", "YORK"
         if (['NY', 'NEW', 'YORK', 'NYC'].includes(p)) return false;
         return true;
       });
-      
+
       const streetQuery = normalizeStreetSuffix(streetParts.join(' '));
-
       const url = new URL('https://data.cityofnewyork.us/resource/ic3t-wcy2.json');
-
       const safeHouse = sanitizeSoQL(houseNumber);
       let whereClause = `house__ LIKE '%${safeHouse}%'`;
       if (streetQuery) {
@@ -307,12 +244,10 @@ export const SmartAddressAutocomplete = ({
       url.searchParams.set('$limit', '25');
 
       const response = await fetch(url.toString());
-      
       if (!response.ok) throw new Error('Failed to search NYC buildings');
 
       const data: NYCBuildingData[] = await response.json();
 
-      // Deduplicate by BIN - keep only one result per unique building
       const seenBins = new Set<string>();
       const uniqueBuildings = data.filter(building => {
         const bin = building.bin__ || '';
@@ -321,20 +256,16 @@ export const SmartAddressAutocomplete = ({
         return true;
       });
 
-      // Map and enrich with PLUTO data (PAD no longer accessible)
       const results = await Promise.all(
         uniqueBuildings.slice(0, 10).map(async building => {
           const boroughCode = getBoroughCode(building.borough || '');
           const bin = building.bin__ || '';
-          
-          // Build BBL from DOB Jobs block/lot data directly
-          const bbl = (building.block && building.lot) 
-            ? `${boroughCode}${building.block.padStart(5, '0').slice(-5)}${building.lot.padStart(4, '0').slice(-4)}` 
+          const bbl = (building.block && building.lot)
+            ? `${boroughCode}${building.block.padStart(5, '0').slice(-5)}${building.lot.padStart(4, '0').slice(-4)}`
             : '';
 
-          // Get PLUTO data for rich building characteristics
           const plutoData = bbl ? await fetchPLUTODataByBBL(bbl) : null;
-          
+
           return {
             bin,
             address: `${building.house__ || ''} ${building.street_name || ''}`.trim(),
@@ -342,16 +273,16 @@ export const SmartAddressAutocomplete = ({
             bbl,
             block: bbl.length >= 6 ? bbl.substring(1, 6) : building.block || '',
             lot: bbl.length >= 10 ? bbl.substring(6, 10) : building.lot || '',
-            stories: plutoData?.numfloors 
-              ? parseInt(plutoData.numfloors) 
+            stories: plutoData?.numfloors
+              ? parseInt(plutoData.numfloors)
               : (building.existingno_of_stories ? parseInt(building.existingno_of_stories) : null),
             heightFt: building.existing_height ? parseFloat(building.existing_height) : null,
-            grossSqft: plutoData?.bldgarea 
-              ? parseFloat(plutoData.bldgarea) 
+            grossSqft: plutoData?.bldgarea
+              ? parseFloat(plutoData.bldgarea)
               : (building.existing_zoning_sqft ? parseFloat(building.existing_zoning_sqft) : null),
             primaryUseGroup: plutoData?.bldgclass || building.existing_occupancy || null,
-            dwellingUnits: plutoData?.unitsres 
-              ? parseInt(plutoData.unitsres) 
+            dwellingUnits: plutoData?.unitsres
+              ? parseInt(plutoData.unitsres)
               : (building.existing_dwelling_units ? parseInt(building.existing_dwelling_units) : null),
           };
         })
@@ -363,7 +294,6 @@ export const SmartAddressAutocomplete = ({
         searchPLUTO(query),
       ]);
 
-      // Merge: prefer DOB Jobs matches, add PLUTO results for addresses not in DOB
       if (dobResults.length > 0) {
         const dobAddresses = new Set(dobResults.map(r => r.address.toUpperCase()));
         const uniquePluto = plutoResults.filter(r => !dobAddresses.has(r.address.toUpperCase()));
@@ -377,49 +307,6 @@ export const SmartAddressAutocomplete = ({
     }
   };
 
-  // Fetch Google Places predictions
-  const fetchGooglePredictions = useCallback((input: string) => {
-    if (!autocompleteServiceRef.current || input.length < 3) {
-      setPredictions([]);
-      return;
-    }
-
-    autocompleteServiceRef.current.getPlacePredictions(
-      {
-        input,
-        componentRestrictions: { country: 'us' },
-        types: ['address'],
-      },
-      (results, status) => {
-        setIsSearching(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          // Prefer NYC addresses
-          const nycPredictions = results.filter(p =>
-            p.description.includes('New York') ||
-            p.description.includes('NY') ||
-            p.description.includes('Brooklyn') ||
-            p.description.includes('Queens') ||
-            p.description.includes('Bronx') ||
-            p.description.includes('Staten Island')
-          );
-          setPredictions(nycPredictions.length > 0 ? nycPredictions : results);
-          setShowDropdown(true);
-        } else {
-          setPredictions([]);
-        }
-      }
-    );
-  }, []);
-
-  // Fallback to NYC search
-  const searchFallback = useCallback(async (input: string) => {
-    setIsSearching(true);
-    const results = await searchNYCBuildings(input);
-    setNycResults(results);
-    setShowDropdown(results.length > 0);
-    setIsSearching(false);
-  }, []);
-
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -431,99 +318,16 @@ export const SmartAddressAutocomplete = ({
     debounceRef.current = setTimeout(() => {
       if (newValue.length >= 3) {
         setIsSearching(true);
-        if (useGoogleMaps) {
-          fetchGooglePredictions(newValue);
-        } else {
-          searchFallback(newValue);
-        }
+        searchNYCBuildings(newValue).then(results => {
+          setNycResults(results);
+          setShowDropdown(results.length > 0);
+          setIsSearching(false);
+        });
       } else {
-        setPredictions([]);
         setNycResults([]);
         setShowDropdown(false);
       }
     }, 300);
-  };
-
-  // Handle Google Place selection - sync with NYC data
-  const handleGooglePlaceSelect = async (prediction: PlacePrediction) => {
-    if (!placesServiceRef.current) return;
-
-    setShowDropdown(false);
-    setIsSyncing(true);
-
-    // Get place details from Google
-    placesServiceRef.current.getDetails(
-      { placeId: prediction.place_id, fields: ['formatted_address', 'geometry', 'address_components'] },
-      async (place, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-          setIsSyncing(false);
-          return;
-        }
-
-        const address = place.formatted_address || prediction.description;
-        onChange(address);
-
-        // Extract house number and street for NYC lookup
-        let houseNumber = '';
-        let streetName = '';
-        let borough = '';
-
-        place.address_components?.forEach(component => {
-          if (component.types.includes('street_number')) {
-            houseNumber = component.short_name;
-          }
-          if (component.types.includes('route')) {
-            streetName = component.short_name;
-          }
-          // Check multiple component types for borough detection
-          if (
-            component.types.includes('sublocality_level_1') || 
-            component.types.includes('sublocality') ||
-            component.types.includes('locality') || 
-            component.types.includes('political') ||
-            component.types.includes('neighborhood')
-          ) {
-            const boroughMap: Record<string, string> = {
-              'Manhattan': '1', 'New York': '1', 'Bronx': '2', 'The Bronx': '2',
-              'Brooklyn': '3', 'Queens': '4', 'Staten Island': '5'
-            };
-            const mapped = boroughMap[component.long_name];
-            if (mapped && !borough) {
-              borough = mapped;
-            }
-          }
-        });
-
-        // Sync with NYC DOB data
-        if (houseNumber && streetName) {
-          const nycResults = await searchNYCBuildings(`${houseNumber} ${streetName}`);
-          
-          if (nycResults.length > 0) {
-            // Use the first match from NYC data
-            const match = nycResults[0];
-            setIsSyncing(false);
-            onSelect(match);
-            return;
-          }
-        }
-
-        // Fallback if no NYC data found
-        setIsSyncing(false);
-        onSelect({
-          bin: '',
-          address,
-          borough,
-          bbl: '',
-          block: '',
-          lot: '',
-          stories: null,
-          heightFt: null,
-          grossSqft: null,
-          primaryUseGroup: null,
-          dwellingUnits: null,
-        });
-      }
-    );
   };
 
   // Handle NYC result selection
@@ -532,17 +336,15 @@ export const SmartAddressAutocomplete = ({
     onSelect(result);
     setShowDropdown(false);
     setNycResults([]);
-    setPredictions([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const items = useGoogleMaps ? predictions : nycResults;
-    if (!showDropdown || items.length === 0) return;
+    if (!showDropdown || nycResults.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex(prev => Math.min(prev + 1, nycResults.length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -550,12 +352,8 @@ export const SmartAddressAutocomplete = ({
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0) {
-          if (useGoogleMaps && predictions[selectedIndex]) {
-            handleGooglePlaceSelect(predictions[selectedIndex]);
-          } else if (nycResults[selectedIndex]) {
-            handleNYCSelect(nycResults[selectedIndex]);
-          }
+        if (selectedIndex >= 0 && nycResults[selectedIndex]) {
+          handleNYCSelect(nycResults[selectedIndex]);
         }
         break;
       case 'Escape':
@@ -573,54 +371,22 @@ export const SmartAddressAutocomplete = ({
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => (predictions.length > 0 || nycResults.length > 0) && setShowDropdown(true)}
+          onFocus={() => nycResults.length > 0 && setShowDropdown(true)}
           placeholder={placeholder}
-          disabled={disabled || isSyncing}
+          disabled={disabled}
           className="pl-10 pr-10"
         />
-        {(isSearching || isSyncing) && (
+        {isSearching && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
         )}
       </div>
 
-      {/* Google Places dropdown */}
-      {showDropdown && useGoogleMaps && predictions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
-          {predictions.map((prediction, index) => (
-            <button
-              key={prediction.place_id}
-              type="button"
-              className={cn(
-                "w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-start gap-3",
-                index === selectedIndex && "bg-accent",
-                index !== predictions.length - 1 && "border-b border-border"
-              )}
-              onClick={() => handleGooglePlaceSelect(prediction)}
-            >
-              <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-foreground text-sm">
-                  {prediction.structured_formatting.main_text}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {prediction.structured_formatting.secondary_text}
-                </div>
-              </div>
-            </button>
-          ))}
-          <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/50 flex items-center gap-1">
-            <Check className="w-3 h-3" />
-            NYC building data will be synced on selection
-          </div>
-        </div>
-      )}
-
-      {/* NYC DOB fallback dropdown */}
-      {showDropdown && !useGoogleMaps && nycResults.length > 0 && (
+      {/* NYC DOB + PLUTO dropdown */}
+      {showDropdown && nycResults.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
           {nycResults.map((result, index) => (
             <button
-              key={`${result.bin}-${index}`}
+              key={`${result.bin || result.bbl}-${index}`}
               type="button"
               className={cn(
                 "w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-start gap-3",
@@ -645,19 +411,9 @@ export const SmartAddressAutocomplete = ({
         </div>
       )}
 
-      {/* Syncing indicator */}
-      {isSyncing && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg p-4 flex items-center gap-3">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <div className="text-sm text-muted-foreground">
-            Syncing building data from NYC DOB...
-          </div>
-        </div>
-      )}
-
       {/* No results message */}
-      {value.length >= 3 && !isSearching && !isSyncing && 
-       predictions.length === 0 && nycResults.length === 0 && showDropdown && (
+      {value.length >= 3 && !isSearching &&
+       nycResults.length === 0 && showDropdown && (
         <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg p-4 text-center text-sm text-muted-foreground">
           No addresses found. You can enter the address manually.
         </div>
