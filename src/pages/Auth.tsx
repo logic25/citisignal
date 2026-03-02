@@ -35,6 +35,16 @@ const Auth = () => {
     }
   }, [user, loading, navigate]);
 
+  // Listen for OAuth rejection (no invite code)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      toast.error(detail?.message || 'You need an invite code to sign up. Please create an account with an invite code first, then use Google Sign-In.');
+    };
+    window.addEventListener('oauth-no-invite', handler);
+    return () => window.removeEventListener('oauth-no-invite', handler);
+  }, []);
+
   const validateForm = (): boolean => {
     const newErrors: { email?: string; password?: string; confirmPassword?: string; inviteCode?: string } = {};
     

@@ -25,8 +25,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // onAuthStateChange fires immediately with the current session (or null),
     // including OAuth hash tokens on the URL — so getSession() is redundant.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         if (!isMounted) return;
+
+        // Gate: if a user just signed in via OAuth and has no org, reject them
+        if (event === 'SIGNED_IN' && session?.user) {
+          const provider = session.user.app_metadata?.provider;
+          if (provider && provider !== 'email') {
+            // Check if they have an org (i.e. signed up with an invite code)
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('organization_id')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+
+            if (!profile?.organization_id) {
+              // New OAuth user without an invite code — kick them out
+              await supabase.auth.signOut();
+              if (isMounted) {
+                setSession(null);
+                setUser(null);
+                setLoading(false);
+              }
+              // Dispatch a custom event so the Auth page can show a toast
+              window.dispatchEvent(new CustomEvent('oauth-no-invite', {
+                detail: { message: 'Please sign up with an invite code first, then you can use Google Sign-In.' }
+              }));
+              return;
+            }
+          }
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
