@@ -1,97 +1,127 @@
 
-# Landing Page Color Scheme Overhaul
 
-## Problem
-The navy + orange palette is conceptually right for CitiSignal (trust + urgency), but the execution has three issues:
-- Orange is overused -- when everything screams "urgent," nothing does
-- Light sections feel disconnected from dark hero/CTA sections
-- Feature cards lack depth and visual hierarchy
+# Security Vulnerability Fixes Plan
 
-## Solution: Refined Navy + Orange with Teal Secondary
+This plan covers 28 security fixes across edge functions, frontend code, RLS policies, and build configuration. The fixes are grouped into logical batches for implementation.
 
-Keep the core identity but add a **teal/cyan secondary** (`190 80% 50%`) for informational, non-urgent elements. This creates three semantic layers:
+---
 
-| Color | Role | Where |
-|-------|------|-------|
-| Navy (`222 47% 11-15%`) | Trust, brand, structure | Hero bg, navbar, footer, headings |
-| Orange (`12 90% 55%`) | Urgency, action, alerts | Primary CTAs only, violation badges, "signal" accent |
-| Teal (`190 80% 42%`) | Information, features, calm | Feature icons, secondary badges, info elements, step numbers |
+## Batch 1: Edge Function Authorization Checks (Fixes 1-6)
 
-## Changes
+### Fix 1 -- extract-document-text ownership check
+Add a query after line 120 to verify the user owns the document's property before allowing extraction. Uses `supabaseAdmin` to check `property_documents` joined with `properties.user_id`.
 
-### 1. Update CSS Variables (`src/index.css`)
-- Add a new `--info` color token: `190 80% 42%` (teal)
-- Lighten `--background` slightly for better card contrast: `220 20% 98%`
-- Add `--gradient-feature` for the features section: subtle warm-to-cool gradient
-- Adjust `--accent` usage -- keep it but reduce where it auto-applies
+### Fix 2 -- generate-po ownership check
+After the work order fetch (line 154), verify `wo.property?.user_id === user.id` before proceeding. The select already includes `user_id` in the property join.
 
-### 2. Update Tailwind Config (`tailwind.config.ts`)
-- Add `info` color token to the theme colors (with foreground)
-- This makes `bg-info`, `text-info`, etc. available throughout
+### Fix 3 -- work-order-followup scoping
+After auth check (line 44), fetch the user's property IDs and add `.in("property_id", userPropertyIds)` to all three work order queries (staleDispatched, staleApproved, staleInProgress).
 
-### 3. Rework Hero Section (`src/components/landing/Hero.tsx`)
-- Make headline white with stronger contrast (currently readable but could pop more)
-- Change the "CitiSignal catches it first" gradient to be more vivid
-- Make the channel pills use teal icons instead of orange -- these are informational, not urgent
-- Add a subtle gradient overlay to improve text contrast
+### Fix 4 -- send-email-digest caller restriction
+This function uses service role key and accepts `user_id` in the body. Add auth header validation: extract the calling user from the JWT and ensure `body.user_id` matches the authenticated user (or the caller is an admin).
 
-### 4. Refine Features Section (`src/components/landing/Features.tsx`)
-- Give feature cards subtle shadows and a light border for depth
-- Use teal for feature icon backgrounds instead of having all icons in different random colors
-- Keep the "9 Agencies" / "3 Channels" badges but use muted teal instead of plain gray
-- Add a light background tint to the section (`bg-secondary/50`)
+### Fix 5 -- lease-qa property/document ownership
+After parsing the request body, verify `propertyId` ownership via `properties.user_id` and `documentId` ownership via `property_documents` joined with `properties`.
 
-### 5. Update How It Works (`src/components/landing/HowItWorks.tsx`)
-- Change step number circles from navy to teal -- they're informational, not brand elements
-- Add a subtle connecting line between steps for visual flow
+### Fix 6 -- property-ai property ownership
+Same pattern as Fix 5: verify `propertyId` belongs to the authenticated user.
 
-### 6. Tighten Pricing Section (`src/components/landing/Pricing.tsx`)
-- Keep the orange "Most Popular" badge (urgency = correct here)
-- Use teal checkmarks instead of green -- creates consistency with the new palette
-- Add subtle card hover effects for interactivity
+---
 
-### 7. Polish CTA Section (`src/components/landing/CTA.tsx`)
-- Keep orange for the primary "Claim My Spot" button (correct usage)
-- Change the green status dots to teal for palette consistency
+## Batch 2: Client-Side Query Scoping (Fixes 9-11, 21)
 
-### 8. Update Social Proof (`src/components/landing/SocialProof.tsx`)
-- Use teal for stat numbers/highlights instead of orange
-- Orange should only appear if something is "urgent" or action-oriented
+### Fix 9 -- PropertiesPage user_id filter
+Add `.eq('user_id', user.id)` to the properties query at line 75. The `user` object is already available in scope.
 
-### 9. Footer polish (`src/components/landing/Footer.tsx`)
-- System status dot: teal instead of green (palette consistency)
+### Fix 10 -- ViolationsPage user_id filter
+Add user scoping to both the violations and properties queries at line 97. Use `!inner` join on properties to filter violations by `user_id`.
 
-## Technical Details
+### Fix 11 -- LeaseQAChat auth token
+Replace the manual `fetch()` at line 204 with `supabase.functions.invoke('lease-qa', {...})` which automatically sends the user's session token. Adjust response handling for the non-streaming invoke response (note: `functions.invoke` does not support streaming, so we need to keep `fetch()` but use the actual session token instead of the anon key).
 
-### New CSS token additions in `src/index.css`:
-- Light mode: `--info: 190 80% 42%; --info-foreground: 0 0% 100%;`
-- Dark mode: `--info: 190 75% 50%; --info-foreground: 222 47% 11%;`
+**Revised Fix 11**: Keep `fetch()` for streaming support but replace the hardcoded anon key with the user's actual session token from `supabase.auth.getSession()`.
 
-### New Tailwind token in `tailwind.config.ts`:
-```
-info: {
-  DEFAULT: "hsl(var(--info))",
-  foreground: "hsl(var(--info-foreground))",
-}
-```
+### Fix 21 -- DashboardOverview user scoping
+Add `.eq('user_id', user.id)` to the properties query and use the resulting IDs to scope violations. The `user` is already in scope.
 
-### Files to modify:
-1. `src/index.css` -- add info tokens, adjust background
-2. `tailwind.config.ts` -- add info color
-3. `src/components/landing/Hero.tsx` -- teal for info pills, stronger headline contrast
-4. `src/components/landing/Features.tsx` -- teal icon bgs, card depth
-5. `src/components/landing/HowItWorks.tsx` -- teal step numbers
-6. `src/components/landing/Pricing.tsx` -- teal checkmarks, card polish
-7. `src/components/landing/CTA.tsx` -- teal status dots
-8. `src/components/landing/SocialProof.tsx` -- teal stat highlights
-9. `src/components/landing/Footer.tsx` -- teal status dot
+---
 
-### What stays the same:
-- Navy hero/CTA backgrounds (brand identity)
-- Orange primary CTA buttons ("Claim My Spot", "Request Invite")
-- Orange for violation/alert related UI
-- Space Grotesk + Inter font pairing
-- Overall page layout and section structure
+## Batch 3: Input Sanitization (Fixes 7-8)
 
-## Result
-Orange regains its power as the "act now" signal. Teal handles everything informational. Navy stays the trusted backbone. The page feels cohesive instead of monochrome-with-one-accent.
+### Fix 7 -- SmartAddressAutocomplete SoQL sanitization
+Add a `sanitizeSoQL()` function that strips non-alphanumeric characters (keeping spaces, hyphens, periods). Apply it to all interpolated variables in the PLUTO query (line 197) and DOB Jobs query (line 288).
+
+### Fix 8 -- generate-dd-report SoQL sanitization
+Add the same `sanitizeSoQL()` function to the edge function and apply it to all address components interpolated into NYC API `$where` clauses.
+
+---
+
+## Batch 4: RLS Policy Fixes (Fixes 12-18) -- Database Migrations
+
+Seven migrations to tighten overly permissive RLS policies:
+
+- **Fix 12**: `notifications` INSERT -- restrict to `auth.uid() = user_id`
+- **Fix 13**: `oath_hearings` INSERT/UPDATE -- restrict to violations on user's properties
+- **Fix 14**: `compliance_scores` SELECT/INSERT/UPDATE -- restrict to user's properties
+- **Fix 15**: `email_log` INSERT -- restrict to `auth.uid() = user_id`
+- **Fix 16**: `change_log` INSERT -- restrict to `auth.uid() = user_id`; remove UPDATE policy (immutable audit records)
+- **Fix 17**: `work_order_messages` SELECT/INSERT -- restrict to work orders on user's properties
+- **Fix 18**: `property-documents` storage INSERT -- restrict uploads to user's own property folders
+
+---
+
+## Batch 5: Race Condition and Hardcoded Values (Fixes 19-20, 22-23)
+
+### Fix 19 -- validate-invite-code atomic increment
+Move the `use_count` increment BEFORE `createUser`. Use `.lt('use_count', code.max_uses)` in the update to make it atomic.
+
+### Fix 20 -- Hardcoded URLs in send-email-digest
+The `RESEND_FROM_ADDRESS` and `APP_URL` are already using `Deno.env.get()` (confirmed at lines 449 and 479). No changes needed. Will scan other functions for any remaining hardcoded URLs.
+
+### Fix 22 -- Environment variable validation
+Replace `?? ""` fallback patterns with explicit null checks that return 500 errors in all edge functions.
+
+### Fix 23 -- localStorage input validation
+Validate the stored view mode against allowed values before using it.
+
+---
+
+## Batch 6: Infrastructure Hardening (Fixes 24-28)
+
+### Fix 24 -- .gitignore
+Add `.env`, `.env.local`, `.env.*.local` entries. (Note: Lovable manages `.env` automatically, but this is good practice.)
+
+### Fix 25 -- react-router-dom update
+**Skipped**: Upgrading from v6 to v7 is a major version bump with breaking API changes that would require significant refactoring. Will note this as a future task.
+
+### Fix 26 -- html2pdf.js (not jsPDF)
+The project uses `html2pdf.js`, not `jspdf` directly. Will check if there's a newer version available.
+
+### Fix 27 -- Dynamic CORS origins
+Replace `"Access-Control-Allow-Origin": "*"` with a `getCorsHeaders(req)` function in all edge functions that checks the `Origin` header against an `ALLOWED_ORIGINS` env var. This affects ~15+ edge functions.
+
+### Fix 28 -- Disable source maps
+Add `build: { sourcemap: false }` to `vite.config.ts`.
+
+---
+
+## Implementation Order
+
+1. Batch 4 (RLS migrations) -- database changes first
+2. Batch 1 (Edge function auth) -- server-side security
+3. Batch 3 (Input sanitization) -- injection prevention
+4. Batch 5 (Race conditions, env validation)
+5. Batch 2 (Client-side scoping)
+6. Batch 6 (Infrastructure)
+
+---
+
+## Technical Notes
+
+- **Fix 11 revised**: Cannot use `supabase.functions.invoke()` because the lease-qa function returns a streaming response (`text/event-stream`). Instead, will get the user's session token via `supabase.auth.getSession()` and pass it in the Authorization header.
+- **Fix 20**: Already addressed in the current code -- `APP_URL` and `RESEND_FROM_ADDRESS` are read from env vars.
+- **Fix 25**: react-router-dom v6 to v7 migration is a breaking change -- recommend deferring to a separate task.
+- **Fix 27**: Requires adding an `ALLOWED_ORIGINS` secret after deployment.
+- All edge function changes preserve existing CORS preflight handling.
+- RLS migrations use `DROP POLICY IF EXISTS` for safety.
+
