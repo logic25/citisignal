@@ -316,6 +316,19 @@ Deno.serve(async (req) => {
     const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB", "HPD", "FDNY"];
     const now = new Date().toISOString();
 
+    // Clean up old BIS Jobs-based SWO violations (false positives from special_action_status)
+    if (property_id) {
+      const { count } = await supabase
+        .from('violations')
+        .delete()
+        .eq('property_id', property_id)
+        .like('violation_number', 'SWO-%')
+        .select('*', { count: 'exact', head: true });
+      if (count && count > 0) {
+        console.log(`Cleaned up ${count} old BIS Jobs SWO violations`);
+      }
+    }
+
     // Fetch with timeout and single retry
     async function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
       const controller = new AbortController();
@@ -672,8 +685,22 @@ Deno.serve(async (req) => {
         if (complaintNum && dateEntered) {
           const dispositionCode = (v.disposition_code || "") as string;
           const dispositionDate = v.disposition_date as string || null;
+
+          // SWO detection from disposition codes (authoritative source matching BIS portal)
+          const SWO_PLACE_CODES = ['L1', 'H5'];      // Codes that place an SWO
+          const SWO_RESCIND_CODES = ['L2', 'L3'];     // Codes that lift an SWO
+          const SWO_ENFORCE_CODES = ['H3', 'H4'];     // Codes for SWO violations
+          const upperDisp = dispositionCode.toUpperCase();
+          const isSWOPlaced = SWO_PLACE_CODES.includes(upperDisp);
+          const isSWORescinded = SWO_RESCIND_CODES.includes(upperDisp);
+          const isSWOEnforcement = SWO_ENFORCE_CODES.includes(upperDisp);
+          const isSWORelated = isSWOPlaced || isSWORescinded || isSWOEnforcement;
+
+          // For SWO complaints, "CLOSED" status means complaint was processed, NOT that SWO was lifted.
+          // SWO is only lifted by L2/L3 disposition codes.
           const isResolved = dispositionCode === "I2" || dispositionCode === "C1" ||
-                            dispositionCode === "A1" || dispositionDate !== null;
+                            dispositionCode === "A1" ||
+                            (!isSWORelated && dispositionDate !== null);
 
           const category = (v.complaint_category || "") as string;
           const status_desc = (v.status || "") as string;
@@ -690,21 +717,42 @@ Deno.serve(async (req) => {
             issued_date: normalizeDate(dateEntered) || dateEntered,
             hearing_date: null,
             cure_due_date: null,
-            description_raw: descRaw || `DOB Complaint #${complaintNum}`,
+            description_raw: isSWOPlaced
+              ? `Partial Stop Work Order — Complaint #${complaintNum}`
+              : isSWORescinded
+              ? `Stop Work Order Rescinded — Complaint #${complaintNum}`
+              : descRaw || `DOB Complaint #${complaintNum}`,
             property_id,
-            severity: (v.priority as string) === "A" ? "critical" :
+            severity: isSWOPlaced ? "critical" :
+                      (v.priority as string) === "A" ? "critical" :
                       (v.priority as string) === "B" ? "medium" : "low",
             violation_class: category,
-            violation_type: extractViolationType(descRaw, category, "DOB"),
-            is_stop_work_order: false,
+            violation_type: isSWOPlaced ? "Partial Stop Work Order" :
+                            isSWORescinded ? "Stop Work Order Rescinded" :
+                            extractViolationType(descRaw, category, "DOB"),
+            is_stop_work_order: isSWOPlaced,
             is_vacate_order: false,
             penalty_amount: null,
             respondent_name: null,
             synced_at: now,
             source: "dob_complaints",
             oath_status: status_desc || null,
-            status: isResolved ? 'closed' : 'open',
+            status: isSWORescinded ? 'closed' : (isSWOPlaced ? 'open' : (isResolved ? 'closed' : 'open')),
           });
+        }
+      }
+
+      // Update property-level SWO flag based on complaint dispositions
+      if (property_id) {
+        const swoFromComplaints = violations.filter(v =>
+          v.source === 'dob_complaints' && v.is_stop_work_order === true
+        );
+        if (swoFromComplaints.length > 0) {
+          await supabase
+            .from('properties')
+            .update({ special_status: 'stop_work_order' })
+            .eq('id', property_id);
+          console.log(`Set property SWO flag: ${swoFromComplaints.length} active SWO complaints found`);
         }
       }
     }
@@ -1745,64 +1793,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ===== STOP WORK ORDER DETECTION (independent of CO) =====
-    if (bin && property_id) {
-      try {
-        const swoCheckJobs = await safeFetch(
-          `${NYC_OPEN_DATA_ENDPOINTS.DOB_BIS_JOBS}?bin__=${bin}&$limit=200&$order=latest_action_date DESC`,
-          "BIS_SWO_CHECK"
-        );
-
-        const SWO_CODES: Record<string, { isSWO: boolean; isVacate: boolean; label: string }> = {
-          'w': { isSWO: true, isVacate: false, label: 'Partial Stop Work Order' },
-          's': { isSWO: true, isVacate: false, label: 'Full Stop Work Order' },
-          'r': { isSWO: false, isVacate: true, label: 'Partial Vacate Order' },
-          'v': { isSWO: false, isVacate: true, label: 'Full Vacate Order' },
-        };
-
-        // Check ALL jobs with SWO codes — no job_status filter, matching BIS behavior
-        const swoJobs = (swoCheckJobs as Record<string, unknown>[]).filter(j => {
-          const sas = ((j.special_action_status || '') as string).toLowerCase();
-          return sas in SWO_CODES && sas !== 'n';
-        });
-
-        console.log(`SWO Detection: Found ${swoJobs.length} jobs with SWO/Vacate flags out of ${swoCheckJobs.length} BIS jobs`);
-
-        for (const swoJob of swoJobs) {
-          const sas = ((swoJob.special_action_status || '') as string).toLowerCase();
-          const swoInfo = SWO_CODES[sas];
-          const swoJobNumber = (swoJob.job__ || '') as string;
-          const swoViolationNumber = `SWO-${swoJobNumber}`;
-
-          const { data: existingSWO } = await supabase
-            .from('violations')
-            .select('id')
-            .eq('property_id', property_id)
-            .eq('violation_number', swoViolationNumber)
-            .limit(1);
-
-          if (!existingSWO || existingSWO.length === 0) {
-            const swoDescription = `${swoInfo.label} — BIS Job #${swoJobNumber} (${(swoJob.job_type || '') as string})`;
-            await supabase.from('violations').insert({
-              property_id,
-              agency: 'DOB',
-              violation_number: swoViolationNumber,
-              issued_date: (swoJob.latest_action_date || new Date().toISOString()) as string,
-              status: 'open',
-              description_raw: swoDescription,
-              is_stop_work_order: swoInfo.isSWO,
-              is_vacate_order: swoInfo.isVacate,
-              severity: 'critical',
-              source: 'BIS_JOBS',
-              violation_type: swoInfo.label,
-            });
-            console.log(`Created SWO violation: ${swoViolationNumber} (${swoInfo.label})`);
-          }
-        }
-      } catch (swoError) {
-        console.error('SWO detection error:', swoError);
-      }
-    }
+    // SWO detection is now handled by DOB Complaints disposition codes (L1, H5, L2, L3)
+    // in the complaints processing loop above. BIS Jobs special_action_status was removed
+    // because it's a historical flag that produces false positives.
 
     return new Response(JSON.stringify({
         success: true,
