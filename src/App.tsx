@@ -12,10 +12,11 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 
-// Lazy-load all dashboard pages for code splitting
-const DashboardOverview = lazy(() => import("@/pages/dashboard/DashboardOverview"));
-const PropertiesPage = lazy(() => import("@/pages/dashboard/PropertiesPage"));
-const PropertyDetailPage = lazy(() => import("@/pages/dashboard/PropertyDetailPage"));
+// Eagerly load high-traffic dashboard pages
+import DashboardOverview from "@/pages/dashboard/DashboardOverview";
+import PropertiesPage from "@/pages/dashboard/PropertiesPage";
+import PropertyDetailPage from "@/pages/dashboard/PropertyDetailPage";
+
 const ApplicationsPage = lazy(() => import("@/pages/dashboard/ApplicationsPage"));
 const ViolationsPage = lazy(() => import("@/pages/dashboard/ViolationsPage"));
 const VendorsPage = lazy(() => import("@/pages/dashboard/VendorsPage"));
