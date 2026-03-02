@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
     console.log(`Fetching violations for BIN: ${bin}, BBL: ${bbl} (Borough: ${borough}, Block: ${block}, Lot: ${lot}), Agencies: ${(applicable_agencies || []).join(', ')}`);
 
     const violations: ViolationRecord[] = [];
-    const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB"];
+    const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB", "HPD", "FDNY"];
     const now = new Date().toISOString();
 
     // Fetch with timeout and single retry
@@ -406,7 +406,7 @@ Deno.serve(async (req) => {
       }
 
       const data = await safeFetch(
-        `${NYC_OPEN_DATA_ENDPOINTS.OATH_HEARINGS}?issuing_agency=${encodeURIComponent(oathAgencyName)}&violation_location_borough=${encodeURIComponent(boroughName)}&violation_location_block_no=${block}&violation_location_lot_no=${lot}&$limit=100&$order=violation_date DESC`,
+        `${NYC_OPEN_DATA_ENDPOINTS.OATH_HEARINGS}?issuing_agency=${encodeURIComponent(oathAgencyName)}&violation_location_borough=${encodeURIComponent(boroughName)}&violation_location_block_no=${block}&violation_location_lot_no=${lot}&$limit=1000&$order=violation_date DESC`,
         `${agency}/OATH`
        );
  
@@ -488,8 +488,8 @@ Deno.serve(async (req) => {
     // Fetch DOB Violations
     if (agenciesToSync.includes("DOB")) {
       const [dobOldData, dobNewData] = await Promise.all([
-        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_OLD}?bin=${bin}&$limit=100&$order=issue_date DESC`, "DOB_OLD"),
-        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NEW}?bin=${bin}&$limit=100&$order=violation_issue_date DESC`, "DOB_NEW"),
+        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_OLD}?bin=${bin}&$limit=1000&$order=issue_date DESC`, "DOB_OLD"),
+        safeFetch(`${NYC_OPEN_DATA_ENDPOINTS.DOB_NEW}?bin=${bin}&$limit=1000&$order=violation_issue_date DESC`, "DOB_NEW"),
       ]);
 
       console.log(`Found ${dobOldData.length} DOB (old) violations, ${dobNewData.length} DOB (new) violations`);
@@ -568,7 +568,7 @@ Deno.serve(async (req) => {
     // Fetch ECB Violations
     if (agenciesToSync.includes("ECB")) {
       const ecbData = await safeFetch(
-        `${NYC_OPEN_DATA_ENDPOINTS.ECB}?bin=${bin}&$limit=100&$order=issue_date DESC`,
+        `${NYC_OPEN_DATA_ENDPOINTS.ECB}?bin=${bin}&$limit=1000&$order=issue_date DESC`,
         "ECB"
       );
 
@@ -612,7 +612,7 @@ Deno.serve(async (req) => {
     // Fetch HPD Violations
     if (agenciesToSync.includes("HPD") && bbl) {
       const hpdData = await safeFetch(
-        `${NYC_OPEN_DATA_ENDPOINTS.HPD}?bbl=${bbl}&$limit=100&$order=inspectiondate DESC`,
+        `${NYC_OPEN_DATA_ENDPOINTS.HPD}?bbl=${bbl}&$limit=1000&$order=inspectiondate DESC`,
         "HPD"
       );
 
@@ -658,7 +658,7 @@ Deno.serve(async (req) => {
     // Fetch DOB Complaints
     if (agenciesToSync.includes("DOB") && bin) {
       const complaintsData = await safeFetch(
-        `${NYC_OPEN_DATA_ENDPOINTS.DOB_COMPLAINTS}?bin=${bin}&$limit=100&$order=date_entered DESC`,
+        `${NYC_OPEN_DATA_ENDPOINTS.DOB_COMPLAINTS}?bin=${bin}&$limit=1000&$order=date_entered DESC`,
         "DOB_COMPLAINTS"
       );
 
@@ -1730,62 +1730,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // ===== STOP WORK ORDER DETECTION from BIS Jobs =====
-          // special_action_status: W = partial SWO, S = full SWO, R = partial vacate, V = full vacate
-          // N = no special action (skip)
-          const SWO_CODES: Record<string, { isSWO: boolean; isVacate: boolean; label: string }> = {
-            'w': { isSWO: true, isVacate: false, label: 'Partial Stop Work Order' },
-            's': { isSWO: true, isVacate: false, label: 'Full Stop Work Order' },
-            'r': { isSWO: false, isVacate: true, label: 'Partial Vacate Order' },
-            'v': { isSWO: false, isVacate: true, label: 'Full Vacate Order' },
-          };
-
-          // Only flag SWOs on jobs with ACTIVE permit statuses — jobs still under plan exam,
-          // pre-filing, or completed/signed-off should NOT generate SWO records.
-          // Active statuses: D=Partial Permit, E=Permit Issued/Entire, F=Job Closeout in Progress
-          const ACTIVE_JOB_STATUSES = new Set(['d', 'e', 'f']);
-
-          const swoJobs = (bisJobs as Record<string, unknown>[]).filter(j => {
-            const sas = ((j.special_action_status || '') as string).toLowerCase();
-            if (!(sas in SWO_CODES) || sas === 'n') return false;
-            // ONLY include jobs with active construction permits
-            const jobStatus = ((j.job_status || '') as string).toLowerCase();
-            if (!ACTIVE_JOB_STATUSES.has(jobStatus)) return false;
-            return true;
-          });
-
-          for (const swoJob of swoJobs) {
-            const sas = ((swoJob.special_action_status || '') as string).toLowerCase();
-            const swoInfo = SWO_CODES[sas];
-            const swoJobNumber = (swoJob.job__ || '') as string;
-            const swoViolationNumber = `SWO-${swoJobNumber}`;
-
-            // Check if we already have this SWO violation
-            const { data: existingSWO } = await supabase
-              .from('violations')
-              .select('id')
-              .eq('property_id', property_id)
-              .eq('violation_number', swoViolationNumber)
-              .limit(1);
-
-            if (!existingSWO || existingSWO.length === 0) {
-              const swoDescription = `${swoInfo.label} — BIS Job #${swoJobNumber} (${(swoJob.job_type || '') as string})`;
-              await supabase.from('violations').insert({
-                property_id,
-                agency: 'DOB',
-                violation_number: swoViolationNumber,
-                issued_date: (swoJob.latest_action_date || new Date().toISOString()) as string,
-                status: 'open',
-                description_raw: swoDescription,
-                is_stop_work_order: swoInfo.isSWO,
-                is_vacate_order: swoInfo.isVacate,
-                severity: 'critical',
-                source: 'BIS_JOBS',
-                violation_type: swoInfo.label,
-              });
-              console.log(`Created SWO violation: ${swoViolationNumber} (${swoInfo.label})`);
-            }
-          }
         }
 
         // If still no CO found, set status based on year built
@@ -1811,7 +1755,65 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
+    // ===== STOP WORK ORDER DETECTION (independent of CO) =====
+    if (bin && property_id) {
+      try {
+        const swoCheckJobs = await safeFetch(
+          `${NYC_OPEN_DATA_ENDPOINTS.DOB_BIS_JOBS}?bin__=${bin}&$limit=200&$order=latest_action_date DESC`,
+          "BIS_SWO_CHECK"
+        );
+
+        const SWO_CODES: Record<string, { isSWO: boolean; isVacate: boolean; label: string }> = {
+          'w': { isSWO: true, isVacate: false, label: 'Partial Stop Work Order' },
+          's': { isSWO: true, isVacate: false, label: 'Full Stop Work Order' },
+          'r': { isSWO: false, isVacate: true, label: 'Partial Vacate Order' },
+          'v': { isSWO: false, isVacate: true, label: 'Full Vacate Order' },
+        };
+
+        // Check ALL jobs with SWO codes — no job_status filter, matching BIS behavior
+        const swoJobs = (swoCheckJobs as Record<string, unknown>[]).filter(j => {
+          const sas = ((j.special_action_status || '') as string).toLowerCase();
+          return sas in SWO_CODES && sas !== 'n';
+        });
+
+        console.log(`SWO Detection: Found ${swoJobs.length} jobs with SWO/Vacate flags out of ${swoCheckJobs.length} BIS jobs`);
+
+        for (const swoJob of swoJobs) {
+          const sas = ((swoJob.special_action_status || '') as string).toLowerCase();
+          const swoInfo = SWO_CODES[sas];
+          const swoJobNumber = (swoJob.job__ || '') as string;
+          const swoViolationNumber = `SWO-${swoJobNumber}`;
+
+          const { data: existingSWO } = await supabase
+            .from('violations')
+            .select('id')
+            .eq('property_id', property_id)
+            .eq('violation_number', swoViolationNumber)
+            .limit(1);
+
+          if (!existingSWO || existingSWO.length === 0) {
+            const swoDescription = `${swoInfo.label} — BIS Job #${swoJobNumber} (${(swoJob.job_type || '') as string})`;
+            await supabase.from('violations').insert({
+              property_id,
+              agency: 'DOB',
+              violation_number: swoViolationNumber,
+              issued_date: (swoJob.latest_action_date || new Date().toISOString()) as string,
+              status: 'open',
+              description_raw: swoDescription,
+              is_stop_work_order: swoInfo.isSWO,
+              is_vacate_order: swoInfo.isVacate,
+              severity: 'critical',
+              source: 'BIS_JOBS',
+              violation_type: swoInfo.label,
+            });
+            console.log(`Created SWO violation: ${swoViolationNumber} (${swoInfo.label})`);
+          }
+        }
+      } catch (swoError) {
+        console.error('SWO detection error:', swoError);
+      }
+    }
+
       JSON.stringify({
         success: true,
         total_found: uniqueViolations.length,

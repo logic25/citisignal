@@ -38,6 +38,7 @@ interface Property {
   address: string;
   bin: string | null;
   bbl: string | null;
+  applicable_agencies: string[] | null;
 }
 
 interface Violation {
@@ -97,7 +98,7 @@ const ViolationsPage = () => {
       // Security Fix 10: Scope queries to user's properties
       const propertiesRes = await supabase
         .from('properties')
-        .select('id, address, bin, bbl')
+        .select('id, address, bin, bbl, applicable_agencies')
         .eq('user_id', user.id)
         .order('address');
       if (propertiesRes.error) throw propertiesRes.error;
@@ -136,7 +137,12 @@ const ViolationsPage = () => {
       for (const property of propertiesWithBin) {
         try {
           const { data, error } = await supabase.functions.invoke('fetch-nyc-violations', {
-            body: { bin: property.bin, property_id: property.id }
+            body: {
+              bin: property.bin,
+              bbl: property.bbl,
+              property_id: property.id,
+              applicable_agencies: (property as any).applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD']
+            }
           });
           if (error) { errors++; } else if (data?.total_found) { totalNew += data.total_found; }
         } catch { errors++; }
