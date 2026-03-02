@@ -1203,6 +1203,57 @@ export type Database = {
           },
         ]
       }
+      pending_po_confirmations: {
+        Row: {
+          channel: string
+          chat_id: string | null
+          confirmation_code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          po_id: string
+          used: boolean | null
+          vendor_id: string
+        }
+        Insert: {
+          channel: string
+          chat_id?: string | null
+          confirmation_code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          po_id: string
+          used?: boolean | null
+          vendor_id: string
+        }
+        Update: {
+          channel?: string
+          chat_id?: string | null
+          confirmation_code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          po_id?: string
+          used?: boolean | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_po_confirmations_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_po_confirmations_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolios: {
         Row: {
           created_at: string

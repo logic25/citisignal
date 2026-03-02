@@ -12,8 +12,12 @@
  * 2. Add Twilio request signature validation (CRITICAL — see security audit).
  *    Without signature validation, anyone can spoof inbound messages and
  *    manipulate work order quotes.
- * 3. Remove the early-return below.
- * 4. Configure the Twilio webhook URL to point to this function.
+ * 3. Implement email confirmation code flow for PO signing (see
+ *    telegram-webhook/index.ts for the reference implementation using
+ *    the pending_po_confirmations table). Use channel='sms' and
+ *    chat_id=fromNumber.
+ * 4. Remove the early-return below.
+ * 5. Configure the Twilio webhook URL to point to this function.
  * 
  * SECURITY NOTE:
  * Before re-enabling, implement Twilio signature validation using the
@@ -22,6 +26,7 @@
  * 
  * REQUIRED SECRETS:
  * - TWILIO_AUTH_TOKEN (for signature validation)
+ * - RESEND_API_KEY (for PO confirmation emails)
  * - LOVABLE_API_KEY (for AI responses)
  */
 
