@@ -1,4 +1,4 @@
-# Property Guard
+# CitiSignal (Property Guard)
 
 NYC property compliance management platform. Monitor DOB/ECB/HPD violations, track building permits, manage compliance deadlines, and generate due diligence reports — all from one dashboard.
 
@@ -24,9 +24,13 @@ NYC property compliance management platform. Monitor DOB/ECB/HPD violations, tra
 
 ### Communication
 - **Email Digests** — Configurable weekly/daily summary emails via Resend with severity-classified violation cards
-- **SMS Alerts** — Twilio-powered SMS for critical violations
+- **Email Work Order Notifications** — Vendors receive email when assigned a new work order
 - **Telegram Bot** — AI-powered bot for property queries, violation alerts, and vendor dispatch
-- **WhatsApp Bot** — AI-powered WhatsApp integration for property intelligence and vendor communication
+- ~~**SMS Alerts**~~ — _Disabled (2026-03-02)._ Twilio SMS integration exists but is turned off. Edge function returns a soft "disabled" response. See `supabase/functions/send-sms/index.ts`.
+- ~~**WhatsApp Bot**~~ — _Disabled (2026-03-02)._ Full implementation preserved in git history. See `supabase/functions/whatsapp-webhook/index.ts`.
+- ~~**SMS Webhook**~~ — _Disabled (2026-03-02)._ Inbound SMS handler preserved in git history. See `supabase/functions/sms-webhook/index.ts`.
+
+> **Why disabled?** SMS and WhatsApp require Twilio infrastructure costs (phone numbers, per-message fees). The security audit also identified missing Twilio request signature validation on the webhook endpoints. These will be re-enabled once signature validation is added and messaging costs are budgeted. See each edge function's header comments for re-enablement steps.
 
 ### Admin Panel
 - **API Health Dashboard** — Real-time monitoring of NYC Open Data API endpoints with status, latency, and error tracking
@@ -34,6 +38,12 @@ NYC property compliance management platform. Monitor DOB/ECB/HPD violations, tra
 - **User Detail** — Deep dive into any user's account with property list and usage metrics
 - **Role System** — Secure `user_roles` table with `has_role()` security-definer function (no privilege escalation)
 - **Invite Codes** — Organization-scoped invite codes for controlled onboarding
+
+## Authentication Flow
+
+- **New Users**: Must register using email, password, and an invite code. This creates the account, profile, and organization membership.
+- **Returning Users**: Can use Google Sign-In as a convenience once their account exists. OAuth users without an existing organization are rejected with a toast message.
+- Email confirmation is required before sign-in (Lovable Cloud auth setting).
 
 ## Tech Stack
 
@@ -44,9 +54,11 @@ NYC property compliance management platform. Monitor DOB/ECB/HPD violations, tra
 | State | TanStack React Query |
 | Routing | React Router v6 |
 | Backend | Lovable Cloud (Supabase) |
-| Auth | Email/password with RLS |
-| Edge Functions | Deno (violation sync, AI, email, SMS, Telegram, WhatsApp) |
+| Auth | Email/password + Google OAuth with RLS |
+| Edge Functions | Deno (violation sync, AI, email, Telegram) |
 | Charts | Recharts |
+| Email | Resend |
+| Messaging | Twilio _(currently disabled)_ |
 
 ## Project Structure
 
@@ -62,12 +74,12 @@ src/
 │   ├── onboarding/        # Onboarding wizard
 │   ├── portfolios/        # Portfolio management
 │   ├── properties/        # Property CRUD, detail tabs, address autocomplete
-│   ├── settings/          # Email, Telegram, WhatsApp preferences
+│   ├── settings/          # Email, Telegram, WhatsApp (disabled) preferences
 │   ├── tour/              # Product tour
 │   ├── ui/                # shadcn/ui components
 │   └── violations/        # Work order creation
 ├── hooks/
-│   ├── useAuth.tsx         # Auth context provider
+│   ├── useAuth.tsx         # Auth context provider (includes OAuth gate)
 │   ├── useAdminRole.ts     # Admin role check hook
 │   ├── useComplianceScore.ts
 │   ├── useNotifications.ts
@@ -110,10 +122,12 @@ supabase/
     ├── generate-po/            # Purchase order PDF generation
     ├── sign-po/                # PO e-signature handler
     ├── send-email-digest/      # Scheduled email summaries
-    ├── send-sms/               # Twilio SMS integration
+    ├── send-work-order-notification/ # Email notification to vendors
+    ├── send-sms/               # ⚠️ DISABLED — Twilio SMS (returns soft error)
+    ├── sms-webhook/            # ⚠️ DISABLED — Inbound SMS handler
+    ├── whatsapp-webhook/       # ⚠️ DISABLED — WhatsApp bot webhook
     ├── send-telegram/          # Telegram notifications
     ├── telegram-webhook/       # Telegram bot webhook
-    ├── whatsapp-webhook/       # WhatsApp bot webhook
     ├── scheduled-sync/         # Periodic data refresh
     ├── send-change-summary/    # Change notification emails
     ├── send-invite/            # Invite code emails
@@ -122,7 +136,6 @@ supabase/
     ├── admin-get-users/        # Admin user listing
     ├── admin-delete-user/      # Admin user deletion
     ├── validate-invite-code/   # Invite code validation
-    ├── sms-webhook/            # Inbound SMS handler
     └── work-order-followup/    # Work order follow-up notifications
 ```
 
@@ -147,7 +160,7 @@ supabase/
 - `change_log` — Property change tracking for digest emails
 - `email_preferences` — Per-user digest configuration
 - `telegram_users` — Linked Telegram accounts
-- `whatsapp_users` — Linked WhatsApp accounts
+- `whatsapp_users` — Linked WhatsApp accounts _(table exists but feature disabled)_
 - `vendors` — Vendor directory with trade specialties
 - `portfolios` — Property groupings
 - `dd_reports` — Due diligence report data and AI analysis
@@ -166,6 +179,7 @@ supabase/
 - Users only see their own data
 - Admin access via `has_role()` security-definer function (prevents RLS recursion)
 - API log inserts open to all authenticated users; reads restricted to admins
+- OAuth gate: Google Sign-In users without an existing org are rejected (prevents signup bypass)
 
 ## NYC Open Data Endpoints
 
@@ -188,10 +202,21 @@ Managed automatically by Lovable Cloud:
 
 ### Edge Function Secrets
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `LOVABLE_API_KEY` — AI features
-- `RESEND_API_KEY` — Email delivery
-- `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` — SMS & WhatsApp
+- `LOVABLE_API_KEY` — AI features (Gemini via Lovable AI Gateway)
+- `RESEND_API_KEY` / `RESEND_FROM_ADDRESS` — Email delivery
+- `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` — _(configured but features disabled)_
 - `TELEGRAM_BOT_TOKEN` — Telegram bot
+- `APP_URL` — Base URL for email links
+
+## Disabled Features (2026-03-02)
+
+| Feature | Edge Function | Status | Re-enable Steps |
+|---------|--------------|--------|-----------------|
+| SMS Alerts | `send-sms` | Soft-disabled (returns 200 + error msg) | Remove early-return, add Twilio sig validation |
+| SMS Webhook | `sms-webhook` | Disabled (returns empty TwiML) | Add Twilio sig validation, remove early-return |
+| WhatsApp Bot | `whatsapp-webhook` | Disabled (returns empty TwiML) | Add sig validation, fix Base64 link codes, remove early-return |
+
+All disabled functions have detailed header comments explaining re-enablement. The UI components (CreateWorkOrderDialog, PropertyWorkOrdersTab) handle the disabled state gracefully — SMS checkboxes are commented out, and the send-sms function returns a non-error response.
 
 ## Development
 

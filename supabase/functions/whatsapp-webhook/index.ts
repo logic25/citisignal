@@ -1,3 +1,40 @@
+/**
+ * whatsapp-webhook — Inbound WhatsApp Message Handler (via Twilio)
+ * 
+ * STATUS: DISABLED (2026-03-02)
+ * 
+ * This function handles inbound WhatsApp messages routed through Twilio's
+ * WhatsApp Business API. It supports:
+ * - Account linking (LINK <code>)
+ * - AI-powered property queries (Gemini Flash-Lite)
+ * - Vendor quote extraction and work order updates
+ * - Portfolio status summaries
+ * 
+ * TO RE-ENABLE:
+ * 1. Ensure Twilio WhatsApp sandbox or production number is configured.
+ * 2. Add Twilio request signature validation (CRITICAL — without this,
+ *    anyone can POST fake messages and manipulate work order data).
+ * 3. Replace Base64 link codes with cryptographic tokens (the current
+ *    btoa(userId) approach exposes internal UUIDs).
+ * 4. Remove the early-return below.
+ * 5. Set the Twilio WhatsApp webhook URL to this function's endpoint.
+ * 
+ * REQUIRED SECRETS:
+ * - TWILIO_AUTH_TOKEN (for signature validation)
+ * - LOVABLE_API_KEY (for AI responses)
+ * 
+ * TABLES USED:
+ * - whatsapp_users (account linking)
+ * - vendors / work_orders / work_order_messages (vendor quote flow)
+ * - properties / violations / compliance_requirements (AI context)
+ * - property_ai_conversations / property_ai_messages (chat logging)
+ * - notifications (owner alerts on vendor quotes)
+ * 
+ * SEE ALSO:
+ * - src/components/settings/WhatsAppTab.tsx (UI for linking)
+ * - supabase/functions/telegram-webhook/ (similar pattern for Telegram)
+ */
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -21,6 +58,23 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ── DISABLED: WhatsApp processing is temporarily turned off ──
+  console.log("whatsapp-webhook called but is currently DISABLED");
+  return new Response(
+    '<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>',
+    { headers: { "Content-Type": "application/xml" } }
+  );
+
+  /* ── ORIGINAL IMPLEMENTATION ──
+  
+  See git history for the full implementation including:
+  - handleLinkCommand() — account linking via Base64 codes
+  - handleVendorMessage() — vendor detection, quote extraction, WO updates
+  - getPortfolioSummary() — STATUS command handler
+  - getPropertyContext() — builds AI context from user's properties
+  - AI query flow using Gemini Flash-Lite
+  - twimlResponse() — XML response builder for Twilio
+  
   console.log("WhatsApp Webhook received");
 
   try {
@@ -191,6 +245,7 @@ RULES:
     console.error("WhatsApp Webhook error:", error);
     return twimlResponse("Sorry, there was an error processing your message. Please try again later.");
   }
+  */
 });
 
 // ── LINK COMMAND HANDLER ──
