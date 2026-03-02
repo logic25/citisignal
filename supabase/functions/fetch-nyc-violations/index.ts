@@ -1814,7 +1814,7 @@ Deno.serve(async (req) => {
       }
     }
 
-      JSON.stringify({
+    return new Response(JSON.stringify({
         success: true,
         total_found: uniqueViolations.length,
         new_violations: newViolationsCount,
