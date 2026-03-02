@@ -354,33 +354,34 @@ Deno.serve(async (req) => {
     }
 
     const safeFetch = async (url: string, agency: string): Promise<unknown[]> => {
-      const attempt = async (): Promise<unknown[]> => {
+      const attempt = async (): Promise<{ data: unknown[]; shouldRetry: boolean }> => {
         try {
           console.log(`Fetching ${agency}: ${url}`);
           const response = await fetchWithTimeout(url);
           if (!response.ok) {
             console.error(`${agency} API error: ${response.status}`);
-            return [];
+            return { data: [], shouldRetry: response.status >= 500 || response.status === 429 };
           }
-          return await response.json();
+          const data = await response.json();
+          return { data, shouldRetry: false };
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') {
             console.error(`${agency} fetch timeout after 15s`);
           } else {
             console.error(`${agency} fetch error:`, error);
           }
-          return [];
+          return { data: [], shouldRetry: true };
         }
       };
 
       // First attempt
-      let result = await attempt();
-      // Retry once on empty result (timeout or server error)
-      if (result.length === 0) {
-        console.log(`${agency}: Retrying once...`);
-        result = await attempt();
-      }
-      return result;
+      const first = await attempt();
+      if (!first.shouldRetry) return first.data;
+
+      // Retry once only for transient failures (timeout/network/5xx/429)
+      console.log(`${agency}: Retrying once...`);
+      const second = await attempt();
+      return second.data;
     };
 
     const boroughNames: Record<string, string> = {
@@ -1640,12 +1641,7 @@ Deno.serve(async (req) => {
                 const pdfListUrl = `https://a810-bisweb.nyc.gov/bisweb/COsByLocationServlet?requestid=0&allbin=${bin}`;
                 console.log(`Fetching CO PDF listing: ${pdfListUrl}`);
                 
-                const pdfListResp = await fetch(pdfListUrl, {
-                  headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml',
-                  },
-                });
+                const pdfListResp = await fetchWithTimeout(pdfListUrl, 8000);
                 
                 console.log(`CO listing response: ${pdfListResp.status} ${pdfListResp.statusText}`);
                 
@@ -1665,13 +1661,7 @@ Deno.serve(async (req) => {
                     
                     console.log(`Downloading CO PDF: ${pdfUrl}`);
                     
-                    const pdfResp = await fetch(pdfUrl, {
-                      headers: { 
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/pdf',
-                        'Referer': pdfListUrl,
-                      },
-                    });
+                    const pdfResp = await fetchWithTimeout(pdfUrl, 8000);
                     
                     console.log(`PDF download response: ${pdfResp.status}, content-type: ${pdfResp.headers.get('content-type')}`);
                     
