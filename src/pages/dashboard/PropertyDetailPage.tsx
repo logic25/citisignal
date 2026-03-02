@@ -400,14 +400,51 @@ const PropertyDetailPage = () => {
       {/* Critical Alerts */}
       {criticalIssues.length > 0 && (
         <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-          <h3 className="font-semibold text-destructive mb-2">⚠️ Critical Issues</h3>
-          <div className="space-y-1">
+          <h3 className="font-semibold text-destructive mb-3">⚠️ Critical Issues</h3>
+          <div className="space-y-3">
             {criticalIssues.map((v) => (
-              <div key={v.id} className="text-sm text-destructive">
-                {v.is_stop_work_order && '🚨 Stop Work Order: '}
-                {v.is_vacate_order && '⛔ Vacate Order: '}
-                {v.agency} #{v.violation_number}
-              </div>
+              <button
+                key={v.id}
+                onClick={() => setActiveTab('violations')}
+                className="w-full text-left p-3 rounded-lg bg-destructive/5 border border-destructive/10 hover:bg-destructive/15 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5 text-lg">
+                    {v.is_stop_work_order ? '🚨' : '⛔'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-semibold text-destructive">
+                        {v.is_stop_work_order ? 'Stop Work Order' : 'Vacate Order'}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-destructive/30 text-destructive">
+                        {v.agency}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium text-foreground">
+                      #{v.violation_number}
+                    </p>
+                    {v.description_raw && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {v.description_raw}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                      <span>Issued: {new Date(v.issued_date).toLocaleDateString()}</span>
+                      {v.penalty_amount && v.penalty_amount > 0 && (
+                        <span className="text-destructive font-medium">
+                          Penalty: ${v.penalty_amount.toLocaleString()}
+                        </span>
+                      )}
+                      {v.cure_due_date && (
+                        <span className="text-warning font-medium">
+                          Cure by: {new Date(v.cure_due_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
         </div>
