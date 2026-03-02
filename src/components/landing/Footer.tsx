@@ -15,7 +15,7 @@ const Footer = () => {
               <span className="font-display font-bold text-xl text-foreground">CitiSignal</span>
             </div>
             <p className="text-sm text-muted-foreground max-w-md mb-4">
-              Real-time NYC property violation monitoring across 9 agencies. Alerts via Telegram, SMS & WhatsApp. AI-powered property intelligence for owners, managers, and expeditors.
+              Real-time NYC property violation monitoring across 9 agencies. Alerts via Telegram & email. AI-powered property intelligence for owners, managers, and expeditors.
             </p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="w-1.5 h-1.5 rounded-full bg-info" />
