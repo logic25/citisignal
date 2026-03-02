@@ -1,4 +1,4 @@
-# Property Guard — Data Logic & Roadmap Review
+# CitiSignal — Data Logic & Roadmap Review
 
 > **Purpose**: This document captures the current logic for SWO detection, CO determination, violation processing, and application display. It's meant for the product owner to review, flag issues, and guide future iterations.
 

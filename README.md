@@ -1,4 +1,4 @@
-# CitiSignal (Property Guard)
+# CitiSignal
 
 NYC property compliance management platform. Monitor DOB/ECB/HPD violations, track building permits, manage compliance deadlines, and generate due diligence reports — all from one dashboard.
 
