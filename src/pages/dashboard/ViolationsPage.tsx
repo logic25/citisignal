@@ -94,14 +94,30 @@ const ViolationsPage = () => {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const [violationsRes, propertiesRes] = await Promise.all([
-        supabase.from('violations').select('*, property:properties(id, address, bin, bbl)').order('created_at', { ascending: false }),
-        supabase.from('properties').select('id, address, bin, bbl').order('address'),
-      ]);
-      if (violationsRes.error) throw violationsRes.error;
+      // Security Fix 10: Scope queries to user's properties
+      const propertiesRes = await supabase
+        .from('properties')
+        .select('id, address, bin, bbl')
+        .eq('user_id', user.id)
+        .order('address');
       if (propertiesRes.error) throw propertiesRes.error;
+      const userProps = propertiesRes.data || [];
+      setProperties(userProps);
+
+      const propIds = userProps.map(p => p.id);
+      if (propIds.length === 0) {
+        setViolations([]);
+        setLoading(false);
+        return;
+      }
+
+      const violationsRes = await supabase
+        .from('violations')
+        .select('*, property:properties(id, address, bin, bbl)')
+        .in('property_id', propIds)
+        .order('created_at', { ascending: false });
+      if (violationsRes.error) throw violationsRes.error;
       setViolations(violationsRes.data as unknown as Violation[] || []);
-      setProperties(propertiesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load violations');

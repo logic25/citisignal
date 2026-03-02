@@ -1,11 +1,12 @@
 // DD Report Generator v2 - Uses GeoSearch for address lookup
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+// Security Fix 8: Sanitize input for SoQL queries — allow only safe characters
+function sanitizeSoQL(input: string): string {
+  return input.replace(/[^a-zA-Z0-9\s\-\.]/g, '').trim();
+}
 
 // NYC Open Data endpoints - using reliable public APIs
 const NYC_ENDPOINTS = {
@@ -110,8 +111,11 @@ async function lookupBINFromDOBJobs(houseNumber: string, streetName: string, bor
     .replace(/\bROAD\b/g, 'RD')
     .trim();
   
+  const safeHouse = sanitizeSoQL(houseNumber);
+  const safeStreet = sanitizeSoQL(cleanStreet.split(' ')[0]);
+  const safeBorough = sanitizeSoQL(borough);
   const results = await fetchNYCData(NYC_ENDPOINTS.DOB_JOBS, {
-    "$where": `house__ LIKE '%${houseNumber}%' AND upper(street_name) LIKE '%${cleanStreet.split(' ')[0]}%' AND upper(borough) LIKE '%${borough}%'`,
+    "$where": `house__ LIKE '%${safeHouse}%' AND upper(street_name) LIKE '%${safeStreet}%' AND upper(borough) LIKE '%${safeBorough}%'`,
     "$limit": "5",
     "$order": "latest_action_date DESC",
   });
@@ -670,6 +674,7 @@ Format as a professional report suitable for investors or lenders.`;
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

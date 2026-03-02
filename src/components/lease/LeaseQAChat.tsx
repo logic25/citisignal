@@ -201,13 +201,17 @@ export const LeaseQAChat = ({
         setEditedTitle(autoTitle);
       }
 
+      // Security Fix 11: Use user's session token instead of anon key for auth
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lease-qa`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             messages: [...messages, userMessage].map(m => ({
