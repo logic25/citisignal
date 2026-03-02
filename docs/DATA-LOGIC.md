@@ -222,4 +222,30 @@ There is **no separate analytics/reporting section** for portfolio-level metrics
 
 ---
 
-*Last updated: February 12, 2026*
+---
+
+## 8. Disabled Integrations (2026-03-02)
+
+### SMS (Twilio)
+- **Edge function**: `send-sms` — returns a soft "disabled" response (HTTP 200 with `success: false`)
+- **Inbound webhook**: `sms-webhook` — returns empty TwiML `<Response></Response>`
+- **UI impact**: SMS checkbox in CreateWorkOrderDialog and PropertyWorkOrdersTab is commented out
+- **Why disabled**: Cost evaluation + missing Twilio request signature validation (security audit finding)
+
+### WhatsApp (Twilio)
+- **Edge function**: `whatsapp-webhook` — returns empty TwiML
+- **UI impact**: WhatsAppTab shows "Coming Soon" placeholder
+- **Why disabled**: Same as SMS + Base64 link codes expose internal UUIDs (should be cryptographic tokens)
+- **Tables**: `whatsapp_users` table still exists but is not actively used
+
+### Re-enablement Checklist
+1. ☐ Implement Twilio request signature validation on all inbound webhooks
+2. ☐ Replace Base64 link codes with cryptographic tokens (WhatsApp)
+3. ☐ Budget Twilio costs (phone numbers + per-message fees)
+4. ☐ Remove early-return blocks in edge functions
+5. ☐ Uncomment SMS UI elements in work order components
+6. ☐ Restore WhatsAppTab full UI (see git history)
+
+---
+
+*Last updated: March 2, 2026*

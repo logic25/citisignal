@@ -182,28 +182,20 @@ export const CreateWorkOrderDialog = ({
 
       if (violationError) throw violationError;
 
-      // Send SMS if selected and vendor has phone
-      if (sendSms && selectedVendorId && selectedVendorId !== 'none') {
-        const selectedVendor = vendors.find(v => v.id === selectedVendorId);
-        if (selectedVendor?.phone_number) {
-          try {
-            const { error: smsError } = await supabase.functions.invoke('send-sms', {
-              body: {
-                to: selectedVendor.phone_number,
-                message: `New Work Order: ${scope.substring(0, 160)}...`,
-              },
-            });
-            if (smsError) {
-              console.error('SMS error:', smsError);
-              toast.warning('Work order created but SMS failed to send');
-            } else {
-              toast.success('SMS sent to vendor');
-            }
-          } catch (smsErr) {
-            console.error('SMS error:', smsErr);
-          }
-        }
-      }
+      // NOTE: SMS dispatch is currently disabled (2026-03-02).
+      // The send-sms edge function returns a soft "disabled" response.
+      // Vendors are notified via email instead (see sendEmail block below).
+      // To re-enable: update send-sms/index.ts and uncomment this block.
+      //
+      // if (sendSms && selectedVendorId && selectedVendorId !== 'none') {
+      //   const selectedVendor = vendors.find(v => v.id === selectedVendorId);
+      //   if (selectedVendor?.phone_number) {
+      //     const { error: smsError } = await supabase.functions.invoke('send-sms', {
+      //       body: { to: selectedVendor.phone_number, message: `New Work Order: ${scope.substring(0, 160)}...` },
+      //     });
+      //     if (smsError) toast.warning('Work order created but SMS failed to send');
+      //   }
+      // }
 
       // Send email notification if selected and vendor has email
       if (sendEmail && selectedVendorId && selectedVendorId !== 'none') {
@@ -380,24 +372,13 @@ export const CreateWorkOrderDialog = ({
             <div className="space-y-3 pt-2 border-t">
               <Label className="text-sm font-medium">Notify Vendor</Label>
               
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="sendSms"
-                  checked={sendSms}
-                  onCheckedChange={(checked) => setSendSms(checked === true)}
-                  disabled={!selectedVendor.phone_number}
-                />
-                <label
-                  htmlFor="sendSms"
-                  className="text-sm flex items-center gap-2 cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Send SMS
-                  {!selectedVendor.phone_number && (
-                    <span className="text-muted-foreground">(no phone on file)</span>
-                  )}
+              {/* SMS option disabled — see send-sms/index.ts (2026-03-02) */}
+              {/* <div className="flex items-center space-x-2">
+                <Checkbox id="sendSms" checked={sendSms} onCheckedChange={(checked) => setSendSms(checked === true)} disabled={!selectedVendor.phone_number} />
+                <label htmlFor="sendSms" className="text-sm flex items-center gap-2 cursor-pointer">
+                  <MessageSquare className="w-4 h-4" /> Send SMS
                 </label>
-              </div>
+              </div> */}
 
               <div className="flex items-center space-x-2">
                 <Checkbox
