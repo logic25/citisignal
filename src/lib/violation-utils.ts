@@ -66,6 +66,7 @@ export const getAgencyDisplayName = (agency: string) => {
     DSNY: 'Sanitation',
     LPC: 'Landmarks',
     DOF: 'Dept. of Finance',
+    DOHMH: 'Health & Mental Hygiene',
   };
   return names[agency] || agency;
 };
@@ -81,6 +82,7 @@ export const getAgencyColor = (agency: string) => {
     DSNY: 'bg-green-500/10 text-green-600 border-green-200',
     LPC: 'bg-pink-500/10 text-pink-600 border-pink-200',
     DOF: 'bg-indigo-500/10 text-indigo-600 border-indigo-200',
+    DOHMH: 'bg-violet-500/10 text-violet-600 border-violet-200',
   };
   return colors[agency] || 'bg-gray-500/10 text-gray-600 border-gray-200';
 };

@@ -1,22 +1,25 @@
 import { useEffect, useState, useMemo } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { syncNYCBuildingDataByIdentifiers, toPropertyUpdate } from '@/lib/nyc-building-sync';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   ArrowLeft, 
   Loader2, 
   RefreshCw,
   Building2,
   Settings,
-  Clock
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertyOverviewTab } from '@/components/properties/detail/PropertyOverviewTab';
 import { PropertyApplicationsTab } from '@/components/properties/detail/PropertyApplicationsTab';
 import { PropertyViolationsTab } from '@/components/properties/detail/PropertyViolationsTab';
+import { PropertyComplaintsTab } from '@/components/properties/detail/PropertyComplaintsTab';
 import { PropertyDocumentsTab } from '@/components/properties/detail/PropertyDocumentsTab';
 import { PropertyWorkOrdersTab } from '@/components/properties/detail/PropertyWorkOrdersTab';
 import { PropertyActivityTab } from '@/components/properties/detail/PropertyActivityTab';
@@ -74,6 +77,11 @@ interface Violation {
   violation_class?: string | null;
   oath_status?: string | null;
   notes?: string | null;
+  source?: string | null;
+  complaint_category?: string | null;
+  disposition_code?: string | null;
+  disposition_comments?: string | null;
+  priority?: string | null;
 }
 
 interface WorkOrder {
@@ -206,7 +214,7 @@ const PropertyDetailPage = () => {
             bin: property.bin, 
             bbl: property.bbl,
             property_id: property.id,
-            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD']
+            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD', 'DEP', 'DOT', 'DSNY', 'DOF', 'DOHMH']
           }
         }),
       ]);
@@ -265,12 +273,17 @@ const PropertyDetailPage = () => {
     }
   };
 
-  // Filter to only active violations first
+  // Filter to only active violations (excluding complaints) for badge counts
   const activeViolations = useMemo(() => {
-    return violations.filter(isActiveViolation);
+    return violations.filter(v => isActiveViolation(v) && v.source !== 'dob_complaints');
   }, [violations]);
 
-  // Count violations per agency - only active ones
+  // Separate complaints from violations
+  const complaints = useMemo(() => {
+    return violations.filter(v => v.source === 'dob_complaints' && !v.is_stop_work_order && !v.is_vacate_order);
+  }, [violations]);
+
+  // Count violations per agency - only active ones, excluding complaints
   const violationCountsByAgency = useMemo(() => {
     const counts: Record<string, number> = {};
     activeViolations.forEach(v => {
@@ -397,54 +410,96 @@ const PropertyDetailPage = () => {
         </div>
       </div>
 
-      {/* Critical Alerts */}
+      {/* Critical Alerts — Expandable SWO/Vacate Detail Panels */}
       {criticalIssues.length > 0 && (
         <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
           <h3 className="font-semibold text-destructive mb-3">⚠️ Critical Issues</h3>
           <div className="space-y-3">
             {criticalIssues.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setActiveTab('violations')}
-                className="w-full text-left p-3 rounded-lg bg-destructive/5 border border-destructive/10 hover:bg-destructive/15 transition-colors cursor-pointer"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5 text-lg">
-                    {v.is_stop_work_order ? '🚨' : '⛔'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+              <Collapsible key={v.id}>
+                <CollapsibleTrigger className="w-full text-left p-3 rounded-lg bg-destructive/5 border border-destructive/10 hover:bg-destructive/15 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {v.is_stop_work_order && <span className="text-lg">🚨</span>}
+                      {v.is_vacate_order && <span className="text-lg">⛔</span>}
                       <span className="text-sm font-semibold text-destructive">
                         {v.is_stop_work_order ? 'Stop Work Order' : 'Vacate Order'}
+                        {' '}— {v.agency} #{v.violation_number}
                       </span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-destructive/30 text-destructive">
-                        {v.agency}
-                      </Badge>
                     </div>
-                    <p className="text-sm font-medium text-foreground">
-                      #{v.violation_number}
-                    </p>
-                    {v.description_raw && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {v.description_raw}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span>Issued: {new Date(v.issued_date).toLocaleDateString()}</span>
-                      {v.penalty_amount && v.penalty_amount > 0 && (
-                        <span className="text-destructive font-medium">
-                          Penalty: ${v.penalty_amount.toLocaleString()}
-                        </span>
-                      )}
-                      {v.cure_due_date && (
-                        <span className="text-warning font-medium">
-                          Cure by: {new Date(v.cure_due_date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
+                    <ChevronDown className="w-4 h-4 text-destructive/60 transition-transform [[data-state=open]>&]:rotate-180" />
                   </div>
-                </div>
-              </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-2 p-4 rounded-lg bg-background border border-destructive/10">
+                    {/* Summary Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Type</p>
+                        <p className="text-sm font-medium">
+                          {v.description_raw?.toLowerCase().includes('partial') ? 'Partial Stop Work Order' :
+                           v.description_raw?.toLowerCase().includes('full') ? 'Full Stop Work Order' :
+                           v.is_stop_work_order ? 'Stop Work Order' : 'Vacate Order'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Issued</p>
+                        <p className="text-sm font-medium">{v.issued_date ? format(new Date(v.issued_date), 'MMM d, yyyy') : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge variant="outline" className={`text-xs ${v.status === 'open' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}>
+                          {v.status === 'open' ? 'Active' : 'Resolved'}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Complaint #</p>
+                        <p className="text-sm font-medium">{v.violation_number?.replace('COMP-', '')}</p>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    {v.description_raw && (
+                      <div className="mb-4">
+                        <p className="text-xs text-muted-foreground mb-1">Description</p>
+                        <p className="text-sm">{v.description_raw}</p>
+                      </div>
+                    )}
+
+                    {/* What This Means */}
+                    <div className="mb-4 p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">What This Means</p>
+                      <p className="text-sm text-muted-foreground">
+                        {v.is_stop_work_order && 'A Stop Work Order (SWO) means all construction activity at this property must cease immediately. Continuing work while an SWO is active can result in additional violations, criminal summonses, and fines up to $25,000. The SWO must be rescinded by DOB before any work can resume.'}
+                        {v.is_vacate_order && 'A Vacate Order requires all occupants to leave the building immediately due to unsafe conditions. The building cannot be reoccupied until DOB rescinds the order after conditions are corrected.'}
+                      </p>
+                    </div>
+
+                    {/* Recommended Actions */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Recommended Actions</p>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                        <li>Contact your expeditor or licensed professional immediately</li>
+                        <li>Do NOT continue any construction work</li>
+                        <li>File for SWO rescission with DOB once conditions are corrected</li>
+                        <li>Obtain required permits before resuming work</li>
+                      </ul>
+                    </div>
+
+                    {/* Penalty & Deadline */}
+                    {(v.penalty_amount || v.cure_due_date) && (
+                      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+                        {v.penalty_amount && v.penalty_amount > 0 && (
+                          <span className="text-destructive font-medium">Penalty: ${v.penalty_amount.toLocaleString()}</span>
+                        )}
+                        {v.cure_due_date && (
+                          <span className="text-warning font-medium">Cure by: {format(new Date(v.cure_due_date), 'MMM d, yyyy')}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             ))}
           </div>
         </div>
@@ -456,6 +511,9 @@ const PropertyDetailPage = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="violations">
             Violations {openViolations > 0 && `(${openViolations})`}
+          </TabsTrigger>
+          <TabsTrigger value="complaints">
+            Complaints {complaints.length > 0 && `(${complaints.length})`}
           </TabsTrigger>
           <TabsTrigger value="applications">
             Applications {activeAppCount > 0 && `(${activeAppCount})`}
@@ -489,6 +547,10 @@ const PropertyDetailPage = () => {
             bbl={property.bbl}
             propertyId={property.id}
           />
+        </TabsContent>
+
+        <TabsContent value="complaints" className="mt-6">
+          <PropertyComplaintsTab complaints={complaints} />
         </TabsContent>
 
         <TabsContent value="applications" className="mt-6">

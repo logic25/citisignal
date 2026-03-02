@@ -3004,6 +3004,7 @@ export type Database = {
         | "DSNY"
         | "LPC"
         | "DOF"
+        | "DOHMH"
       app_role: "admin" | "user"
       jurisdiction_type: "NYC" | "NON_NYC"
       notification_priority: "critical" | "high" | "normal" | "low"
@@ -3153,6 +3154,7 @@ export const Constants = {
         "DSNY",
         "LPC",
         "DOF",
+        "DOHMH",
       ],
       app_role: ["admin", "user"],
       jurisdiction_type: ["NYC", "NON_NYC"],
