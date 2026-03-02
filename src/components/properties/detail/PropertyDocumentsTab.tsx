@@ -42,7 +42,8 @@ import {
   MoreVertical,
   Brain,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -81,6 +82,135 @@ const DOCUMENT_TYPES = [
   { value: 'photo', label: 'Photo' },
   { value: 'other', label: 'Other' },
 ];
+
+// CO Smart Card for CO documents found via sync but without attached PDF
+const COSmartCard = ({
+  doc,
+  propertyId,
+  onRefresh,
+}: {
+  doc: Document;
+  propertyId: string;
+  onRefresh: () => void;
+}) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const coFileInputRef = useRef<HTMLInputElement>(null);
+
+  const metadata = doc.metadata || {};
+  const coType = (metadata.type as string) || 'Certificate of Occupancy';
+  const issuanceDate = metadata.issuance_date as string;
+  const jobNumber = metadata.job_number as string;
+  const source = (metadata.source as string) || '';
+
+  const handleFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const fileName = `${propertyId}/co_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('property-documents')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('property-documents')
+        .getPublicUrl(fileName);
+
+      await supabase
+        .from('property_documents')
+        .update({
+          file_url: urlData.publicUrl,
+          file_type: 'pdf',
+          file_size_bytes: file.size,
+        })
+        .eq('id', doc.id);
+
+      toast.success('CO PDF attached successfully');
+      onRefresh();
+    } catch (err) {
+      console.error('CO upload error:', err);
+      toast.error('Failed to attach PDF');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div
+      className={`rounded-xl border-2 ${isDragOver ? 'border-primary bg-primary/5' : 'border-dashed border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700'} p-6 transition-colors`}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={onDrop}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-foreground">Certificate of Occupancy</h4>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {coType}{issuanceDate ? ` — Issued ${new Date(issuanceDate).toLocaleDateString()}` : ''}
+              {jobNumber ? ` (Job #${jobNumber})` : ''}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Found via {source === 'DOB_NOW_CO' ? 'DOB NOW' : 'BIS'} — PDF not yet attached
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(doc.file_url, '_blank')}
+          >
+            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+            Open on BIS
+          </Button>
+          <Button
+            variant="hero"
+            size="sm"
+            onClick={() => coFileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Attach PDF
+          </Button>
+          <input
+            ref={coFileInputRef}
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+          />
+        </div>
+      </div>
+      {isDragOver && (
+        <p className="text-sm text-primary font-medium text-center mt-3">
+          Drop PDF here to attach
+        </p>
+      )}
+    </div>
+  );
+};
 
 export const PropertyDocumentsTab = ({ propertyId, documents, onRefresh }: PropertyDocumentsTabProps) => {
   const { user } = useAuth();
@@ -296,8 +426,11 @@ export const PropertyDocumentsTab = ({ propertyId, documents, onRefresh }: Prope
     return DOCUMENT_TYPES.find(t => t.value === type)?.label || type;
   };
 
+  // Filter out CO link docs (shown as smart cards above)
+  const displayDocs = documents.filter(d => !(d.document_type === 'certificate_of_occupancy' && d.file_type === 'link'));
+
   // Group documents by type for grid view
-  const documentsByType = documents.reduce((acc, doc) => {
+  const documentsByType = displayDocs.reduce((acc, doc) => {
     const type = doc.document_type;
     if (!acc[type]) acc[type] = [];
     acc[type].push(doc);
@@ -417,8 +550,21 @@ export const PropertyDocumentsTab = ({ propertyId, documents, onRefresh }: Prope
         </Dialog>
       </div>
 
+      {/* CO Smart Cards — show before regular documents */}
+      {documents
+        .filter(d => d.document_type === 'certificate_of_occupancy' && d.file_type === 'link')
+        .map(doc => (
+          <COSmartCard
+            key={doc.id}
+            doc={doc}
+            propertyId={propertyId}
+            onRefresh={onRefresh}
+          />
+        ))
+      }
+
       {/* Documents Display */}
-      {documents.length > 0 ? (
+      {displayDocs.length > 0 ? (
         viewMode === 'table' ? (
           /* Table View */
           <div className="rounded-lg border border-border overflow-hidden">
@@ -435,7 +581,7 @@ export const PropertyDocumentsTab = ({ propertyId, documents, onRefresh }: Prope
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {documents.map((doc) => (
+                {displayDocs.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell>
                       <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary">

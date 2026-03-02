@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Check, Building2 } from 'lucide-react';
+import { Loader2, Check, Building2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SmartAddressAutocomplete } from './SmartAddressAutocomplete';
 import { determineApplicableAgencies, getBoroughName, type Agency } from '@/lib/property-utils';
@@ -149,7 +149,7 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from('properties').insert({
+      const { data: newProperty, error } = await supabase.from('properties').insert({
         user_id: user.id,
         address: formData.address,
         jurisdiction: formData.jurisdiction,
@@ -170,7 +170,7 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
         owner_name: formData.owner_name || null,
         owner_phone: formData.owner_phone || null,
         sms_enabled: formData.sms_enabled,
-      });
+      }).select().single();
 
       if (error) throw error;
 
@@ -179,6 +179,78 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
       setFormData(initialFormData);
       setAutoPopulated(false);
       onSuccess();
+
+      // Auto-sync after adding a property
+      if (newProperty) {
+        if (formData.bin) {
+          toast.info('Syncing violations and applications from NYC Open Data...');
+          try {
+            const { data: syncResult, error: syncError } = await supabase.functions.invoke('fetch-nyc-violations', {
+              body: {
+                property_id: newProperty.id,
+                bin: formData.bin,
+                borough: formData.borough || null,
+              },
+            });
+
+            if (syncError) {
+              console.error('Auto-sync error:', syncError);
+              toast.error('Property added but sync failed. You can sync manually from the property page.');
+            } else {
+              const newCount = syncResult?.new_violations_count || 0;
+              const appCount = syncResult?.applications_count || 0;
+              toast.success(`Sync complete: ${newCount} violations, ${appCount} applications found`);
+            }
+          } catch (syncErr) {
+            console.error('Auto-sync exception:', syncErr);
+          }
+        } else {
+          // No BIN — try to resolve BIN from DOB Jobs by address, then sync
+          toast.info('Looking up building data and syncing...');
+          try {
+            let resolvedBin = '';
+
+            if (!resolvedBin && formData.address) {
+              const parts = formData.address.trim().split(/\s+/);
+              const houseNumber = parts[0];
+              const street = parts.slice(1).join(' ').toUpperCase();
+              const dobUrl = `https://data.cityofnewyork.us/resource/ic3t-wcy2.json?$where=house__ LIKE '%25${encodeURIComponent(houseNumber)}%25' AND upper(street_name) LIKE '%25${encodeURIComponent(street)}%25'&$limit=1&$select=bin__`;
+              const dobResp = await fetch(dobUrl);
+              if (dobResp.ok) {
+                const dobData = await dobResp.json();
+                if (dobData.length > 0 && dobData[0].bin__) {
+                  resolvedBin = dobData[0].bin__;
+                }
+              }
+            }
+
+            if (resolvedBin) {
+              await supabase
+                .from('properties')
+                .update({ bin: resolvedBin })
+                .eq('id', newProperty.id);
+
+              const { data: syncResult, error: syncError } = await supabase.functions.invoke('fetch-nyc-violations', {
+                body: {
+                  property_id: newProperty.id,
+                  bin: resolvedBin,
+                  borough: formData.borough || null,
+                },
+              });
+
+              if (!syncError) {
+                const newCount = syncResult?.new_violations_count || 0;
+                const appCount = syncResult?.applications_count || 0;
+                toast.success(`BIN resolved & synced: ${newCount} violations, ${appCount} applications found`);
+              }
+            } else {
+              toast.warning('Could not find this building in NYC records. You can add the BIN manually and sync from the property page.');
+            }
+          } catch (lookupErr) {
+            console.error('BIN lookup exception:', lookupErr);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error adding property:', error);
       toast.error('Failed to add property');
@@ -247,6 +319,24 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 required
               />
+            )}
+            {formData.address && formData.address.length >= 3 && !autoPopulated && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Address not matched in NYC DOB records. Building data may be incomplete.
+              </p>
+            )}
+            {autoPopulated && formData.bin && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Matched — BIN: {formData.bin}
+              </p>
+            )}
+            {autoPopulated && !formData.bin && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Found in PLUTO but no BIN available. Violation sync will attempt BIN lookup.
+              </p>
             )}
           </div>
 

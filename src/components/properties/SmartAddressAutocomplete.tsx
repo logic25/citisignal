@@ -200,8 +200,77 @@ export const SmartAddressAutocomplete = ({
     }
   };
 
-  // Search NYC DOB buildings database (with PLUTO fallback)
-  const searchNYCBuildings = async (query: string): Promise<AutocompleteResult[]> => {
+  // Primary: NYC GeoSearch API (same as ZoLa) for reliable BIN/BBL resolution
+  const searchNYCGeoSearch = async (query: string): Promise<AutocompleteResult[]> => {
+    if (query.length < 3) return [];
+
+    try {
+      const url = `https://geosearch.planninglabs.nyc/v2/search?text=${encodeURIComponent(query)}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('GeoSearch failed');
+
+      const data = await response.json();
+      const features = data.features || [];
+
+      const seenBins = new Set<string>();
+      const results: AutocompleteResult[] = [];
+
+      for (const feature of features) {
+        const props = feature.properties || {};
+        const pad = props.addendum?.pad || {};
+        const bin = pad.bin || '';
+        const bbl = pad.bbl || '';
+
+        if (!bin || bin === '1000000' || seenBins.has(bin)) continue;
+        seenBins.add(bin);
+
+        const boroughCode = bbl ? bbl.charAt(0) : '';
+        const block = bbl.length >= 6 ? bbl.substring(1, 6) : '';
+        const lot = bbl.length >= 10 ? bbl.substring(6, 10) : '';
+
+        results.push({
+          bin,
+          address: props.name || '',
+          borough: boroughCode,
+          bbl,
+          block,
+          lot,
+          stories: null,
+          heightFt: null,
+          grossSqft: null,
+          primaryUseGroup: null,
+          dwellingUnits: null,
+        });
+      }
+
+      // Enrich top results with PLUTO data
+      const enriched = await Promise.all(
+        results.slice(0, 5).map(async (result) => {
+          if (result.bbl) {
+            const plutoData = await fetchPLUTODataByBBL(result.bbl);
+            if (plutoData) {
+              return {
+                ...result,
+                stories: plutoData.numfloors ? parseInt(plutoData.numfloors) : null,
+                grossSqft: plutoData.bldgarea ? parseFloat(plutoData.bldgarea) : null,
+                primaryUseGroup: plutoData.bldgclass || null,
+                dwellingUnits: plutoData.unitsres ? parseInt(plutoData.unitsres) : null,
+              };
+            }
+          }
+          return result;
+        })
+      );
+
+      return enriched;
+    } catch (error) {
+      console.error('GeoSearch error, falling back to DOB Jobs:', error);
+      return searchNYCBuildingsFallback(query);
+    }
+  };
+
+  // Fallback: Search NYC DOB buildings database (with PLUTO fallback)
+  const searchNYCBuildingsFallback = async (query: string): Promise<AutocompleteResult[]> => {
     if (query.length < 3) return [];
 
     try {
@@ -318,7 +387,7 @@ export const SmartAddressAutocomplete = ({
     debounceRef.current = setTimeout(() => {
       if (newValue.length >= 3) {
         setIsSearching(true);
-        searchNYCBuildings(newValue).then(results => {
+        searchNYCGeoSearch(newValue).then(results => {
           setNycResults(results);
           setShowDropdown(results.length > 0);
           setIsSearching(false);
