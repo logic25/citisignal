@@ -996,6 +996,60 @@ Deno.serve(async (req) => {
         .update({ last_synced_at: now })
         .eq("id", property_id);
 
+      // === Auto-populate owner_name from PLUTO if not already set ===
+      if (bin) {
+        const { data: propCheck } = await supabase
+          .from("properties")
+          .select("owner_name")
+          .eq("id", property_id)
+          .single();
+
+        if (!propCheck?.owner_name) {
+          try {
+            const plutoUrl = `https://data.cityofnewyork.us/resource/64uk-42ks.json?$where=bin='${bin}'&$limit=1&$select=ownername`;
+            const plutoResp = await fetch(plutoUrl);
+            if (plutoResp.ok) {
+              const plutoData = await plutoResp.json();
+              if (plutoData.length > 0 && plutoData[0].ownername) {
+                await supabase
+                  .from("properties")
+                  .update({ owner_name: plutoData[0].ownername })
+                  .eq("id", property_id);
+                console.log(`Owner name populated from PLUTO: ${plutoData[0].ownername}`);
+              }
+            }
+          } catch (e) {
+            console.warn("PLUTO owner lookup failed:", e);
+          }
+
+          // Fallback: use owner from the most recent application if PLUTO didn't work
+          const { data: propRecheck } = await supabase
+            .from("properties")
+            .select("owner_name")
+            .eq("id", property_id)
+            .single();
+
+          if (!propRecheck?.owner_name) {
+            const { data: latestApp } = await supabase
+              .from("applications")
+              .select("owner_name")
+              .eq("property_id", property_id)
+              .not("owner_name", "is", null)
+              .order("filing_date", { ascending: false })
+              .limit(1)
+              .single();
+
+            if (latestApp?.owner_name) {
+              await supabase
+                .from("properties")
+                .update({ owner_name: latestApp.owner_name })
+                .eq("id", property_id);
+              console.log(`Owner name populated from latest application: ${latestApp.owner_name}`);
+            }
+          }
+        }
+      }
+
       // Log activity
       const activityDescription = newViolationsCount > 0
         ? `Found ${newViolationsCount} new violation${newViolationsCount > 1 ? 's' : ''} from NYC Open Data`

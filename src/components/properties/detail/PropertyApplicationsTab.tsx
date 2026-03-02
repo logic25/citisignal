@@ -62,14 +62,20 @@ const BIS_STATUS_CODES: Record<string, string> = {
   'L': 'PAA Fee Pending',
   'M': 'PAA Fee Resolved',
   'P': 'Approved',
-  'Q': 'Permit Issued - Partial',
-  'R': 'Permit Issued - Entire',
+  'Q': 'Permitted',
+  'R': 'Permitted',
   'U': 'Completed',
   'X': 'Signed-Off',
   '3': 'Suspended',
 };
 
-const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Complete', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn', 'Cancel', 'Cancelled'];
+const COMPLETED_STATUSES = [
+  'Sign-Off', 'Signed-Off', 'Signed Off',
+  'Completed', 'Complete',
+  'Plan Exam Disapproved',
+  'Suspended', 'Withdrawn', 'Cancel', 'Cancelled',
+  'LOC Issued', 'Letter of Completion',
+];
 
 // Normalize similar status labels to a single canonical form
 const normalizeCompletionLabel = (label: string): string => {
@@ -82,10 +88,31 @@ const normalizeCompletionLabel = (label: string): string => {
 };
 
 const normalizeStatusLabel = (status: string): string => {
+  const lower = status.toLowerCase().trim();
+
+  // Consolidate all permit-related statuses into "Permitted"
+  if (
+    lower === 'permitted' ||
+    lower === 'permit issued' ||
+    lower === 'permit entire' ||
+    lower.startsWith('permit issued') // catches "Permit Issued - Entire", "Permit Issued - Partial", etc.
+  ) {
+    return 'Permitted';
+  }
+
+  // Consolidate pre-filing statuses into "Pre-Filing"
+  if (
+    lower === 'pre-filing' ||
+    lower === 'pre-filing - penalty review' ||
+    lower === 'prefiling' ||
+    lower === 'prefiling - penalty review'
+  ) {
+    return 'Pre-Filing';
+  }
+
   // Clean up verbose/redundant status labels from API
   const cleanups: [RegExp, string][] = [
     [/^filing\s+/i, ''],           // "Filing withdrawn" → "Withdrawn"
-    [/^permit\s+issued\s*-\s*/i, 'Permit Issued – '], // normalize dash
   ];
   let result = status;
   cleanups.forEach(([pattern, replacement]) => {
@@ -116,12 +143,12 @@ const getStatusVariant = (status: string | null, source: string) => {
   if (['signed off', 'completed', 'co issued'].some(s => decoded.includes(s))) {
     return 'default' as const;
   }
-  // Active/issued permits
-  if (['permit issued', 'issued', 'permit entire'].some(s => decoded.includes(s))) {
+  // "Permitted" is now the single consolidated status for all permit variants
+  if (decoded === 'permitted' || decoded.includes('issued')) {
     return 'default' as const;
   }
   // In-progress
-  if (['pre-filing', 'plan exam', 'partial permit', 'pending', 'filed', 'in review', 'plan approved'].some(s => decoded.includes(s))) {
+  if (['pre-filing', 'pre-filed', 'plan exam', 'partial permit', 'pending', 'filed', 'in review', 'plan approved'].some(s => decoded.includes(s))) {
     return 'secondary' as const;
   }
   // Terminal/negative
