@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     // Check if sender is a vendor (by telegram_chat_id)
     const { data: vendorMatch } = await supabase
       .from("vendors")
-      .select("id, name, user_id")
+      .select("id, name, user_id, email")
       .eq("telegram_chat_id", chatId)
       .limit(1)
       .maybeSingle();
@@ -142,7 +142,84 @@ Deno.serve(async (req) => {
       // Vendor message — check for PO acceptance first
       console.log("Vendor message from:", vendorMatch.name, "text:", text);
 
-      // Handle "ACCEPT PO-XXXXX" to sign PO via Telegram
+      // ── Check if this is a 6-digit confirmation code reply ──
+      const codeMatch = text.match(/^\d{6}$/);
+      if (codeMatch) {
+        const { data: pending } = await supabase
+          .from("pending_po_confirmations")
+          .select("id, po_id, confirmation_code, expires_at")
+          .eq("vendor_id", vendorMatch.id)
+          .eq("channel", "telegram")
+          .eq("chat_id", String(chatId))
+          .eq("used", false)
+          .gte("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pending && pending.confirmation_code === codeMatch[0]) {
+          // Fetch the PO details
+          const { data: po } = await supabase
+            .from("purchase_orders")
+            .select("id, po_number, status, work_order_id, property_id, user_id, amount")
+            .eq("id", pending.po_id)
+            .single();
+
+          if (!po) {
+            await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, "❌ Purchase order no longer exists.");
+            return new Response("OK", { status: 200 });
+          }
+
+          // Mark code as used
+          await supabase
+            .from("pending_po_confirmations")
+            .update({ used: true })
+            .eq("id", pending.id);
+
+          // Sign the PO
+          await supabase
+            .from("purchase_orders")
+            .update({ vendor_signed_at: new Date().toISOString(), status: "fully_executed" })
+            .eq("id", po.id);
+
+          // Move work order to in_progress
+          if (po.work_order_id) {
+            await supabase
+              .from("work_orders")
+              .update({ status: "in_progress" })
+              .eq("id", po.work_order_id);
+          }
+
+          // Notify owner
+          if (po.user_id) {
+            const { data: prop } = await supabase
+              .from("properties")
+              .select("address")
+              .eq("id", po.property_id)
+              .single();
+
+            await supabase.from("notifications").insert({
+              user_id: po.user_id,
+              title: `${po.po_number} Signed by ${vendorMatch.name}`,
+              message: `${vendorMatch.name} has signed ${po.po_number} ($${po.amount?.toLocaleString()}) for ${prop?.address}. Work is now in progress.`,
+              priority: "high",
+              category: "work_orders",
+              property_id: po.property_id,
+              entity_type: "purchase_order",
+              entity_id: po.id,
+            });
+          }
+
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `✅ *${po.po_number} Signed!*\n\nYou've accepted the purchase order for $${po.amount?.toLocaleString()}. Work is now authorized to begin.`, "Markdown");
+          return new Response("OK", { status: 200 });
+        } else if (pending) {
+          await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, "❌ Invalid code. Please check the code in your email and try again.");
+          return new Response("OK", { status: 200 });
+        }
+        // If no pending confirmation, fall through to normal message handling
+      }
+
+      // ── Handle "ACCEPT PO-XXXXX" — initiate email verification ──
       const acceptMatch = text.toUpperCase().match(/ACCEPT\s+(PO-\d+)/);
       if (acceptMatch) {
         const poNumber = acceptMatch[1];
@@ -163,39 +240,50 @@ Deno.serve(async (req) => {
           return new Response("OK", { status: 200 });
         }
 
-        // Sign the PO
-        await supabase
-          .from("purchase_orders")
-          .update({ vendor_signed_at: new Date().toISOString(), status: "fully_executed" })
-          .eq("id", po.id);
+        // Generate 6-digit confirmation code
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
-        // Move work order to in_progress
-        await supabase
-          .from("work_orders")
-          .update({ status: "in_progress" as any })
-          .eq("id", po.work_order_id);
+        // Store pending confirmation
+        await supabase.from("pending_po_confirmations").insert({
+          vendor_id: vendorMatch.id,
+          po_id: po.id,
+          confirmation_code: code,
+          channel: "telegram",
+          chat_id: String(chatId),
+          expires_at: expiresAt,
+        });
 
-        // Notify owner
-        if (po.user_id) {
-          const { data: prop } = await supabase
-            .from("properties")
-            .select("address")
-            .eq("id", po.property_id)
-            .single();
+        // Email the code to the vendor
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        const fromAddress = Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <noreply@citisignal.com>";
 
-          await supabase.from("notifications").insert({
-            user_id: po.user_id,
-            title: `${poNumber} Signed by ${vendorMatch.name}`,
-            message: `${vendorMatch.name} has signed ${poNumber} ($${po.amount?.toLocaleString()}) for ${prop?.address}. Work is now in progress.`,
-            priority: "high",
-            category: "work_orders",
-            property_id: po.property_id,
-            entity_type: "purchase_order",
-            entity_id: po.id,
+        if (RESEND_API_KEY && vendorMatch.email) {
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: fromAddress,
+              to: vendorMatch.email,
+              subject: `CitiSignal PO Confirmation Code: ${poNumber}`,
+              html: `<h2>Your confirmation code to sign ${poNumber} ($${po.amount?.toLocaleString()}) is:</h2><h1 style="font-size:36px;letter-spacing:8px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">${code}</h1><p>This code expires in 10 minutes. Reply to the Telegram message with this code to complete signing.</p><p>If you did not request this, ignore this email.</p>`,
+            }),
           });
         }
 
-        await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, `✅ *${poNumber} Signed!*\n\nYou've accepted the purchase order for $${po.amount?.toLocaleString()}. Work is now authorized to begin.`, "Markdown");
+        const maskedEmail = vendorMatch.email
+          ? vendorMatch.email.replace(/(.{2}).*(@.*)/, "$1***$2")
+          : "on file";
+
+        await sendTelegram(
+          TELEGRAM_BOT_TOKEN,
+          chatId,
+          `🔐 *Verification Required*\n\nTo sign ${poNumber} ($${po.amount?.toLocaleString()}), we've sent a 6-digit code to your email (${maskedEmail}).\n\nReply with the code to confirm.`,
+          "Markdown"
+        );
         return new Response("OK", { status: 200 });
       }
 

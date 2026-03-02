@@ -16,23 +16,29 @@
  *    anyone can POST fake messages and manipulate work order data).
  * 3. Replace Base64 link codes with cryptographic tokens (the current
  *    btoa(userId) approach exposes internal UUIDs).
- * 4. Remove the early-return below.
- * 5. Set the Twilio WhatsApp webhook URL to this function's endpoint.
+ * 4. Implement email confirmation code flow for PO signing (see
+ *    telegram-webhook/index.ts for the reference implementation using
+ *    the pending_po_confirmations table). Use channel='whatsapp' and
+ *    chat_id=phoneNumber.
+ * 5. Remove the early-return below.
+ * 6. Set the Twilio WhatsApp webhook URL to this function's endpoint.
  * 
  * REQUIRED SECRETS:
  * - TWILIO_AUTH_TOKEN (for signature validation)
+ * - RESEND_API_KEY (for PO confirmation emails)
  * - LOVABLE_API_KEY (for AI responses)
  * 
  * TABLES USED:
  * - whatsapp_users (account linking)
  * - vendors / work_orders / work_order_messages (vendor quote flow)
+ * - pending_po_confirmations (email 2FA for PO signing)
  * - properties / violations / compliance_requirements (AI context)
  * - property_ai_conversations / property_ai_messages (chat logging)
  * - notifications (owner alerts on vendor quotes)
  * 
  * SEE ALSO:
  * - src/components/settings/WhatsAppTab.tsx (UI for linking)
- * - supabase/functions/telegram-webhook/ (similar pattern for Telegram)
+ * - supabase/functions/telegram-webhook/ (reference implementation)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
