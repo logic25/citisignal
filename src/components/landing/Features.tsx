@@ -19,9 +19,9 @@ const features = [
   },
   {
     icon: MessageSquare,
-    title: "Telegram, SMS & WhatsApp Alerts",
-    description: "Instant violation alerts and vendor communication via Telegram, SMS, and WhatsApp. Every message saved to the record.",
-    highlight: "3 Channels",
+    title: "Telegram & Email Alerts",
+    description: "Instant violation alerts and vendor communication via Telegram bot and configurable email digests. Every message saved to the record.",
+    highlight: "2 Channels",
   },
   {
     icon: Shield,
