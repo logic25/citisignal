@@ -27,17 +27,18 @@ const NYC_OPEN_DATA_ENDPOINTS = {
   DOB_PERMIT_ISSUANCE: "https://data.cityofnewyork.us/resource/ipu4-2q9a.json",
 };
 
-// Agency name mappings for OATH dataset
-const OATH_AGENCY_NAMES: Record<string, string> = {
-  FDNY: "FIRE DEPARTMENT OF NYC",
-  DEP: "DEPT OF ENVIRONMENT PROT",
-  DOT: "DEPT OF TRANSPORTATION",
-  DSNY: "DEPT OF SANITATION",
-  LPC: "LANDMARKS PRESERV COMM",
-  DOF: "DEPT OF FINANCE",
+// Agency name mappings for OATH dataset — each agency may have multiple sub-names
+const OATH_AGENCY_NAMES: Record<string, string[]> = {
+  FDNY: ["FIRE DEPARTMENT OF NYC"],
+  DEP: ["DEPT OF ENVIRONMENT PROT", "DEP - BUREAU OF ENV. COMPLIANC", "DEP - BWSO", "ENV PROTECT"],
+  DOT: ["DEPT OF TRANSPORTATION", "DEPT OF TRAN"],
+  DSNY: ["SANITATION DEPT", "SANITATION OTHERS", "SANITATION RECYCLING", "SANITATION POLICE"],
+  LPC: ["LANDMARKS PRESERV COMM", "LANDMARKS PRESERVATION COMM"],
+  DOF: ["DEPT OF FINANCE"],
+  DOHMH: ["DOHMH - BFSCS", "PCS - DOHMH", "DOHMH - PEST CONTROL", "COOLING TOWERS - DOHMH", "DOH MENTAL HEALTH", "DEPT OF HEALTH"],
 };
 
-type AgencyType = "DOB" | "ECB" | "FDNY" | "HPD" | "DEP" | "DOT" | "DSNY" | "LPC" | "DOF";
+type AgencyType = "DOB" | "ECB" | "FDNY" | "HPD" | "DEP" | "DOT" | "DSNY" | "LPC" | "DOF" | "DOHMH";
 
 interface ViolationRecord {
   agency: AgencyType;
@@ -313,7 +314,7 @@ Deno.serve(async (req) => {
     console.log(`Fetching violations for BIN: ${bin}, BBL: ${bbl} (Borough: ${borough}, Block: ${block}, Lot: ${lot}), Agencies: ${(applicable_agencies || []).join(', ')}`);
 
     const violations: ViolationRecord[] = [];
-    const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB", "HPD", "FDNY"];
+    const agenciesToSync: string[] = applicable_agencies || ["DOB", "ECB", "HPD", "FDNY", "DEP", "DOT", "DSNY", "DOF", "DOHMH"];
     const now = new Date().toISOString();
 
     // Clean up old BIS Jobs-based SWO violations (false positives from special_action_status)
@@ -413,38 +414,28 @@ Deno.serve(async (req) => {
         return;
       }
 
-      const oathAgencyName = OATH_AGENCY_NAMES[agency];
-      if (!oathAgencyName) {
+      const oathAgencyNames = OATH_AGENCY_NAMES[agency];
+      if (!oathAgencyNames || oathAgencyNames.length === 0) {
         console.log(`${agency}: No OATH agency mapping found`);
         return;
       }
 
-      const data = await safeFetch(
-        `${NYC_OPEN_DATA_ENDPOINTS.OATH_HEARINGS}?issuing_agency=${encodeURIComponent(oathAgencyName)}&violation_location_borough=${encodeURIComponent(boroughName)}&violation_location_block_no=${block}&violation_location_lot_no=${lot}&$limit=1000&$order=violation_date DESC`,
-        `${agency}/OATH`
-       );
- 
-       console.log(`Found ${data.length} ${agency} violations from OATH Hearings`);
-       if (data.length > 0) {
-         const sample = data[0] as Record<string, unknown>;
-         console.log(
-           `${agency}/OATH sample keys: ${Object.keys(sample).slice(0, 40).join(", ")}`
-         );
-         console.log(
-           `${agency}/OATH sample status fields: ${JSON.stringify({
-             hearing_status: sample.hearing_status,
-             violation_status: sample.violation_status,
-             status: sample.status,
-             case_status: sample.case_status,
-             record_status: sample.record_status,
-             summons_status: sample.summons_status,
-             disposition: sample.disposition,
-             outcome: sample.outcome,
-           })}`
-         );
-       }
- 
-       for (const v of data as Record<string, unknown>[]) {
+      // Query OATH for each sub-agency name
+      for (const oathAgencyName of oathAgencyNames) {
+        const data = await safeFetch(
+          `${NYC_OPEN_DATA_ENDPOINTS.OATH_HEARINGS}?issuing_agency=${encodeURIComponent(oathAgencyName)}&violation_location_borough=${encodeURIComponent(boroughName)}&violation_location_block_no=${block}&violation_location_lot_no=${lot}&$limit=1000&$order=violation_date DESC`,
+          `${agency}/OATH/${oathAgencyName}`
+        );
+
+        console.log(`Found ${data.length} ${agency} violations from OATH (${oathAgencyName})`);
+        if (data.length > 0) {
+          const sample = data[0] as Record<string, unknown>;
+          console.log(
+            `${agency}/OATH sample keys: ${Object.keys(sample).slice(0, 40).join(", ")}`
+          );
+        }
+
+        for (const v of data as Record<string, unknown>[]) {
           const violationNum = v.ticket_number as string;
           const issueDate = v.violation_date as string;
 
@@ -460,41 +451,42 @@ Deno.serve(async (req) => {
             .filter(Boolean)
             .join(' | ');
 
-        if (violationNum && issueDate) {
-          // Determine if violation is closed based on OATH status
-          const isResolved = CLOSED_STATUSES.some(s => 
-            oathStatus.toUpperCase().includes(s)
-          );
+          if (violationNum && issueDate) {
+            // Determine if violation is closed based on OATH status
+            const isResolved = CLOSED_STATUSES.some(s => 
+              oathStatus.toUpperCase().includes(s)
+            );
 
-          const description = [
-            v.charge_1_code_description,
-            v.charge_2_code_description,
-            v.charge_3_code_description,
-          ].filter(Boolean).join("; ") || `${agency} Violation`;
+            const description = [
+              v.charge_1_code_description,
+              v.charge_2_code_description,
+              v.charge_3_code_description,
+            ].filter(Boolean).join("; ") || `${agency} Violation`;
 
-          const violationClass = (v.charge_1_code || v.charge_1_code_section) as string || null;
-          violations.push({
-            agency,
-            violation_number: String(violationNum),
-            issued_date: normalizeDate(issueDate) || issueDate,
-            hearing_date: normalizeDate(v.hearing_date as string),
-            cure_due_date: null,
-            description_raw: description,
-            property_id,
-            severity: agency === "FDNY" || agency === "LPC" ? "critical" : "medium",
-            violation_class: violationClass,
-            violation_type: extractViolationType(description, violationClass, agency),
-            is_stop_work_order: false,
-            is_vacate_order: false,
-            penalty_amount: v.penalty_imposed ? parseFloat(v.penalty_imposed as string) :
-                           v.total_violation_amount ? parseFloat(v.total_violation_amount as string) : null,
-            respondent_name: v.respondent_last_name ?
-              `${v.respondent_first_name || ""} ${v.respondent_last_name}`.trim() : null,
-            synced_at: now,
-            source: "oath",
-            oath_status: oathStatus || null,
-            status: isResolved ? 'closed' : 'open',
-          });
+            const violationClass = (v.charge_1_code || v.charge_1_code_section) as string || null;
+            violations.push({
+              agency,
+              violation_number: String(violationNum),
+              issued_date: normalizeDate(issueDate) || issueDate,
+              hearing_date: normalizeDate(v.hearing_date as string),
+              cure_due_date: null,
+              description_raw: description,
+              property_id,
+              severity: agency === "FDNY" || agency === "LPC" ? "critical" : "medium",
+              violation_class: violationClass,
+              violation_type: extractViolationType(description, violationClass, agency),
+              is_stop_work_order: false,
+              is_vacate_order: false,
+              penalty_amount: v.penalty_imposed ? parseFloat(v.penalty_imposed as string) :
+                             v.total_violation_amount ? parseFloat(v.total_violation_amount as string) : null,
+              respondent_name: v.respondent_last_name ?
+                `${v.respondent_first_name || ""} ${v.respondent_last_name}`.trim() : null,
+              synced_at: now,
+              source: "oath",
+              oath_status: oathStatus || null,
+              status: isResolved ? 'closed' : 'open',
+            });
+          }
         }
       }
     };
@@ -758,7 +750,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch violations from OATH for agencies that use it
-    const oathAgencies: AgencyType[] = ["FDNY", "DEP", "DOT", "DSNY", "LPC", "DOF"];
+    const oathAgencies: AgencyType[] = ["FDNY", "DEP", "DOT", "DSNY", "LPC", "DOF", "DOHMH"];
     for (const agency of oathAgencies) {
       if (agenciesToSync.includes(agency)) {
         await fetchOATHViolations(agency);

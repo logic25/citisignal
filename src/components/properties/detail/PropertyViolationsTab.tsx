@@ -108,6 +108,7 @@ interface Violation {
   notes?: string | null;
   suppressed?: boolean | null;
   suppression_reason?: string | null;
+  source?: string | null;
 }
 
 interface PropertyViolationsTabProps {
@@ -316,15 +317,19 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
   };
 
   const filteredAndSortedViolations = useMemo(() => {
-    // First filter by active vs all, but include suppressed if toggled on
+    // Filter out complaints (shown in Complaints tab) and SWO/Vacate (shown in Critical Issues)
     let base: Violation[];
     if (showActiveOnly) {
-      // isActiveViolation excludes suppressed, so re-include them when showSuppressed is on
       base = violations.filter(v => 
-        isActiveViolation(v) || (showSuppressed && v.suppressed && v.status !== 'closed')
+        (isActiveViolation(v) || (showSuppressed && v.suppressed && v.status !== 'closed'))
+        && !v.is_stop_work_order && !v.is_vacate_order
+        && v.source !== 'dob_complaints'
       );
     } else {
-      base = violations;
+      base = violations.filter(v =>
+        !v.is_stop_work_order && !v.is_vacate_order
+        && v.source !== 'dob_complaints'
+      );
     }
     
     // Filter out suppressed unless toggled on
@@ -375,9 +380,10 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
     return result;
   }, [violations, showActiveOnly, showSuppressed, searchQuery, statusFilter, agencyFilter, typeFilter, dateFrom, dateTo, sortField, sortDirection]);
 
-  // Calculate counts using proper active violation filtering
-  const activeViolations = violations.filter(isActiveViolation);
-  const suppressedCount = violations.filter(v => v.suppressed).length;
+  // Calculate counts using proper active violation filtering — exclude complaints and SWOs
+  const realViolations = violations.filter(v => v.source !== 'dob_complaints' && !v.is_stop_work_order && !v.is_vacate_order);
+  const activeViolations = realViolations.filter(isActiveViolation);
+  const suppressedCount = realViolations.filter(v => v.suppressed).length;
   const openCount = activeViolations.filter(v => v.status === 'open').length;
 
   return (
