@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, MessageCircle, Link2, Unlink, ExternalLink, Copy } from 'lucide-react';
+import { Loader2, MessageCircle, Link2, Unlink, ExternalLink, QrCode } from 'lucide-react';
 
 const TelegramTab = () => {
   const { user } = useAuth();
@@ -144,9 +144,26 @@ const TelegramTab = () => {
               <div className="p-4 rounded-lg border border-dashed border-border">
                 <h4 className="font-medium text-foreground mb-2">Connect Your Telegram</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Click the button below to open Telegram and link your account. This lets you query your property data and receive alerts directly in Telegram.
+                  Scan the QR code below with your phone's camera or Telegram app to link your account.
                 </p>
-                <div className="flex flex-wrap gap-3">
+                
+                {/* QR Code */}
+                <div className="flex flex-col items-center gap-4 mb-4">
+                  <div className="bg-white p-3 rounded-lg shadow-sm border">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getLinkUrl())}`}
+                      alt="Scan to connect Telegram"
+                      width={200}
+                      height={200}
+                      className="rounded"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Scan with your phone camera or Telegram app
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3 justify-center">
                   <Button asChild>
                     <a
                       href={getLinkUrl()}
@@ -158,17 +175,13 @@ const TelegramTab = () => {
                       <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
                   </Button>
-                  <Button variant="outline" onClick={handleCopyLink}>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Link
-                  </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-foreground">How it works:</h4>
                 <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Click "Open in Telegram" above</li>
+                  <li>Scan the QR code above with your phone</li>
                   <li>Press "Start" in the bot chat</li>
                   <li>Your account will be linked automatically</li>
                   <li>Start asking questions about your properties!</li>
