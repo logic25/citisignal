@@ -611,10 +611,10 @@ export const PropertyDocumentsTab = ({ propertyId, documents, onRefresh }: Prope
                       ) : doc.file_type === 'pdf' ? (
                         <button
                           onClick={() => handleExtractText(doc)}
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors cursor-pointer border border-amber-200 dark:border-amber-800"
                         >
                           <Brain className="w-3 h-3" />
-                          Extract
+                          Not Extracted — Click to Extract
                         </button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
