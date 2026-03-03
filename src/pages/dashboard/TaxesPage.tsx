@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -586,33 +587,64 @@ const TaxesPage = () => {
           {(() => {
             const protestTaxes = (taxes || []).filter(t => t.protest_status && t.protest_status !== 'none');
             return protestTaxes.length > 0 ? (
-              <div className="rounded-xl border border-border overflow-hidden bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">Property</TableHead>
-                      <TableHead className="font-semibold">Year</TableHead>
-                      <TableHead className="font-semibold">Protest Status</TableHead>
-                      <TableHead className="font-semibold">Attorney</TableHead>
-                      <TableHead className="font-semibold">Firm</TableHead>
-                      <TableHead className="font-semibold">Fee</TableHead>
-                      <TableHead className="font-semibold">Tax Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {protestTaxes.map(tax => (
-                      <TableRow key={tax.id} className="cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/dashboard/properties/${tax.property_id}`)}>
-                        <TableCell className="font-medium text-sm max-w-[200px] truncate">{tax.properties?.address || '—'}</TableCell>
-                        <TableCell className="font-medium">{tax.tax_year}</TableCell>
-                        <TableCell><Badge variant="outline" className={PROTEST_STATUS_COLORS[tax.protest_status] || ''}>{PROTEST_STATUS_LABELS[tax.protest_status] || tax.protest_status}</Badge></TableCell>
-                        <TableCell className="text-sm">{tax.attorney_name || '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{tax.attorney_firm || '—'}</TableCell>
-                        <TableCell className="text-sm">{tax.attorney_fee ? `$${tax.attorney_fee.toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">{tax.tax_amount ? `$${tax.tax_amount.toLocaleString()}` : '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="space-y-4">
+                {protestTaxes.map(tax => (
+                  <Card key={tax.id} className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate(`/dashboard/properties/${tax.property_id}`)}>
+                    <CardContent className="p-5 space-y-4">
+                      {/* Header row */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <p className="font-semibold text-foreground">{tax.properties?.address || '—'}</p>
+                          <p className="text-xs text-muted-foreground">Tax Year {tax.tax_year} · Assessed: {tax.assessed_value ? `$${Number(tax.assessed_value).toLocaleString()}` : '—'}</p>
+                        </div>
+                        <Badge variant="outline" className={PROTEST_STATUS_COLORS[tax.protest_status] || ''}>
+                          {PROTEST_STATUS_LABELS[tax.protest_status] || tax.protest_status}
+                        </Badge>
+                      </div>
+
+                      {/* Timeline / key dates */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-0.5">Filed Date</p>
+                          <p className="font-medium">{tax.protest_filed_date ? format(new Date(tax.protest_filed_date), 'MMM d, yyyy') : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-0.5">Hearing Date</p>
+                          <p className="font-medium">{tax.protest_hearing_date ? format(new Date(tax.protest_hearing_date), 'MMM d, yyyy') : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-0.5">Tax Amount</p>
+                          <p className="font-medium">{tax.tax_amount ? `$${Number(tax.tax_amount).toLocaleString()}` : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-0.5">Attorney Fee</p>
+                          <p className="font-medium">{tax.attorney_fee ? `$${Number(tax.attorney_fee).toLocaleString()}` : '—'}</p>
+                        </div>
+                      </div>
+
+                      {/* Attorney info */}
+                      {(tax.attorney_name || tax.attorney_firm) && (
+                        <div className="bg-muted/40 rounded-lg p-3 text-sm">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Attorney</p>
+                          <div className="flex flex-wrap gap-x-6 gap-y-1">
+                            {tax.attorney_name && <span className="font-medium text-foreground">{tax.attorney_name}</span>}
+                            {tax.attorney_firm && <span className="text-muted-foreground">{tax.attorney_firm}</span>}
+                            {tax.attorney_phone && <span className="text-muted-foreground">{tax.attorney_phone}</span>}
+                            {tax.attorney_email && <span className="text-muted-foreground">{tax.attorney_email}</span>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Outcome notes */}
+                      {tax.protest_outcome_notes && (
+                        <div className="text-sm">
+                          <p className="text-xs text-muted-foreground mb-0.5">Outcome Notes</p>
+                          <p className="text-foreground">{tax.protest_outcome_notes}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12 bg-card rounded-xl border border-border">
