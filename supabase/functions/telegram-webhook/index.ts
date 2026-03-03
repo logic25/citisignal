@@ -429,7 +429,9 @@ RULES:
 - For "do I have a ___" questions, check the Documents on File list
 - For vendor questions, check the Vendor Directory
 - For "what changed" questions, check Recent Activity
-- Always mention the property address when referencing data`;
+- Always mention the property address when referencing data
+- When answering questions about lease obligations, legal responsibilities, penalties, or compliance deadlines, end your response with:
+"⚠️ This is informational only — not legal advice. Consult a licensed attorney or expeditor for legal matters."`;
 
       console.log("Calling AI, system prompt length:", systemPrompt.length);
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

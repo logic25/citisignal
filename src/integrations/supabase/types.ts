@@ -1375,6 +1375,7 @@ export type Database = {
           commercial_area_sqft: number | null
           commercial_overlay: string | null
           community_board: string | null
+          compliance_filings: Json | null
           compliance_status: string | null
           council_district: string | null
           created_at: string
@@ -1488,6 +1489,7 @@ export type Database = {
           commercial_area_sqft?: number | null
           commercial_overlay?: string | null
           community_board?: string | null
+          compliance_filings?: Json | null
           compliance_status?: string | null
           council_district?: string | null
           created_at?: string
@@ -1601,6 +1603,7 @@ export type Database = {
           commercial_area_sqft?: number | null
           commercial_overlay?: string | null
           community_board?: string | null
+          compliance_filings?: Json | null
           compliance_status?: string | null
           council_district?: string | null
           created_at?: string

@@ -38,8 +38,8 @@ const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4 text-sm">Legal</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms of Service</a></li>
+              <li><Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
               <li><a href="mailto:support@citisignal.com" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contact</a></li>
             </ul>
           </div>
