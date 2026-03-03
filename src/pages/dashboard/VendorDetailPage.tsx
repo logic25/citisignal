@@ -450,13 +450,15 @@ const VendorDetailPage = () => {
                     {vendor.phone_number && (
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span>{vendor.phone_number}</span>
+                        <span className="text-muted-foreground">Office:</span>
+                        <a href={`tel:${vendor.phone_number}`} className="hover:underline">{vendor.phone_number}</a>
                       </div>
                     )}
                     {vendor.mobile_number && (
                       <div className="flex items-center gap-2 text-sm">
                         <Smartphone className="w-4 h-4 text-muted-foreground" />
-                        <span>{vendor.mobile_number}</span>
+                        <span className="text-muted-foreground">Mobile:</span>
+                        <a href={`tel:${vendor.mobile_number}`} className="hover:underline">{vendor.mobile_number}</a>
                       </div>
                     )}
                     {vendor.email && (
