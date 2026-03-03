@@ -316,6 +316,9 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
     setDateTo(undefined);
   };
 
+  // Helper: detect complaints by source OR COMP- prefix
+  const isComplaintRecord = (v: Violation) => v.source === 'dob_complaints' || v.violation_number?.startsWith('COMP-');
+
   const filteredAndSortedViolations = useMemo(() => {
     // Filter out complaints (shown in Complaints tab) and SWO/Vacate (shown in Critical Issues)
     let base: Violation[];
@@ -323,12 +326,12 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
       base = violations.filter(v => 
         (isActiveViolation(v) || (showSuppressed && v.suppressed && v.status !== 'closed'))
         && !v.is_stop_work_order && !v.is_vacate_order
-        && v.source !== 'dob_complaints'
+        && !isComplaintRecord(v)
       );
     } else {
       base = violations.filter(v =>
         !v.is_stop_work_order && !v.is_vacate_order
-        && v.source !== 'dob_complaints'
+        && !isComplaintRecord(v)
       );
     }
     
@@ -381,7 +384,7 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
   }, [violations, showActiveOnly, showSuppressed, searchQuery, statusFilter, agencyFilter, typeFilter, dateFrom, dateTo, sortField, sortDirection]);
 
   // Calculate counts using proper active violation filtering — exclude complaints and SWOs
-  const realViolations = violations.filter(v => v.source !== 'dob_complaints' && !v.is_stop_work_order && !v.is_vacate_order);
+  const realViolations = violations.filter(v => !isComplaintRecord(v) && !v.is_stop_work_order && !v.is_vacate_order);
   const activeViolations = realViolations.filter(isActiveViolation);
   const suppressedCount = realViolations.filter(v => v.suppressed).length;
   const openCount = activeViolations.filter(v => v.status === 'open').length;
