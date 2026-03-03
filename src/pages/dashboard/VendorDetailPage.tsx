@@ -27,7 +27,9 @@ import {
   ArrowLeft,
   Users,
   Phone,
+  Smartphone,
   Mail,
+  Globe,
   FileCheck,
   Star,
   ClipboardList,
@@ -38,10 +40,11 @@ import {
   Plus,
   Loader2,
   AlertCircle,
-  
   Clock,
   CheckCircle2,
   Pencil,
+  Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,7 +52,9 @@ interface Vendor {
   id: string;
   name: string;
   phone_number: string | null;
+  mobile_number: string | null;
   email: string | null;
+  website: string | null;
   trade_type: string | null;
   coi_expiration_date: string | null;
   status: string;
@@ -60,6 +65,24 @@ interface Vendor {
   avg_rating: number;
   total_reviews: number;
   total_spent: number;
+  created_at: string;
+}
+
+interface VendorContact {
+  id: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  mobile: string | null;
+  email: string | null;
+  notes: string | null;
+  is_primary: boolean;
+}
+
+interface TelegramMessage {
+  id: string;
+  direction: string;
+  message_text: string | null;
   created_at: string;
 }
 
@@ -101,14 +124,21 @@ const VendorDetailPage = () => {
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [contacts, setContacts] = useState<VendorContact[]>([]);
+  const [telegramMessages, setTelegramMessages] = useState<TelegramMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [editForm, setEditForm] = useState({
-    name: '', phone_number: '', email: '', trade_type: '',
+    name: '', phone_number: '', mobile_number: '', email: '', website: '', trade_type: '',
     coi_expiration_date: '', license_number: '', notes: '', address: '',
+  });
+
+  const [contactForm, setContactForm] = useState({
+    name: '', role: '', phone: '', mobile: '', email: '', notes: '', is_primary: false,
   });
 
   const [reviewForm, setReviewForm] = useState({
@@ -121,25 +151,39 @@ const VendorDetailPage = () => {
   const fetchVendor = useCallback(async () => {
     if (!id || !user) return;
     try {
-      const [vendorRes, woRes, reviewsRes] = await Promise.all([
+      const [vendorRes, woRes, reviewsRes, contactsRes] = await Promise.all([
         supabase.from('vendors').select('*').eq('id', id).single(),
         supabase.from('work_orders')
           .select('id, scope, status, created_at, quoted_amount, approved_amount, priority, property:properties(id, address)')
           .eq('vendor_id', id)
           .order('created_at', { ascending: false }),
         supabase.from('vendor_reviews').select('*').eq('vendor_id', id).order('created_at', { ascending: false }),
+        supabase.from('vendor_contacts' as any).select('*').eq('vendor_id', id).order('is_primary', { ascending: false }),
       ]);
 
       if (vendorRes.error) throw vendorRes.error;
       const v = vendorRes.data as unknown as Vendor;
       setVendor(v);
       setEditForm({
-        name: v.name, phone_number: v.phone_number || '', email: v.email || '',
+        name: v.name, phone_number: v.phone_number || '', mobile_number: v.mobile_number || '',
+        email: v.email || '', website: v.website || '',
         trade_type: v.trade_type || '', coi_expiration_date: v.coi_expiration_date || '',
         license_number: v.license_number || '', notes: v.notes || '', address: v.address || '',
       });
       setWorkOrders((woRes.data || []) as unknown as WorkOrder[]);
       setReviews((reviewsRes.data || []) as unknown as Review[]);
+      setContacts((contactsRes.data || []) as unknown as VendorContact[]);
+
+      // Fetch telegram messages if vendor has telegram_chat_id
+      if (v.telegram_chat_id) {
+        const { data: msgs } = await supabase
+          .from('telegram_messages' as any)
+          .select('id, direction, message_text, created_at')
+          .eq('chat_id', v.telegram_chat_id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        setTelegramMessages((msgs || []) as unknown as TelegramMessage[]);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load vendor');
@@ -157,19 +201,54 @@ const VendorDetailPage = () => {
       const { error } = await supabase.from('vendors').update({
         name: editForm.name,
         phone_number: editForm.phone_number || null,
+        mobile_number: editForm.mobile_number || null,
         email: editForm.email || null,
+        website: editForm.website || null,
         trade_type: editForm.trade_type || null,
         coi_expiration_date: editForm.coi_expiration_date || null,
         license_number: editForm.license_number || null,
         notes: editForm.notes || null,
         address: editForm.address || null,
-      }).eq('id', vendor.id);
+      } as any).eq('id', vendor.id);
       if (error) throw error;
       toast.success('Vendor updated');
       setIsEditing(false);
       fetchVendor();
     } catch { toast.error('Failed to update'); }
     finally { setIsSaving(false); }
+  };
+
+  const handleAddContact = async () => {
+    if (!vendor || !user || !contactForm.name.trim()) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('vendor_contacts' as any).insert({
+        vendor_id: vendor.id,
+        user_id: user.id,
+        name: contactForm.name,
+        role: contactForm.role || null,
+        phone: contactForm.phone || null,
+        mobile: contactForm.mobile || null,
+        email: contactForm.email || null,
+        notes: contactForm.notes || null,
+        is_primary: contactForm.is_primary,
+      } as any);
+      if (error) throw error;
+      toast.success('Contact added');
+      setIsContactDialogOpen(false);
+      setContactForm({ name: '', role: '', phone: '', mobile: '', email: '', notes: '', is_primary: false });
+      fetchVendor();
+    } catch { toast.error('Failed to add contact'); }
+    finally { setIsSaving(false); }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase.from('vendor_contacts' as any).delete().eq('id', contactId);
+      if (error) throw error;
+      toast.success('Contact removed');
+      fetchVendor();
+    } catch { toast.error('Failed to delete contact'); }
   };
 
   const handleSubmitReview = async () => {
@@ -300,8 +379,12 @@ const VendorDetailPage = () => {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="projects">Projects ({workOrders.length})</TabsTrigger>
           <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
+          {vendor.telegram_chat_id && (
+            <TabsTrigger value="telegram">Telegram ({telegramMessages.length})</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Profile Tab */}
@@ -323,12 +406,20 @@ const VendorDetailPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label>Office Phone</Label>
                     <Input value={editForm.phone_number} onChange={e => setEditForm({ ...editForm, phone_number: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Mobile</Label>
+                    <Input value={editForm.mobile_number} onChange={e => setEditForm({ ...editForm, mobile_number: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Website</Label>
+                    <Input type="url" value={editForm.website} onChange={e => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://..." />
                   </div>
                   <div className="space-y-2">
                     <Label>License #</Label>
@@ -362,10 +453,22 @@ const VendorDetailPage = () => {
                         <span>{vendor.phone_number}</span>
                       </div>
                     )}
+                    {vendor.mobile_number && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Smartphone className="w-4 h-4 text-muted-foreground" />
+                        <span>{vendor.mobile_number}</span>
+                      </div>
+                    )}
                     {vendor.email && (
                       <div className="flex items-center gap-2 text-sm">
                         <Mail className="w-4 h-4 text-muted-foreground" />
                         <span>{vendor.email}</span>
+                      </div>
+                    )}
+                    {vendor.website && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Globe className="w-4 h-4 text-muted-foreground" />
+                        <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{vendor.website}</a>
                       </div>
                     )}
                     {vendor.address && (
@@ -415,6 +518,97 @@ const VendorDetailPage = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Contacts Tab */}
+        <TabsContent value="contacts" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Company Contacts</h3>
+            <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="hero" size="sm"><UserPlus className="w-4 h-4 mr-1" /> Add Contact</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader><DialogTitle>Add Contact</DialogTitle></DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Name *</Label>
+                      <Input value={contactForm.name} onChange={e => setContactForm({ ...contactForm, name: e.target.value })} placeholder="John Smith" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Role</Label>
+                      <Input value={contactForm.role} onChange={e => setContactForm({ ...contactForm, role: e.target.value })} placeholder="e.g. Foreman" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input type="tel" value={contactForm.phone} onChange={e => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(555) 123-4567" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mobile</Label>
+                      <Input type="tel" value={contactForm.mobile} onChange={e => setContactForm({ ...contactForm, mobile: e.target.value })} placeholder="(555) 987-6543" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input type="email" value={contactForm.email} onChange={e => setContactForm({ ...contactForm, email: e.target.value })} placeholder="john@company.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea value={contactForm.notes} onChange={e => setContactForm({ ...contactForm, notes: e.target.value })} className="min-h-[60px]" placeholder="Any notes..." />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="is_primary" checked={contactForm.is_primary} onChange={e => setContactForm({ ...contactForm, is_primary: e.target.checked })} />
+                    <Label htmlFor="is_primary" className="text-sm">Primary contact</Label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsContactDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddContact} disabled={isSaving || !contactForm.name.trim()}>
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Contact'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {contacts.length > 0 ? (
+            <div className="space-y-3">
+              {contacts.map(contact => (
+                <Card key={contact.id}>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{contact.name}</p>
+                          {contact.is_primary && <Badge variant="default" className="text-xs">Primary</Badge>}
+                          {contact.role && <Badge variant="secondary" className="text-xs">{contact.role}</Badge>}
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                          {contact.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{contact.phone}</span>}
+                          {contact.mobile && <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{contact.mobile}</span>}
+                          {contact.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{contact.email}</span>}
+                        </div>
+                        {contact.notes && <p className="text-xs text-muted-foreground mt-1">{contact.notes}</p>}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteContact(contact.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="text-muted-foreground">No contacts added yet. Add key people at this company.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Projects Tab */}
@@ -615,6 +809,44 @@ const VendorDetailPage = () => {
             </Card>
           )}
         </TabsContent>
+
+        {/* Telegram Tab */}
+        {vendor.telegram_chat_id && (
+          <TabsContent value="telegram" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" /> Telegram Chat History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {telegramMessages.length > 0 ? (
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                    {telegramMessages.map(msg => (
+                      <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                          msg.direction === 'outbound'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{msg.message_text}</p>
+                          <p className={`text-xs mt-1 ${msg.direction === 'outbound' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>No messages recorded yet. Messages will appear here as you chat with this vendor via Telegram.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
