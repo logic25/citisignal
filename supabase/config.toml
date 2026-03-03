@@ -85,3 +85,6 @@ verify_jwt = false
 [functions.send-work-order-notification]
 verify_jwt = false
 
+[functions.admin-get-user-data]
+verify_jwt = false
+
