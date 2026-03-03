@@ -59,6 +59,12 @@ interface ViolationRecord {
   source?: string;
   oath_status?: string | null;
   status: 'open' | 'in_progress' | 'closed';
+  // Complaint-specific fields
+  complaint_category?: string | null;
+  disposition_code?: string | null;
+  disposition_comments?: string | null;
+  priority?: string | null;
+  complaint_number?: string | null;
 }
 
 // DOB violation code prefixes and their meanings
@@ -703,6 +709,10 @@ Deno.serve(async (req) => {
             v.comments ? `${v.comments}` : null,
           ].filter(Boolean).join(" — ");
 
+          const dispositionComments = (v.disposition_comments || v.inspection_disposition_comments || "") as string;
+          const priorityVal = (v.priority || "") as string;
+          const complaintNumStr = String(complaintNum);
+
           violations.push({
             agency: "DOB",
             violation_number: `COMP-${complaintNum}`,
@@ -716,8 +726,8 @@ Deno.serve(async (req) => {
               : descRaw || `DOB Complaint #${complaintNum}`,
             property_id,
             severity: isSWOPlaced ? "critical" :
-                      (v.priority as string) === "A" ? "critical" :
-                      (v.priority as string) === "B" ? "medium" : "low",
+                      priorityVal === "A" ? "critical" :
+                      priorityVal === "B" ? "medium" : "low",
             violation_class: category,
             violation_type: isSWOPlaced ? "Partial Stop Work Order" :
                             isSWORescinded ? "Stop Work Order Rescinded" :
@@ -730,6 +740,12 @@ Deno.serve(async (req) => {
             source: "dob_complaints",
             oath_status: status_desc || null,
             status: isSWORescinded ? 'closed' : (isSWOPlaced ? 'open' : (isResolved ? 'closed' : 'open')),
+            // Complaint-specific enrichment fields
+            complaint_category: category || null,
+            disposition_code: dispositionCode || null,
+            disposition_comments: dispositionComments || null,
+            priority: priorityVal || null,
+            complaint_number: complaintNumStr,
           });
         }
       }
@@ -920,10 +936,9 @@ Deno.serve(async (req) => {
         (v) => v.is_stop_work_order || v.is_vacate_order || v.severity === "critical"
       ).length;
 
-      // Insert new
+      // Insert new — source IS a valid DB column, keep it
       if (newViolations.length > 0) {
-        // Remove source field before insert as it's not in the DB schema
-        const violationsToInsert = newViolations.map(({ source, ...rest }) => rest);
+        const violationsToInsert = newViolations;
 
         const { error: insertError } = await supabase
           .from("violations")
@@ -936,10 +951,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update existing (status + oath_status + synced_at, etc.)
+      // Update existing (status + oath_status + complaint fields + synced_at, etc.)
       if (existingToUpdate.length > 0) {
         const updateResults = await Promise.all(
-          existingToUpdate.map(async ({ source, ...v }) => {
+          existingToUpdate.map(async (v) => {
             const id = existingMap.get(`${v.agency}:${v.violation_number}`);
             if (!id) return { ok: true };
 
@@ -961,6 +976,13 @@ Deno.serve(async (req) => {
                 synced_at: v.synced_at,
                 oath_status: v.oath_status ?? null,
                 status: v.status,
+                source: v.source ?? null,
+                // Complaint-specific fields
+                complaint_category: v.complaint_category ?? null,
+                disposition_code: v.disposition_code ?? null,
+                disposition_comments: v.disposition_comments ?? null,
+                priority: v.priority ?? null,
+                complaint_number: v.complaint_number ?? null,
               })
               .eq("id", id);
 

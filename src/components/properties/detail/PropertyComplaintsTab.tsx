@@ -33,6 +33,7 @@ interface Complaint {
   priority?: string | null;
   source?: string | null;
   severity?: string | null;
+  violation_class?: string | null;
 }
 
 interface PropertyComplaintsTabProps {
@@ -111,10 +112,11 @@ export const PropertyComplaintsTab = ({ complaints }: PropertyComplaintsTabProps
 
   const filtered = useMemo(() => {
     let result = complaints.filter(c => {
+      const categoryCode = c.complaint_category || c.violation_class;
       const matchesSearch =
         c.violation_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.description_raw?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.complaint_category?.toLowerCase().includes(searchQuery.toLowerCase());
+        categoryCode?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
 
@@ -131,7 +133,7 @@ export const PropertyComplaintsTab = ({ complaints }: PropertyComplaintsTabProps
           cmp = a.status.localeCompare(b.status);
           break;
         case 'complaint_category':
-          cmp = (a.complaint_category || '').localeCompare(b.complaint_category || '');
+          cmp = ((a.complaint_category || a.violation_class || '')).localeCompare(b.complaint_category || b.violation_class || '');
           break;
       }
       return sortDirection === 'asc' ? cmp : -cmp;
@@ -241,7 +243,9 @@ export const PropertyComplaintsTab = ({ complaints }: PropertyComplaintsTabProps
             </TableHeader>
             <TableBody>
               {filtered.map((c) => {
-                const catInfo = decodeComplaintCategory(c.complaint_category);
+                // Use complaint_category if available, fall back to violation_class (legacy data)
+                const categoryCode = c.complaint_category || c.violation_class;
+                const catInfo = decodeComplaintCategory(categoryCode);
                 const dispLabel = getDispositionLabel(c.disposition_code);
                 const complaintNum = c.violation_number.replace(/^COMP-/, '');
 
@@ -257,7 +261,7 @@ export const PropertyComplaintsTab = ({ complaints }: PropertyComplaintsTabProps
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Badge variant="outline" className={`text-xs ${getComplaintSeverityColor(catInfo.severity)}`}>
-                                {c.complaint_category} — {catInfo.name}
+                                {categoryCode} — {catInfo.name}
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -266,7 +270,7 @@ export const PropertyComplaintsTab = ({ complaints }: PropertyComplaintsTabProps
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
-                        <span className="text-xs text-muted-foreground">{c.complaint_category || '—'}</span>
+                        <span className="text-xs text-muted-foreground">{categoryCode || '—'}</span>
                       )}
                     </TableCell>
                     <TableCell>
