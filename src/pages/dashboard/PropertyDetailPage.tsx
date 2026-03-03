@@ -273,14 +273,22 @@ const PropertyDetailPage = () => {
     }
   };
 
-  // Filter to only active violations (excluding complaints) for badge counts
+  // Helper: is this a complaint record?
+  const isComplaint = (v: Violation) => v.source === 'dob_complaints' || v.violation_number?.startsWith('COMP-');
+
+  // Critical issues — SWOs and vacate orders should ALWAYS show, even if suppressed
+  const criticalIssuesAll = useMemo(() => {
+    return violations.filter(v => (v.is_stop_work_order || v.is_vacate_order) && v.status === 'open');
+  }, [violations]);
+
+  // Filter to only active violations (excluding complaints and SWO/vacate shown in critical banner) for badge counts
   const activeViolations = useMemo(() => {
-    return violations.filter(v => isActiveViolation(v) && v.source !== 'dob_complaints');
+    return violations.filter(v => isActiveViolation(v) && !isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
   }, [violations]);
 
   // Separate complaints from violations
   const complaints = useMemo(() => {
-    return violations.filter(v => v.source === 'dob_complaints' && !v.is_stop_work_order && !v.is_vacate_order);
+    return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
   }, [violations]);
 
   // Count violations per agency - only active ones, excluding complaints
@@ -314,7 +322,7 @@ const PropertyDetailPage = () => {
 
   const coStatus = getCOStatusDisplay(property.co_status);
   const openViolations = activeViolations.filter(v => v.status === 'open').length;
-  const criticalIssues = activeViolations.filter(v => v.is_stop_work_order || v.is_vacate_order);
+  const criticalIssues = criticalIssuesAll;
 
   return (
     <div className="space-y-6">
