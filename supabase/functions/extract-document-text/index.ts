@@ -105,11 +105,24 @@ Output ONLY the extracted text. Do not summarize or skip any content. Every word
   });
 
   if (!extractResponse.ok) {
-    console.error("AI extraction failed:", extractResponse.status);
+    const errorBody = await extractResponse.text().catch(() => "no body");
+    console.error("AI extraction failed:", extractResponse.status, errorBody);
     return "";
   }
 
-  const result = await extractResponse.json();
+  const responseText = await extractResponse.text();
+  if (!responseText) {
+    console.error("AI extraction returned empty response");
+    return "";
+  }
+
+  let result;
+  try {
+    result = JSON.parse(responseText);
+  } catch (e) {
+    console.error("AI extraction returned invalid JSON:", responseText.substring(0, 200));
+    return "";
+  }
   return result.choices?.[0]?.message?.content || "";
 }
 
