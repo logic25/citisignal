@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   ShieldCheck, ShieldAlert, ShieldX, AlertTriangle, Plus, Loader2,
   Building2, Users, Bot, RefreshCw, ChevronDown, ChevronRight, FileSearch,
+  Upload, FileText,
 } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -91,7 +92,6 @@ const getComplianceInfo = (p: any) => {
 
 const getCoverageGaps = (policies: any[]) => {
   const gaps: { tenantName: string; propertyAddress: string; propertyId: string; issues: string[] }[] = [];
-  // Group by tenant
   const byTenant = new Map<string, any[]>();
   for (const p of policies) {
     const key = p.tenant_id || 'unknown';
@@ -102,9 +102,7 @@ const getCoverageGaps = (policies: any[]) => {
     const issues: string[] = [];
     const tenant = tenantPolicies[0];
     const types = new Set(tenantPolicies.map((p: any) => p.policy_type));
-    // Check for GL
     if (!types.has('general_liability')) issues.push('Missing General Liability policy');
-    // Check coverage below minimums
     for (const p of tenantPolicies) {
       if (p.required_minimum && p.coverage_amount && Number(p.coverage_amount) < Number(p.required_minimum)) {
         issues.push(`${TENANT_POLICY_TYPES[p.policy_type] || p.policy_type}: Coverage $${Number(p.coverage_amount).toLocaleString()} below required $${Number(p.required_minimum).toLocaleString()}`);
@@ -128,6 +126,47 @@ const getCoverageGaps = (policies: any[]) => {
   return gaps;
 };
 
+// ── Group policies by property → tenant ──
+type GroupedPolicies = {
+  propertyId: string;
+  propertyAddress: string;
+  tenants: {
+    tenantId: string;
+    tenantName: string;
+    policies: any[];
+  }[];
+};
+
+const groupPoliciesByPropertyTenant = (policies: any[]): GroupedPolicies[] => {
+  const byProperty = new Map<string, Map<string, any[]>>();
+  const propertyNames = new Map<string, string>();
+  const tenantNames = new Map<string, string>();
+
+  for (const p of policies) {
+    const propId = p.property_id || 'unknown';
+    const tenantId = p.tenant_id || 'unknown';
+    propertyNames.set(propId, p.properties?.address || 'Unknown Property');
+    tenantNames.set(tenantId, p.tenants?.company_name || 'Unknown Tenant');
+
+    if (!byProperty.has(propId)) byProperty.set(propId, new Map());
+    const tenantMap = byProperty.get(propId)!;
+    if (!tenantMap.has(tenantId)) tenantMap.set(tenantId, []);
+    tenantMap.get(tenantId)!.push(p);
+  }
+
+  const result: GroupedPolicies[] = [];
+  for (const [propId, tenantMap] of byProperty) {
+    const tenants: GroupedPolicies['tenants'] = [];
+    for (const [tenantId, pols] of tenantMap) {
+      tenants.push({ tenantId, tenantName: tenantNames.get(tenantId) || 'Unknown', policies: pols });
+    }
+    tenants.sort((a, b) => a.tenantName.localeCompare(b.tenantName));
+    result.push({ propertyId: propId, propertyAddress: propertyNames.get(propId) || 'Unknown', tenants });
+  }
+  result.sort((a, b) => a.propertyAddress.localeCompare(b.propertyAddress));
+  return result;
+};
+
 // ── Main Component ──────────────────────────────
 const InsurancePage = () => {
   const navigate = useNavigate();
@@ -137,10 +176,16 @@ const InsurancePage = () => {
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
   const [tenantForm, setTenantForm] = useState(EMPTY_TENANT_FORM);
   const [buildingForm, setBuildingForm] = useState(EMPTY_BUILDING_FORM);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
+  const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
+  const [expandedPolicy, setExpandedPolicy] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewResult, setReviewResult] = useState<string | null>(null);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [uploadingPolicyId, setUploadingPolicyId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingUploadPolicyId, setPendingUploadPolicyId] = useState<string | null>(null);
+  const [pendingUploadIsBuildingPolicy, setPendingUploadIsBuildingPolicy] = useState(false);
 
   // ── Queries ──
   const { data: properties } = useQuery({
@@ -186,6 +231,84 @@ const InsurancePage = () => {
       return data as any[];
     },
   });
+
+  // ── COI Upload ──
+  const handleCOIUpload = async (file: File, policyId: string, isBuildingPolicy: boolean) => {
+    setUploadingPolicyId(policyId);
+    try {
+      // Find the policy to get property_id
+      const policy = isBuildingPolicy
+        ? (buildingPolicies || []).find(p => p.id === policyId)
+        : (tenantPolicies || []).find(p => p.id === policyId);
+      if (!policy) throw new Error('Policy not found');
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const fileName = `${policy.property_id}/coi_${policyId}_${Date.now()}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('property-documents')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(fileName);
+      const fileUrl = publicUrl || fileName;
+
+      // Update the policy's certificate_url
+      const table = isBuildingPolicy ? 'building_insurance_policies' : 'tenant_insurance_policies';
+      await supabase.from(table).update({ certificate_url: fileUrl }).eq('id', policyId);
+
+      // Also create a property_documents record so it shows in property detail
+      const tenantName = !isBuildingPolicy ? policy.tenants?.company_name : null;
+      const policyType = isBuildingPolicy
+        ? BUILDING_POLICY_TYPES[policy.policy_type] || policy.policy_type
+        : TENANT_POLICY_TYPES[policy.policy_type] || policy.policy_type;
+      const docName = tenantName
+        ? `COI — ${tenantName} — ${policyType}`
+        : `Building Policy — ${policyType}`;
+
+      await supabase.from('property_documents').insert({
+        property_id: policy.property_id,
+        document_type: 'Insurance Certificate',
+        document_name: docName,
+        file_url: fileUrl,
+        file_type: file.type || `application/${fileExt}`,
+        file_size_bytes: file.size,
+        expiration_date: policy.expiration_date || null,
+        uploaded_by: user?.id,
+        description: `Auto-linked from Insurance module. Policy #${policy.policy_number || 'N/A'}`,
+      });
+
+      // Trigger text extraction for AI review
+      try {
+        await supabase.functions.invoke('extract-document-text', {
+          body: { file_url: fileUrl, property_id: policy.property_id },
+        });
+      } catch {
+        // Non-critical — extraction may not be available
+      }
+
+      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
+      toast.success('COI uploaded & linked to property documents');
+    } catch (e: any) {
+      toast.error(e.message || 'Upload failed');
+    }
+    setUploadingPolicyId(null);
+  };
+
+  const triggerUpload = (policyId: string, isBuildingPolicy: boolean) => {
+    setPendingUploadPolicyId(policyId);
+    setPendingUploadIsBuildingPolicy(isBuildingPolicy);
+    fileInputRef.current?.click();
+  };
+
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && pendingUploadPolicyId) {
+      handleCOIUpload(file, pendingUploadPolicyId, pendingUploadIsBuildingPolicy);
+    }
+    e.target.value = '';
+  };
 
   // ── Mutations ──
   const saveTenantMutation = useMutation({
@@ -279,6 +402,23 @@ const InsurancePage = () => {
     setReviewingId(null);
   };
 
+  // ── Toggle helpers ──
+  const toggleProperty = (id: string) => {
+    setExpandedProperties(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleTenant = (key: string) => {
+    setExpandedTenants(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   // ── Computed stats ──
   const allTenant = tenantPolicies || [];
   const allBuilding = buildingPolicies || [];
@@ -297,6 +437,7 @@ const InsurancePage = () => {
   }).length;
   const coverageGaps = getCoverageGaps(allTenant);
   const aiReviewedCount = allPolicies.filter(p => p.ai_review_status === 'reviewed').length;
+  const groupedTenant = groupPoliciesByPropertyTenant(allTenant);
 
   const isLoading = loadingTenant || loadingBuilding;
 
@@ -314,6 +455,15 @@ const InsurancePage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Hidden file input for COI uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={onFileSelected}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -357,7 +507,7 @@ const InsurancePage = () => {
           <TabsTrigger value="renewals" className="gap-1"><RefreshCw className="w-3.5 h-3.5" /> Renewals</TabsTrigger>
         </TabsList>
 
-        {/* ── Tenant Policies Tab ── */}
+        {/* ── Tenant Policies Tab (nested by property → tenant) ── */}
         <TabsContent value="tenant" className="space-y-4">
           <div className="flex justify-end">
             <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>
@@ -428,107 +578,199 @@ const InsurancePage = () => {
             </Dialog>
           </div>
 
-          {allTenant.length > 0 ? (
-            <div className="rounded-xl border border-border overflow-hidden bg-card">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-8"></TableHead>
-                    <TableHead className="font-semibold">Property</TableHead>
-                    <TableHead className="font-semibold">Tenant</TableHead>
-                    <TableHead className="font-semibold">Type</TableHead>
-                    <TableHead className="font-semibold">Carrier</TableHead>
-                    <TableHead className="font-semibold">Coverage</TableHead>
-                    <TableHead className="font-semibold">Expires</TableHead>
-                    <TableHead className="font-semibold">Add'l Insured</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="w-20"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allTenant.map(p => {
-                    const compliance = getComplianceInfo(p);
-                    const daysLeft = p.expiration_date ? differenceInDays(parseISO(p.expiration_date), new Date()) : null;
-                    const isExpired = daysLeft !== null && daysLeft < 0;
-                    const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
-                    const isExpanded = expandedRow === p.id;
-                    const aiMissing = p.additional_insured_required && !p.additional_insured;
-                    return (
-                      <>
-                        <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setExpandedRow(isExpanded ? null : p.id)}>
-                          <TableCell className="px-2">
-                            {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                          </TableCell>
-                          <TableCell className="text-sm max-w-[160px] truncate">{p.properties?.address || '—'}</TableCell>
-                          <TableCell className="text-sm font-medium">{p.tenants?.company_name || '—'}</TableCell>
-                          <TableCell className="text-sm">{TENANT_POLICY_TYPES[p.policy_type] || p.policy_type}</TableCell>
-                          <TableCell className="text-sm">{p.carrier_name || '—'}</TableCell>
-                          <TableCell className="text-sm">
-                            {p.coverage_amount ? `$${Number(p.coverage_amount).toLocaleString()}` : '—'}
-                            {p.required_minimum && (
-                              <span className={`ml-1 text-xs ${Number(p.coverage_amount) < Number(p.required_minimum) ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                / ${Number(p.required_minimum).toLocaleString()}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex items-center gap-1">
-                              <span className="text-muted-foreground">{p.expiration_date ? format(parseISO(p.expiration_date), 'MM/dd/yy') : '—'}</span>
-                              {isExpired && <Badge variant="destructive" className="text-[10px] py-0">Expired</Badge>}
-                              {isExpiringSoon && <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px] py-0">{daysLeft}d</Badge>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {p.additional_insured_required ? (
-                              aiMissing ? (
-                                <Badge variant="destructive" className="text-[10px]">⚠️ Missing</Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px]">✓ Listed</Badge>
-                              )
-                            ) : (
-                              <span className="text-xs text-muted-foreground">N/A</span>
-                            )}
-                          </TableCell>
-                          <TableCell><Badge variant="outline" className={compliance.color}>{compliance.label}</Badge></TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost" size="icon" className="h-7 w-7"
-                              onClick={(e) => { e.stopPropagation(); handleAIReview(p, false); }}
-                              disabled={reviewingId === p.id}
-                              title="AI Review"
-                            >
-                              {reviewingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        {isExpanded && (
-                          <TableRow key={`${p.id}-details`}>
-                            <TableCell colSpan={10} className="bg-muted/20 p-4">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div><p className="text-xs text-muted-foreground">Policy #</p><p className="font-medium">{p.policy_number || '—'}</p></div>
-                                <div><p className="text-xs text-muted-foreground">Effective</p><p className="font-medium">{p.effective_date ? format(parseISO(p.effective_date), 'MM/dd/yyyy') : '—'}</p></div>
-                                <div><p className="text-xs text-muted-foreground">Deductible</p><p className="font-medium">{p.deductible ? `$${Number(p.deductible).toLocaleString()}` : '—'}</p></div>
-                                <div><p className="text-xs text-muted-foreground">Per Occurrence</p><p className="font-medium">{p.per_occurrence_limit ? `$${Number(p.per_occurrence_limit).toLocaleString()}` : '—'}</p></div>
-                                <div><p className="text-xs text-muted-foreground">Aggregate</p><p className="font-medium">{p.aggregate_limit ? `$${Number(p.aggregate_limit).toLocaleString()}` : '—'}</p></div>
-                                <div><p className="text-xs text-muted-foreground">Add'l Insured Entity</p><p className="font-medium">{p.additional_insured_entity_name || '—'}</p></div>
-                                <div className="col-span-2"><p className="text-xs text-muted-foreground">Endorsements</p><p className="font-medium">{p.endorsements || '—'}</p></div>
-                              </div>
-                              {p.ai_review_notes && (
-                                <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                                  <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
-                                  <div className="prose prose-sm max-w-none text-xs text-foreground">
-                                    <ReactMarkdown>{p.ai_review_notes}</ReactMarkdown>
-                                  </div>
+          {groupedTenant.length > 0 ? (
+            <div className="space-y-3">
+              {groupedTenant.map(group => {
+                const isPropExpanded = expandedProperties.has(group.propertyId);
+                const propPolicyCount = group.tenants.reduce((sum, t) => sum + t.policies.length, 0);
+                const propIssueCount = group.tenants.reduce((sum, t) => sum + t.policies.filter((p: any) => {
+                  const c = getComplianceInfo(p);
+                  return c.label !== 'Compliant';
+                }).length, 0);
+
+                return (
+                  <div key={group.propertyId} className="rounded-xl border border-border bg-card overflow-hidden">
+                    {/* Property Header */}
+                    <button
+                      className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left"
+                      onClick={() => toggleProperty(group.propertyId)}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isPropExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                        <Building2 className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-foreground">{group.propertyAddress}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">{propPolicyCount} {propPolicyCount === 1 ? 'policy' : 'policies'}</Badge>
+                        <Badge variant="outline" className="text-xs">{group.tenants.length} {group.tenants.length === 1 ? 'tenant' : 'tenants'}</Badge>
+                        {propIssueCount > 0 && (
+                          <Badge variant="destructive" className="text-xs">{propIssueCount} issue{propIssueCount > 1 ? 's' : ''}</Badge>
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Tenants within property */}
+                    {isPropExpanded && (
+                      <div className="border-t border-border">
+                        {group.tenants.map(tenant => {
+                          const tenantKey = `${group.propertyId}_${tenant.tenantId}`;
+                          const isTenantExpanded = expandedTenants.has(tenantKey);
+                          const tenantIssues = tenant.policies.filter((p: any) => getComplianceInfo(p).label !== 'Compliant').length;
+
+                          return (
+                            <div key={tenantKey} className="border-b border-border last:border-b-0">
+                              {/* Tenant Header */}
+                              <button
+                                className="w-full flex items-center justify-between px-6 py-3 hover:bg-muted/20 transition-colors text-left"
+                                onClick={() => toggleTenant(tenantKey)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  {isTenantExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span className="font-medium text-foreground text-sm">{tenant.tenantName}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">{tenant.policies.length} {tenant.policies.length === 1 ? 'policy' : 'policies'}</span>
+                                  {tenantIssues > 0 && (
+                                    <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px]">{tenantIssues} issue{tenantIssues > 1 ? 's' : ''}</Badge>
+                                  )}
+                                </div>
+                              </button>
+
+                              {/* Policies for this tenant */}
+                              {isTenantExpanded && (
+                                <div className="px-6 pb-3">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="bg-muted/30">
+                                        <TableHead className="w-8"></TableHead>
+                                        <TableHead className="font-semibold text-xs">Type</TableHead>
+                                        <TableHead className="font-semibold text-xs">Carrier</TableHead>
+                                        <TableHead className="font-semibold text-xs">Coverage</TableHead>
+                                        <TableHead className="font-semibold text-xs">Expires</TableHead>
+                                        <TableHead className="font-semibold text-xs">Add'l Insured</TableHead>
+                                        <TableHead className="font-semibold text-xs">Status</TableHead>
+                                        <TableHead className="font-semibold text-xs">COI</TableHead>
+                                        <TableHead className="w-16"></TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {tenant.policies.map((p: any) => {
+                                        const compliance = getComplianceInfo(p);
+                                        const daysLeft = p.expiration_date ? differenceInDays(parseISO(p.expiration_date), new Date()) : null;
+                                        const isExpired = daysLeft !== null && daysLeft < 0;
+                                        const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+                                        const isPolicyExpanded = expandedPolicy === p.id;
+                                        const aiMissing = p.additional_insured_required && !p.additional_insured;
+                                        return (
+                                          <>
+                                            <TableRow key={p.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setExpandedPolicy(isPolicyExpanded ? null : p.id)}>
+                                              <TableCell className="px-2">
+                                                {isPolicyExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                                              </TableCell>
+                                              <TableCell className="text-xs">{TENANT_POLICY_TYPES[p.policy_type] || p.policy_type}</TableCell>
+                                              <TableCell className="text-xs">{p.carrier_name || '—'}</TableCell>
+                                              <TableCell className="text-xs">
+                                                {p.coverage_amount ? `$${Number(p.coverage_amount).toLocaleString()}` : '—'}
+                                                {p.required_minimum && (
+                                                  <span className={`ml-1 text-[10px] ${Number(p.coverage_amount) < Number(p.required_minimum) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                    / ${Number(p.required_minimum).toLocaleString()}
+                                                  </span>
+                                                )}
+                                              </TableCell>
+                                              <TableCell className="text-xs">
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-muted-foreground">{p.expiration_date ? format(parseISO(p.expiration_date), 'MM/dd/yy') : '—'}</span>
+                                                  {isExpired && <Badge variant="destructive" className="text-[9px] py-0 px-1">Exp</Badge>}
+                                                  {isExpiringSoon && <Badge className="bg-warning/10 text-warning border-warning/20 text-[9px] py-0 px-1">{daysLeft}d</Badge>}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell>
+                                                {p.additional_insured_required ? (
+                                                  aiMissing ? (
+                                                    <Badge variant="destructive" className="text-[9px]">⚠️ Missing</Badge>
+                                                  ) : (
+                                                    <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[9px]">✓ Listed</Badge>
+                                                  )
+                                                ) : (
+                                                  <span className="text-[10px] text-muted-foreground">N/A</span>
+                                                )}
+                                              </TableCell>
+                                              <TableCell><Badge variant="outline" className={`${compliance.color} text-[9px]`}>{compliance.label}</Badge></TableCell>
+                                              <TableCell>
+                                                {p.certificate_url ? (
+                                                  <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[9px] gap-1">
+                                                    <FileText className="w-2.5 h-2.5" /> On File
+                                                  </Badge>
+                                                ) : (
+                                                  <Button
+                                                    variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1"
+                                                    onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false); }}
+                                                    disabled={uploadingPolicyId === p.id}
+                                                  >
+                                                    {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                                    Upload
+                                                  </Button>
+                                                )}
+                                              </TableCell>
+                                              <TableCell>
+                                                <Button
+                                                  variant="ghost" size="icon" className="h-6 w-6"
+                                                  onClick={(e) => { e.stopPropagation(); handleAIReview(p, false); }}
+                                                  disabled={reviewingId === p.id}
+                                                  title={p.certificate_url ? "AI Review (with document)" : "AI Review (metadata only)"}
+                                                >
+                                                  {reviewingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />}
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                            {isPolicyExpanded && (
+                                              <TableRow key={`${p.id}-details`}>
+                                                <TableCell colSpan={9} className="bg-muted/20 p-4">
+                                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                    <div><p className="text-xs text-muted-foreground">Policy #</p><p className="font-medium">{p.policy_number || '—'}</p></div>
+                                                    <div><p className="text-xs text-muted-foreground">Effective</p><p className="font-medium">{p.effective_date ? format(parseISO(p.effective_date), 'MM/dd/yyyy') : '—'}</p></div>
+                                                    <div><p className="text-xs text-muted-foreground">Deductible</p><p className="font-medium">{p.deductible ? `$${Number(p.deductible).toLocaleString()}` : '—'}</p></div>
+                                                    <div><p className="text-xs text-muted-foreground">Per Occurrence</p><p className="font-medium">{p.per_occurrence_limit ? `$${Number(p.per_occurrence_limit).toLocaleString()}` : '—'}</p></div>
+                                                    <div><p className="text-xs text-muted-foreground">Aggregate</p><p className="font-medium">{p.aggregate_limit ? `$${Number(p.aggregate_limit).toLocaleString()}` : '—'}</p></div>
+                                                    <div><p className="text-xs text-muted-foreground">Add'l Insured Entity</p><p className="font-medium">{p.additional_insured_entity_name || '—'}</p></div>
+                                                    <div className="col-span-2"><p className="text-xs text-muted-foreground">Endorsements</p><p className="font-medium">{p.endorsements || '—'}</p></div>
+                                                  </div>
+                                                  {p.certificate_url && (
+                                                    <div className="mt-3 flex items-center gap-2">
+                                                      <FileText className="w-4 h-4 text-primary" />
+                                                      <span className="text-xs text-muted-foreground">COI on file</span>
+                                                      <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false); }}>
+                                                        <Upload className="w-3 h-3" /> Replace
+                                                      </Button>
+                                                    </div>
+                                                  )}
+                                                  {p.ai_review_notes && (
+                                                    <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                                                      <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
+                                                      <div className="prose prose-sm max-w-none text-xs text-foreground">
+                                                        <ReactMarkdown>{p.ai_review_notes}</ReactMarkdown>
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </TableCell>
+                                              </TableRow>
+                                            )}
+                                          </>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
                                 </div>
                               )}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-card rounded-xl border border-border">
@@ -606,6 +848,15 @@ const InsurancePage = () => {
                           {isExpired && <Badge variant="destructive">Expired</Badge>}
                           {isExpiringSoon && <Badge className="bg-warning/10 text-warning border-warning/20">{daysLeft}d left</Badge>}
                           {!isExpired && !isExpiringSoon && <Badge variant="outline" className="bg-success/10 text-success border-success/20">Active</Badge>}
+                          {p.certificate_url ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1">
+                              <FileText className="w-2.5 h-2.5" /> COI
+                            </Badge>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true)} disabled={uploadingPolicyId === p.id}>
+                              {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload COI
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAIReview(p, true)} disabled={reviewingId === p.id}>
                             {reviewingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
                           </Button>

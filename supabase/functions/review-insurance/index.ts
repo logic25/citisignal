@@ -46,6 +46,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Try to fetch extracted document text if a certificate was uploaded
+    let documentText = "";
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    if (policy_data.certificate_url) {
+      // Find the matching property_document by file_url to get extracted_text
+      const { data: docs } = await serviceClient
+        .from("property_documents")
+        .select("extracted_text")
+        .eq("file_url", policy_data.certificate_url)
+        .limit(1);
+
+      if (docs && docs.length > 0 && docs[0].extracted_text) {
+        documentText = docs[0].extracted_text;
+      }
+    }
+
+    const hasDocument = documentText.length > 100;
+
     const systemPrompt = `You are a commercial real estate insurance compliance analyst. Review this insurance policy and provide:
 
 1. **Coverage Assessment** — Is the coverage adequate for a NYC commercial property? Flag any gaps.
@@ -54,7 +76,8 @@ Deno.serve(async (req) => {
 4. **Expiration Risk** — Any timing concerns?
 5. **Recommendations** — What should the landlord request from the tenant?
 
-Be specific and actionable. Use bullet points. Flag critical issues with ⚠️.`;
+Be specific and actionable. Use bullet points. Flag critical issues with ⚠️.
+${hasDocument ? '\nYou have the actual certificate/policy document text below. Cross-reference the document text against the metadata for discrepancies.' : '\nNote: No certificate document was uploaded. This review is based on manually entered metadata only. Recommend requesting the actual COI for a complete review.'}`;
 
     const userPrompt = `Review this insurance policy:
 
@@ -73,7 +96,8 @@ Additional Insured Listed: ${policy_data.additional_insured ? 'Yes' : 'No'}
 Additional Insured Entity: ${policy_data.additional_insured_entity_name || 'Not specified'}
 Endorsements: ${policy_data.endorsements || 'None listed'}
 Tenant: ${policy_data.tenant_name || 'Not specified'}
-Property: ${policy_data.property_address || 'Not specified'}`;
+Property: ${policy_data.property_address || 'Not specified'}
+${hasDocument ? `\n--- CERTIFICATE / POLICY DOCUMENT TEXT ---\n${documentText.slice(0, 12000)}` : ''}`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -113,10 +137,6 @@ Property: ${policy_data.property_address || 'Not specified'}`;
     // Log usage
     const usage = aiData.usage;
     if (usage) {
-      const serviceClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-      );
       await serviceClient.from("ai_usage_logs").insert({
         user_id: user.id,
         feature: "insurance_review",
@@ -129,13 +149,8 @@ Property: ${policy_data.property_address || 'Not specified'}`;
     }
 
     // Update the policy with AI review
-    const serviceClient2 = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
     const table = policy_data.is_building_policy ? "building_insurance_policies" : "tenant_insurance_policies";
-    await serviceClient2.from(table).update({
+    await serviceClient.from(table).update({
       ai_review_status: "reviewed",
       ai_review_notes: reviewText,
       ai_reviewed_at: new Date().toISOString(),
