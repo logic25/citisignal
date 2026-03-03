@@ -141,7 +141,7 @@ const ViolationsPage = () => {
               bin: property.bin,
               bbl: property.bbl,
               property_id: property.id,
-              applicable_agencies: (property as any).applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD']
+              applicable_agencies: (property as any).applicable_agencies || ['DOB', 'ECB', 'HPD', 'FDNY', 'DOT', 'DSNY', 'DEP', 'LPC', 'DOF', 'DOHMH']
             }
           });
           if (error) { errors++; } else if (data?.total_found) { totalNew += data.total_found; }

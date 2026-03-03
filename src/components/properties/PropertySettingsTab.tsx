@@ -51,7 +51,10 @@ import {
   Clock,
   AlertTriangle,
   Wrench,
+  Shield,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ALL_AGENCIES, type Agency } from '@/lib/property-utils';
 import { toast } from 'sonner';
 
 interface PropertyMember {
@@ -82,6 +85,7 @@ interface PropertySettingsTabProps {
   isFoodEstablishment?: boolean | null;
   hasBackflowDevice?: boolean | null;
   burnsNo4Oil?: boolean | null;
+  applicableAgencies?: string[] | null;
   onUpdate: () => void;
 }
 
@@ -104,6 +108,7 @@ export const PropertySettingsTab = ({
   isFoodEstablishment,
   hasBackflowDevice,
   burnsNo4Oil,
+  applicableAgencies,
   onUpdate,
 }: PropertySettingsTabProps) => {
   const { user } = useAuth();
@@ -139,6 +144,10 @@ export const PropertySettingsTab = ({
   const [formBurnsNo4Oil, setFormBurnsNo4Oil] = useState(burnsNo4Oil || false);
   const [savingFeatures, setSavingFeatures] = useState(false);
 
+  // Form state — agencies
+  const [formAgencies, setFormAgencies] = useState<string[]>(applicableAgencies || [...ALL_AGENCIES]);
+  const [savingAgencies, setSavingAgencies] = useState(false);
+
   useEffect(() => { fetchMembers(); }, [propertyId]);
 
   useEffect(() => {
@@ -159,9 +168,10 @@ export const PropertySettingsTab = ({
     setFormIsFoodEstablishment(isFoodEstablishment || false);
     setFormHasBackflowDevice(hasBackflowDevice || false);
     setFormBurnsNo4Oil(burnsNo4Oil || false);
+    setFormAgencies(applicableAgencies || [...ALL_AGENCIES]);
   }, [ownerName, ownerPhone, smsEnabled, hasGas, hasBoiler, hasElevator, hasSprinkler,
       hasRetainingWall, hasParkingStructure, hasCoolingTower, hasWaterTank, hasFireAlarm,
-      hasStandpipe, hasPlaceOfAssembly, isFoodEstablishment, hasBackflowDevice, burnsNo4Oil]);
+      hasStandpipe, hasPlaceOfAssembly, isFoodEstablishment, hasBackflowDevice, burnsNo4Oil, applicableAgencies]);
 
   const fetchMembers = async () => {
     try {
@@ -232,6 +242,30 @@ export const PropertySettingsTab = ({
       toast.error('Failed to save building features');
     } finally {
       setSavingFeatures(false);
+    }
+  };
+
+  const toggleAgency = (agency: Agency) => {
+    setFormAgencies(prev =>
+      prev.includes(agency) ? prev.filter(a => a !== agency) : [...prev, agency]
+    );
+  };
+
+  const handleSaveAgencies = async () => {
+    setSavingAgencies(true);
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ applicable_agencies: formAgencies } as any)
+        .eq('id', propertyId);
+      if (error) throw error;
+      toast.success('Agencies updated');
+      onUpdate();
+    } catch (error) {
+      console.error('Error saving agencies:', error);
+      toast.error('Failed to save agencies');
+    } finally {
+      setSavingAgencies(false);
     }
   };
 
@@ -417,7 +451,60 @@ export const PropertySettingsTab = ({
         </CardContent>
       </Card>
 
-      {/* SMS Alerts */}
+      {/* Agencies Tracked */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Shield className="w-5 h-5 text-primary" />
+                Agencies Tracked
+              </CardTitle>
+              <CardDescription>
+                Choose which NYC agencies to monitor for violations on this property.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const allSelected = formAgencies.length === ALL_AGENCIES.length;
+                setFormAgencies(allSelected ? [] : [...ALL_AGENCIES]);
+              }}
+            >
+              {formAgencies.length === ALL_AGENCIES.length ? 'Deselect All' : 'Select All'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {ALL_AGENCIES.map((agency) => {
+              const checked = formAgencies.includes(agency);
+              return (
+                <label
+                  key={agency}
+                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    checked
+                      ? 'border-primary/40 bg-primary/5'
+                      : 'border-border bg-muted/30 hover:bg-muted/50'
+                  }`}
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggleAgency(agency)}
+                  />
+                  <span className="text-sm font-medium">{agency}</span>
+                </label>
+              );
+            })}
+          </div>
+          <Button onClick={handleSaveAgencies} disabled={savingAgencies || formAgencies.length === 0}>
+            {savingAgencies && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Agencies
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">

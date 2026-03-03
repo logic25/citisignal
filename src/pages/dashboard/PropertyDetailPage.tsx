@@ -214,7 +214,7 @@ const PropertyDetailPage = () => {
             bin: property.bin, 
             bbl: property.bbl,
             property_id: property.id,
-            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'FDNY', 'HPD', 'DEP', 'DOT', 'DSNY', 'DOF', 'DOHMH']
+            applicable_agencies: property.applicable_agencies || ['DOB', 'ECB', 'HPD', 'FDNY', 'DOT', 'DSNY', 'DEP', 'LPC', 'DOF', 'DOHMH']
           }
         }),
       ]);
@@ -614,6 +614,7 @@ const PropertyDetailPage = () => {
             isFoodEstablishment={(property as any).is_food_establishment ?? null}
             hasBackflowDevice={(property as any).has_backflow_device ?? null}
             burnsNo4Oil={(property as any).burns_no4_oil ?? null}
+            applicableAgencies={property.applicable_agencies}
             onUpdate={fetchPropertyData}
           />
         </TabsContent>
