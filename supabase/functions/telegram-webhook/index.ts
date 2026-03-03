@@ -363,6 +363,7 @@ Deno.serve(async (req) => {
     // Handle photo messages — damage assessment + lease lookup
     if (photo && photo.length > 0) {
       console.log("Photo received, running damage assessment");
+      await sendTypingAction(TELEGRAM_BOT_TOKEN, chatId);
       const largestPhoto = photo[photo.length - 1];
 
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -402,6 +403,9 @@ Deno.serve(async (req) => {
     if (!text) {
       return new Response("OK", { status: 200 });
     }
+
+    // Show typing indicator immediately so user knows bot is working
+    await sendTypingAction(TELEGRAM_BOT_TOKEN, chatId);
 
     // AI-powered query: fetch property context and ask AI
     console.log("Fetching property context for user:", userId);
@@ -513,6 +517,18 @@ RULES:
 });
 
 // ─── Helper Functions ───
+
+async function sendTypingAction(token: string, chatId: number) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    });
+  } catch (e) {
+    console.error("Typing action error:", e);
+  }
+}
 
 async function sendTelegram(token: string, chatId: number, text: string, parseMode?: string) {
   const body: Record<string, unknown> = { chat_id: chatId, text };
