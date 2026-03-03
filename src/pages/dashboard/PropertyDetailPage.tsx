@@ -82,6 +82,10 @@ interface Violation {
   disposition_code?: string | null;
   disposition_comments?: string | null;
   priority?: string | null;
+  tenant_id?: string | null;
+  violation_type?: string | null;
+  suppressed?: boolean | null;
+  suppression_reason?: string | null;
 }
 
 interface WorkOrder {
@@ -563,6 +567,7 @@ const PropertyDetailPage = () => {
             onRefresh={fetchPropertyData}
             bbl={property.bbl}
             propertyId={property.id}
+            propertyAddress={property.address}
           />
         </TabsContent>
 

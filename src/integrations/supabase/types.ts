@@ -2845,6 +2845,8 @@ export type Database = {
           suppressed: boolean | null
           suppression_reason: string | null
           synced_at: string | null
+          tenant_assigned_at: string | null
+          tenant_id: string | null
           updated_at: string
           violation_category: string | null
           violation_class: string | null
@@ -2884,6 +2886,8 @@ export type Database = {
           suppressed?: boolean | null
           suppression_reason?: string | null
           synced_at?: string | null
+          tenant_assigned_at?: string | null
+          tenant_id?: string | null
           updated_at?: string
           violation_category?: string | null
           violation_class?: string | null
@@ -2923,6 +2927,8 @@ export type Database = {
           suppressed?: boolean | null
           suppression_reason?: string | null
           synced_at?: string | null
+          tenant_assigned_at?: string | null
+          tenant_id?: string | null
           updated_at?: string
           violation_category?: string | null
           violation_class?: string | null
@@ -2935,6 +2941,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "violations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
