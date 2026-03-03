@@ -865,6 +865,7 @@ export type Database = {
           notify_new_applications: boolean
           notify_new_violations: boolean
           notify_status_changes: boolean
+          notify_tenant_insurance_expiry: boolean
           reminder_days: number[]
           telegram_critical_alerts: boolean | null
           telegram_daily_summary: boolean | null
@@ -872,6 +873,7 @@ export type Database = {
           telegram_new_applications: boolean | null
           telegram_new_violations: boolean | null
           telegram_status_changes: boolean | null
+          tenant_reminder_days: number[]
           updated_at: string
           user_id: string
         }
@@ -885,6 +887,7 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          notify_tenant_insurance_expiry?: boolean
           reminder_days?: number[]
           telegram_critical_alerts?: boolean | null
           telegram_daily_summary?: boolean | null
@@ -892,6 +895,7 @@ export type Database = {
           telegram_new_applications?: boolean | null
           telegram_new_violations?: boolean | null
           telegram_status_changes?: boolean | null
+          tenant_reminder_days?: number[]
           updated_at?: string
           user_id: string
         }
@@ -905,6 +909,7 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          notify_tenant_insurance_expiry?: boolean
           reminder_days?: number[]
           telegram_critical_alerts?: boolean | null
           telegram_daily_summary?: boolean | null
@@ -912,6 +917,7 @@ export type Database = {
           telegram_new_applications?: boolean | null
           telegram_new_violations?: boolean | null
           telegram_status_changes?: boolean | null
+          tenant_reminder_days?: number[]
           updated_at?: string
           user_id?: string
         }

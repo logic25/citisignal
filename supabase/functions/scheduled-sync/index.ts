@@ -282,7 +282,18 @@ Deno.serve(async (req) => {
         const tenant = (policy as any).tenants;
         const daysLeft = Math.ceil((new Date(policy.expiration_date!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
-        if (![30, 14, 7, 3, 1].includes(daysLeft)) continue;
+        // Fetch user's preferences to determine reminder intervals
+        const { data: userPrefs } = await supabase
+          .from("email_preferences")
+          .select("reminder_days, notify_tenant_insurance_expiry, tenant_reminder_days")
+          .eq("user_id", prop.user_id)
+          .maybeSingle();
+
+        const managerReminderDays = userPrefs?.reminder_days ?? [30, 14, 7, 3, 1];
+        const tenantEnabled = userPrefs?.notify_tenant_insurance_expiry ?? true;
+        const tenantReminderDays = userPrefs?.tenant_reminder_days ?? [30, 14, 7];
+
+        if (!managerReminderDays.includes(daysLeft) && !(tenantEnabled && tenantReminderDays.includes(daysLeft))) continue;
 
         // Check if this specific interval notification already exists
         const { data: existing } = await supabase
@@ -296,19 +307,21 @@ Deno.serve(async (req) => {
 
         if (existing && existing.length > 0) continue;
 
-        notifications.push({
-          user_id: prop.user_id,
-          title: `Insurance expiring in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
-          message: `${tenant?.company_name || "Tenant"}'s ${policy.policy_type?.replace(/_/g, " ")} policy (${policy.carrier_name || "Unknown carrier"}) at ${prop.address} expires ${policy.expiration_date}.`,
-          priority: daysLeft <= 7 ? "high" : "normal",
-          category: "insurance",
-          entity_id: policy.id,
-          entity_type: "insurance_policy",
-          property_id: policy.property_id,
-        });
+        if (managerReminderDays.includes(daysLeft)) {
+          notifications.push({
+            user_id: prop.user_id,
+            title: `Insurance expiring in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`,
+            message: `${tenant?.company_name || "Tenant"}'s ${policy.policy_type?.replace(/_/g, " ")} policy (${policy.carrier_name || "Unknown carrier"}) at ${prop.address} expires ${policy.expiration_date}.`,
+            priority: daysLeft <= 7 ? "high" : "normal",
+            category: "insurance",
+            entity_id: policy.id,
+            entity_type: "insurance_policy",
+            property_id: policy.property_id,
+          });
+        }
 
-        // Send courtesy email to tenant at 14 and 3 days
-        if ([14, 3].includes(daysLeft) && tenant?.contact_email) {
+        // Send email to tenant at their configured intervals
+        if (tenantEnabled && tenantReminderDays.includes(daysLeft) && tenant?.contact_email) {
           try {
             const resendApiKey = Deno.env.get("RESEND_API_KEY");
             const fromAddress = Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>";
