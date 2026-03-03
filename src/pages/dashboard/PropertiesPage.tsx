@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -58,10 +58,19 @@ type ViewMode = 'table' | 'cards';
 const PropertiesPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Auto-open add dialog when navigated with ?add=true
+  useEffect(() => {
+    if (searchParams.get('add') === 'true') {
+      setIsDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [isSyncing, setIsSyncing] = useState(false);
   // Security Fix 23: Validate localStorage input against allowed values
   const [viewMode, setViewMode] = useState<ViewMode>(() => {

@@ -195,7 +195,7 @@ const DashboardOverview = () => {
             <MapPin className="w-4 h-4" />
             Take a Tour
           </Button>
-          <Link to="/dashboard/properties">
+          <Link to="/dashboard/properties?add=true">
             <Button variant="hero">
               <Plus className="w-4 h-4" />
               Add Property
