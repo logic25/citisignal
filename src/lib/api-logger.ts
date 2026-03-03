@@ -12,13 +12,23 @@ interface ApiLogEntry {
 
 // Detect endpoint name from URL
 function detectEndpoint(url: string): string {
-  if (url.includes('64uk-42ks') || url.includes('PLUTO')) return 'PLUTO';
-  if (url.includes('ic3t-wcy2') || url.includes('dob_jobs')) return 'DOB_JOBS';
-  if (url.includes('3h2n-5cm9') || url.includes('ecb')) return 'ECB';
-  if (url.includes('jt7v-77mi') || url.includes('oath')) return 'OATH';
+  if (url.includes('64uk-42ks')) return 'PLUTO';
+  if (url.includes('ic3t-wcy2')) return 'DOB_JOBS';
+  if (url.includes('3h2n-5cm9')) return 'DOB_VIOLATIONS_OLD';
+  if (url.includes('855j-jady')) return 'DOB_VIOLATIONS_NEW';
+  if (url.includes('6bgk-3dad')) return 'ECB';
+  if (url.includes('wvxf-dwi5')) return 'HPD';
+  if (url.includes('jz4z-kudi')) return 'OATH';
+  if (url.includes('eabe-havv')) return 'DOB_COMPLAINTS';
+  if (url.includes('avgm-ztsb')) return 'FDNY_DIRECT';
+  if (url.includes('w9ak-ipjd')) return 'DOB_NOW_BUILD';
+  if (url.includes('xxbr-ypig')) return 'DOB_NOW_LIMITED_ALT';
+  if (url.includes('dm9a-ab7w')) return 'DOB_NOW_ELECTRICAL';
+  if (url.includes('kfp4-dz4h')) return 'DOB_NOW_ELEVATOR';
+  if (url.includes('ipu4-2q9a')) return 'DOB_PERMITS';
+  if (url.includes('bs8b-p36w')) return 'DOB_CO';
   if (url.includes('bc8t-ecyu') || url.includes('pad')) return 'PAD';
-  if (url.includes('ahrc-nbvq') || url.includes('geoclient')) return 'GEOCLIENT';
-  if (url.includes('ipu4-2vj7')) return 'DOB_VIOLATIONS';
+  if (url.includes('jt7v-77mi') || url.includes('geoclient')) return 'GEOCLIENT';
   if (url.includes('data.cityofnewyork.us')) return 'NYC_OTHER';
   return 'UNKNOWN';
 }

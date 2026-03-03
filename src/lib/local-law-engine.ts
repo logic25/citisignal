@@ -33,6 +33,13 @@ export interface PropertyForCompliance {
   number_of_buildings?: number | null;
   primary_use_group?: string | null;
   use_type?: string | null;
+  community_board?: string | null;
+  compliance_filings?: {
+    fisp?: { filed: boolean; trf_no?: string; filing_date?: string };
+    elevator?: { devices: number; compliant_devices: number; last_inspection?: string };
+    boiler?: { filed: boolean; tracking_number?: string; report_type?: string };
+    ll84?: { filed: boolean; report_year?: number; energy_score?: number };
+  } | null;
 }
 
 export type ComplianceCategory =
@@ -141,26 +148,45 @@ function checkLL11(p: PropertyForCompliance): LocalLawRequirement {
   let nextDue: string | null = null;
 
   if (applies && blockDigit !== null) {
-    // Cycle 10: 5-year sub-cycles based on block last digit
-    // FISP Cycle 10 started 2020, 5-year sub-cycles based on block last digit
-    // Sub-cycle A (digits 0-3): 2020+3=2023, Sub-cycle B (digits 4-6): 2020+6=2026, Sub-cycle C (digits 7-9): 2020+9=2029
-    // Each full cycle is 15 years; sub-cycles repeat within that
-    const subCycleBase = blockDigit <= 3 ? 2023 : blockDigit <= 6 ? 2026 : 2029;
-    cycleYear = getNextCycleYear(subCycleBase, 15);
+    // FISP Cycle 10 — official DOB sub-cycle deadlines (filing windows are 2 years each)
+    // Sub-cycle 10A: block digits 4, 5, 6, 9 → deadline Feb 21, 2027
+    // Sub-cycle 10B: block digits 0, 7, 8     → deadline Feb 21, 2028
+    // Sub-cycle 10C: block digits 1, 2, 3     → deadline Feb 21, 2029
+    // After Cycle 10, Cycle 11 repeats with same sub-cycle structure +5 years
+    const isSubCycleA = [4, 5, 6, 9].includes(blockDigit);
+    const isSubCycleB = [0, 7, 8].includes(blockDigit);
+    // isSubCycleC = [1, 2, 3]
+
+    const baseDeadline = isSubCycleA ? 2027 : isSubCycleB ? 2028 : 2029;
+    const currentYear = new Date().getFullYear();
+
+    // If past this cycle's deadline, next one is +5 years (Cycle 11, 12, etc.)
+    cycleYear = baseDeadline;
+    while (cycleYear < currentYear) cycleYear += 5;
     nextDue = `${cycleYear}-02-21`;
   }
+
+  // Cross-reference with filing data if available
+  let status = calcStatus(applies, nextDue);
+  if (applies && p.compliance_filings?.fisp?.filed) {
+    status = 'compliant';
+  }
+
+  const subCycleLabel = blockDigit !== null
+    ? ([4, 5, 6, 9].includes(blockDigit) ? '10A' : [0, 7, 8].includes(blockDigit) ? '10B' : '10C')
+    : '?';
 
   return {
     local_law: 'LL11', requirement_name: 'Facade Inspection (FISP)', category: CAT,
     description: 'Periodic facade inspection for buildings >6 stories. 5-year cycles within Cycle 10. Inspection by QEWI.',
     applies,
     applicability_reason: applies
-      ? `Building has ${stories} stories (>6). Block digit ${blockDigit} → Sub-cycle ${blockDigit !== null && blockDigit <= 3 ? 'A' : blockDigit !== null && blockDigit <= 6 ? 'B' : 'C'}.`
+      ? `Building has ${stories} stories (>6). Block digit ${blockDigit} → Sub-cycle ${subCycleLabel}.`
       : `Building has ${stories || 'unknown'} stories. LL11 requires >6 stories.`,
     cycle_year: cycleYear, next_due_date: nextDue, filing_deadline: nextDue,
     penalty_amount: applies ? 1000 : null,
     penalty_description: applies ? '$1,000/month for late filing; $1,000/month for failure to correct unsafe conditions' : null,
-    status: calcStatus(applies, nextDue),
+    status,
     learn_more_url: 'https://www.nyc.gov/assets/buildings/pdf/facadecycle-sn.pdf',
     tooltip: 'Buildings >6 stories must have facades inspected every 5 years as part of Cycle 10.',
   };
@@ -282,6 +308,11 @@ function checkLL87(p: PropertyForCompliance): LocalLawRequirement {
     cycleYear = baseYear;
     while (cycleYear < currentYear - 1) cycleYear += 10;
     nextDue = `${cycleYear}-12-31`;
+
+    // One-time extension: block digit 5 (due 2025) extended to March 31, 2026
+    if (blockDigit === 5 && cycleYear === 2025) {
+      nextDue = '2026-03-31';
+    }
   }
 
   return {
@@ -411,28 +442,49 @@ function checkLL154(_p: PropertyForCompliance): LocalLawRequirement {
 function checkLL152(p: PropertyForCompliance): LocalLawRequirement {
   const CAT: ComplianceCategory = 'DOB — Gas Safety';
   const applies = !!p.has_gas;
-  const blockDigit = getBlockLastDigit(p.bbl);
   let cycleYear: number | null = null;
   let nextDue: string | null = null;
+  let reason = applies ? 'Building has gas service.' : 'No gas service.';
 
-  if (applies && blockDigit !== null) {
-    // LL152: 4-year cycle. Initial sub-cycles: digits 0-3 → 2021, digits 4-6 → 2023, digits 7-9 → 2025
-    const ll152Base = blockDigit <= 3 ? 2021 : blockDigit <= 6 ? 2023 : 2025;
-    cycleYear = getNextCycleYear(ll152Base, 4);
-    nextDue = `${cycleYear}-12-31`;
+  if (applies && p.community_board) {
+    // LL152 uses community district, NOT block digit
+    // Cycle schedule (repeats every 4 years):
+    // 2024: CDs 1, 3, 10
+    // 2025: CDs 2, 5, 7, 13, 18
+    // 2026: CDs 4, 6, 8, 9, 16
+    // 2027: CDs 11, 12, 14, 15, 17
+    const cd = parseInt(p.community_board);
+    const cycle2Map: Record<number, number> = {
+      1: 2024, 3: 2024, 10: 2024,
+      2: 2025, 5: 2025, 7: 2025, 13: 2025, 18: 2025,
+      4: 2026, 6: 2026, 8: 2026, 9: 2026, 16: 2026,
+      11: 2027, 12: 2027, 14: 2027, 15: 2027, 17: 2027,
+    };
+    const baseDue = cycle2Map[cd];
+    if (baseDue) {
+      cycleYear = baseDue;
+      const currentYear = new Date().getFullYear();
+      while (cycleYear < currentYear) cycleYear += 4;
+      nextDue = `${cycleYear}-12-31`;
+      reason = `Building has gas service. Community District ${cd} → due ${cycleYear}.`;
+    } else {
+      reason = `Building has gas service. Community District ${cd} — check nyc.gov/buildings for specific deadline.`;
+    }
+  } else if (applies) {
+    reason = 'Building has gas service. Community district not available — check nyc.gov/buildings for your specific deadline.';
   }
 
   return {
     local_law: 'LL152', requirement_name: 'Gas Piping Inspection', category: CAT,
     description: 'Periodic inspection of gas piping by LMP every 4 years. Even buildings without gas must file "no gas piping" cert.',
     applies,
-    applicability_reason: applies ? 'Building has gas service.' : 'No gas service.',
+    applicability_reason: reason,
     cycle_year: cycleYear, next_due_date: nextDue, filing_deadline: nextDue,
     penalty_amount: applies ? 10000 : null,
     penalty_description: applies ? 'Up to $5,000–$10,000; hazardous conditions can trigger gas shutoff' : null,
-    status: calcStatus(applies, nextDue),
+    status: nextDue ? calcStatus(applies, nextDue) : (applies ? 'pending' : 'exempt'),
     learn_more_url: 'https://www.nyc.gov/site/buildings/property-or-business-owner/gas-piping-inspections.page',
-    tooltip: '4-year gas piping inspection cycle by Licensed Master Plumber.',
+    tooltip: '4-year gas piping inspection cycle by Licensed Master Plumber. Schedule based on community district.',
   };
 }
 

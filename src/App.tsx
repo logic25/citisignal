@@ -37,6 +37,9 @@ const TenantsPage = lazy(() => import("@/pages/dashboard/TenantsPage"));
 const SignPO = lazy(() => import("./pages/SignPO"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const ComplianceGuidePage = lazy(() => import("./pages/dashboard/ComplianceGuidePage"));
 
 const queryClient = new QueryClient();
 
@@ -78,11 +81,14 @@ const App = () => (
                 <Route path="help" element={<HelpCenterPage />} />
                 <Route path="tenants" element={<TenantsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="compliance-guide" element={<ComplianceGuidePage />} />
                 <Route path="admin" element={<AdminPage />} />
                 <Route path="admin/users/:userId" element={<AdminUserDetailPage />} />
               </Route>
               <Route path="/sign-po/:token" element={<SignPO />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

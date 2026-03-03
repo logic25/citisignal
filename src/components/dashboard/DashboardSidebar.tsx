@@ -21,7 +21,8 @@ import {
   DollarSign,
   BarChart3,
   Landmark,
-  ShieldCheck as ShieldCheckIcon
+  ShieldCheck as ShieldCheckIcon,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -38,6 +39,7 @@ const operationsItems = [
   { icon: ClipboardList, label: 'Work Orders', href: '/dashboard/work-orders' },
   { icon: Users, label: 'Vendors', href: '/dashboard/vendors' },
   { icon: FileStack, label: 'Applications', href: '/dashboard/applications' },
+  { icon: BookOpen, label: 'Compliance Guide', href: '/dashboard/compliance-guide' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
   { icon: Calendar, label: 'Calendar', href: '/dashboard/calendar' },
   { icon: UserCheck, label: 'Tenants', href: '/dashboard/tenants' },
