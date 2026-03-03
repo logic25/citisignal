@@ -13,6 +13,7 @@ import { Plus, Pencil, Trash2, Loader2, Users, AlertTriangle, ChevronDown, Chevr
 import { toast } from 'sonner';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { TenantInsuranceSection } from './TenantInsuranceSection';
+import { TenantLeaseDetails } from './TenantLeaseDetails';
 
 interface Tenant {
   id: string;
@@ -32,6 +33,18 @@ interface Tenant {
   status: string;
   notes: string | null;
   created_at: string;
+  // CRE enrichment fields
+  tenant_sqft: number | null;
+  annual_escalation_pct: number | null;
+  option_terms: string | null;
+  use_clause: string | null;
+  guarantor_name: string | null;
+  guarantor_phone: string | null;
+  move_in_date: string | null;
+  parking_spaces: number | null;
+  ti_allowance: number | null;
+  percentage_rent: number | null;
+  percentage_rent_breakpoint: number | null;
 }
 
 const EMPTY_FORM = {
@@ -49,6 +62,18 @@ const EMPTY_FORM = {
   lease_type: 'gross',
   status: 'active',
   notes: '',
+  // CRE fields
+  tenant_sqft: '',
+  annual_escalation_pct: '',
+  option_terms: '',
+  use_clause: '',
+  guarantor_name: '',
+  guarantor_phone: '',
+  move_in_date: '',
+  parking_spaces: '',
+  ti_allowance: '',
+  percentage_rent: '',
+  percentage_rent_breakpoint: '',
 };
 
 interface PropertyTenantsTabProps {
@@ -99,6 +124,17 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
       lease_type: t.lease_type || 'gross',
       status: t.status,
       notes: t.notes || '',
+      tenant_sqft: t.tenant_sqft?.toString() || '',
+      annual_escalation_pct: t.annual_escalation_pct?.toString() || '',
+      option_terms: t.option_terms || '',
+      use_clause: t.use_clause || '',
+      guarantor_name: t.guarantor_name || '',
+      guarantor_phone: t.guarantor_phone || '',
+      move_in_date: t.move_in_date || '',
+      parking_spaces: t.parking_spaces?.toString() || '',
+      ti_allowance: t.ti_allowance?.toString() || '',
+      percentage_rent: t.percentage_rent?.toString() || '',
+      percentage_rent_breakpoint: t.percentage_rent_breakpoint?.toString() || '',
     });
     setEditingId(t.id);
     setDialogOpen(true);
@@ -126,6 +162,17 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
       lease_type: form.lease_type,
       status: form.status,
       notes: form.notes || null,
+      tenant_sqft: form.tenant_sqft ? parseFloat(form.tenant_sqft) : null,
+      annual_escalation_pct: form.annual_escalation_pct ? parseFloat(form.annual_escalation_pct) : null,
+      option_terms: form.option_terms || null,
+      use_clause: form.use_clause || null,
+      guarantor_name: form.guarantor_name || null,
+      guarantor_phone: form.guarantor_phone || null,
+      move_in_date: form.move_in_date || null,
+      parking_spaces: form.parking_spaces ? parseInt(form.parking_spaces) : null,
+      ti_allowance: form.ti_allowance ? parseFloat(form.ti_allowance) : null,
+      percentage_rent: form.percentage_rent ? parseFloat(form.percentage_rent) : null,
+      percentage_rent_breakpoint: form.percentage_rent_breakpoint ? parseFloat(form.percentage_rent_breakpoint) : null,
     };
 
     const { error } = editingId
@@ -159,6 +206,8 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
 
   const activeTenants = tenants.filter(t => t.status === 'active');
   const totalRent = activeTenants.reduce((s, t) => s + (t.rent_amount || 0), 0);
+  const totalSqft = activeTenants.reduce((s, t) => s + (t.tenant_sqft || 0), 0);
+  const avgPsfRent = totalSqft > 0 ? (totalRent * 12) / totalSqft : null;
   const expiringCount = activeTenants.filter(t => t.lease_end && differenceInDays(parseISO(t.lease_end), new Date()) <= 90).length;
 
   const setField = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
@@ -171,12 +220,17 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
     });
   };
 
+  const getRentPerSqft = (t: Tenant) => {
+    if (!t.rent_amount || !t.tenant_sqft || t.tenant_sqft === 0) return null;
+    return ((t.rent_amount * 12) / t.tenant_sqft).toFixed(2);
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4 pb-4 text-center">
           <div className="text-2xl font-bold text-foreground">{activeTenants.length}</div>
           <div className="text-xs text-muted-foreground">Active Tenants</div>
@@ -192,6 +246,12 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
             Leases Expiring ≤90d
           </div>
         </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-4 text-center">
+          <div className="text-2xl font-bold text-foreground">
+            {avgPsfRent != null ? `$${parseFloat(avgPsfRent as unknown as string).toFixed(2)}` : '—'}
+          </div>
+          <div className="text-xs text-muted-foreground">Avg $/SF (Annual)</div>
+        </CardContent></Card>
       </div>
 
       {/* Toolbar */}
@@ -204,6 +264,7 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingId ? 'Edit Tenant' : 'Add Tenant'}</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3">
+              {/* Core Info */}
               <div className="col-span-2"><Label>Company Name *</Label><Input value={form.company_name} onChange={e => setField('company_name', e.target.value)} /></div>
               <div><Label>Unit / Suite</Label><Input value={form.unit_number} onChange={e => setField('unit_number', e.target.value)} /></div>
               <div><Label>Status</Label>
@@ -229,11 +290,37 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Space */}
+              <div className="col-span-2 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Space</p></div>
+              <div><Label>Sq Ft</Label><Input type="number" value={form.tenant_sqft} onChange={e => setField('tenant_sqft', e.target.value)} /></div>
+              <div><Label>Parking Spaces</Label><Input type="number" value={form.parking_spaces} onChange={e => setField('parking_spaces', e.target.value)} /></div>
+
+              {/* Dates */}
+              <div className="col-span-2 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dates</p></div>
               <div><Label>Lease Start</Label><Input type="date" value={form.lease_start} onChange={e => setField('lease_start', e.target.value)} /></div>
               <div><Label>Lease End</Label><Input type="date" value={form.lease_end} onChange={e => setField('lease_end', e.target.value)} /></div>
+              <div><Label>Move-in Date</Label><Input type="date" value={form.move_in_date} onChange={e => setField('move_in_date', e.target.value)} /></div>
+              <div><Label>Renewal Option Date</Label><Input type="date" value={form.renewal_option_date} onChange={e => setField('renewal_option_date', e.target.value)} /></div>
+
+              {/* Financial */}
+              <div className="col-span-2 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financial</p></div>
               <div><Label>Monthly Rent ($)</Label><Input type="number" value={form.rent_amount} onChange={e => setField('rent_amount', e.target.value)} /></div>
               <div><Label>Security Deposit ($)</Label><Input type="number" value={form.security_deposit} onChange={e => setField('security_deposit', e.target.value)} /></div>
-              <div><Label>Renewal Option Date</Label><Input type="date" value={form.renewal_option_date} onChange={e => setField('renewal_option_date', e.target.value)} /></div>
+              <div><Label>Annual Escalation %</Label><Input type="number" step="0.1" value={form.annual_escalation_pct} onChange={e => setField('annual_escalation_pct', e.target.value)} /></div>
+              <div><Label>TI Allowance ($)</Label><Input type="number" value={form.ti_allowance} onChange={e => setField('ti_allowance', e.target.value)} /></div>
+              <div><Label>Percentage Rent %</Label><Input type="number" step="0.1" value={form.percentage_rent} onChange={e => setField('percentage_rent', e.target.value)} /></div>
+              <div><Label>Breakpoint ($)</Label><Input type="number" value={form.percentage_rent_breakpoint} onChange={e => setField('percentage_rent_breakpoint', e.target.value)} /></div>
+
+              {/* Lease Terms */}
+              <div className="col-span-2 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Lease Terms</p></div>
+              <div className="col-span-2"><Label>Use Clause</Label><Input value={form.use_clause} onChange={e => setField('use_clause', e.target.value)} placeholder="e.g. Retail, Office, Warehouse" /></div>
+              <div className="col-span-2"><Label>Option Terms</Label><Input value={form.option_terms} onChange={e => setField('option_terms', e.target.value)} placeholder="e.g. 2x 5-year options at FMV" /></div>
+              <div><Label>Guarantor Name</Label><Input value={form.guarantor_name} onChange={e => setField('guarantor_name', e.target.value)} /></div>
+              <div><Label>Guarantor Phone</Label><Input value={form.guarantor_phone} onChange={e => setField('guarantor_phone', e.target.value)} /></div>
+
+              {/* Notes */}
+              <div className="col-span-2 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notes</p></div>
               <div className="col-span-2"><Label>Escalation Notes</Label><Textarea value={form.escalation_notes} onChange={e => setField('escalation_notes', e.target.value)} className="min-h-[60px]" /></div>
               <div className="col-span-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setField('notes', e.target.value)} className="min-h-[60px]" /></div>
             </div>
@@ -264,7 +351,9 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                 <TableHead>Tenant</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Lease Type</TableHead>
+                <TableHead>Sq Ft</TableHead>
                 <TableHead>Rent</TableHead>
+                <TableHead>$/SF</TableHead>
                 <TableHead>Lease End</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
@@ -285,7 +374,9 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                   </TableCell>
                   <TableCell className="text-sm">{t.unit_number || '—'}</TableCell>
                   <TableCell className="text-sm capitalize">{(t.lease_type || 'gross').replace('_', ' ')}</TableCell>
+                  <TableCell className="text-sm">{t.tenant_sqft ? t.tenant_sqft.toLocaleString() : '—'}</TableCell>
                   <TableCell className="text-sm">{t.rent_amount ? `$${t.rent_amount.toLocaleString()}` : '—'}</TableCell>
+                  <TableCell className="text-sm">{getRentPerSqft(t) ? `$${getRentPerSqft(t)}` : '—'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{t.lease_end ? format(parseISO(t.lease_end), 'MMM d, yyyy') : '—'}</span>
@@ -310,8 +401,9 @@ export const PropertyTenantsTab = ({ propertyId }: PropertyTenantsTabProps) => {
                 </TableRow>
                 {expandedTenants.has(t.id) && (
                   <TableRow>
-                    <TableCell colSpan={8} className="bg-muted/20 px-6 py-3">
+                    <TableCell colSpan={10} className="bg-muted/20 px-6 py-3">
                       <TenantInsuranceSection tenantId={t.id} propertyId={propertyId} tenantName={t.company_name} />
+                      <TenantLeaseDetails tenant={t} />
                     </TableCell>
                   </TableRow>
                 )}
