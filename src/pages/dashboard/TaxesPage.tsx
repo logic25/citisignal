@@ -97,7 +97,7 @@ const TaxesPage = () => {
         protest_status: form.protest_status,
         tenant_responsible: form.tenant_responsible,
         tenant_name: form.tenant_name || null,
-        exemption_type: form.exemption_type || null,
+        exemption_type: form.exemption_type && form.exemption_type !== 'none' ? form.exemption_type : null,
         exemption_start_date: form.exemption_start_date || null,
         exemption_end_date: form.exemption_end_date || null,
         exemption_notes: form.exemption_notes || null,
@@ -269,7 +269,7 @@ const TaxesPage = () => {
                   <Select value={form.exemption_type} onValueChange={v => setField('exemption_type', v)}>
                     <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="421a">421-a</SelectItem>
                       <SelectItem value="icap">ICAP</SelectItem>
                       <SelectItem value="j51">J-51</SelectItem>
