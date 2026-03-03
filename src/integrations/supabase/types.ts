@@ -2333,6 +2333,47 @@ export type Database = {
           },
         ]
       }
+      telegram_messages: {
+        Row: {
+          chat_id: number
+          created_at: string
+          direction: string
+          id: string
+          message_text: string | null
+          telegram_message_id: number | null
+          user_id: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          direction?: string
+          id?: string
+          message_text?: string | null
+          telegram_message_id?: number | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          direction?: string
+          id?: string
+          message_text?: string | null
+          telegram_message_id?: number | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_messages_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telegram_users: {
         Row: {
           chat_id: number
@@ -2536,6 +2577,59 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean
+          mobile: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          mobile?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          mobile?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_contacts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_reviews: {
         Row: {
           communication_rating: number | null
@@ -2618,6 +2712,7 @@ export type Database = {
           email: string | null
           id: string
           license_number: string | null
+          mobile_number: string | null
           name: string
           notes: string | null
           payment_preference: string | null
@@ -2629,6 +2724,7 @@ export type Database = {
           trade_type: string | null
           updated_at: string
           user_id: string
+          website: string | null
           zelle_email: string | null
           zelle_phone: string | null
         }
@@ -2640,6 +2736,7 @@ export type Database = {
           email?: string | null
           id?: string
           license_number?: string | null
+          mobile_number?: string | null
           name: string
           notes?: string | null
           payment_preference?: string | null
@@ -2651,6 +2748,7 @@ export type Database = {
           trade_type?: string | null
           updated_at?: string
           user_id: string
+          website?: string | null
           zelle_email?: string | null
           zelle_phone?: string | null
         }
@@ -2662,6 +2760,7 @@ export type Database = {
           email?: string | null
           id?: string
           license_number?: string | null
+          mobile_number?: string | null
           name?: string
           notes?: string | null
           payment_preference?: string | null
@@ -2673,6 +2772,7 @@ export type Database = {
           trade_type?: string | null
           updated_at?: string
           user_id?: string
+          website?: string | null
           zelle_email?: string | null
           zelle_phone?: string | null
         }

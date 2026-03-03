@@ -134,11 +134,13 @@ const VendorsPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone_number: '',
+    mobile_number: '',
     email: '',
     trade_type: '',
     coi_expiration_date: '',
     license_number: '',
     address: '',
+    website: '',
     notes: '',
     zelle_email: '',
     zelle_phone: '',
@@ -211,16 +213,18 @@ const VendorsPage = () => {
         user_id: user.id,
         name: formData.name,
         phone_number: formData.phone_number || null,
+        mobile_number: formData.mobile_number || null,
         email: formData.email || null,
         trade_type: formData.trade_type || null,
         coi_expiration_date: formData.coi_expiration_date || null,
         license_number: formData.license_number || null,
         address: formData.address || null,
+        website: formData.website || null,
         notes: formData.notes || null,
         zelle_email: formData.zelle_email || null,
         zelle_phone: formData.zelle_phone || null,
         payment_preference: formData.payment_preference || 'zelle',
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -248,16 +252,18 @@ const VendorsPage = () => {
         .update({
           name: formData.name,
           phone_number: formData.phone_number || null,
+          mobile_number: formData.mobile_number || null,
           email: formData.email || null,
           trade_type: formData.trade_type || null,
           coi_expiration_date: formData.coi_expiration_date || null,
           license_number: formData.license_number || null,
           address: formData.address || null,
+          website: formData.website || null,
           notes: formData.notes || null,
           zelle_email: formData.zelle_email || null,
           zelle_phone: formData.zelle_phone || null,
           payment_preference: formData.payment_preference || 'zelle',
-        })
+        } as any)
         .eq('id', editingVendor.id);
 
       if (error) throw error;
@@ -295,11 +301,13 @@ const VendorsPage = () => {
     setFormData({
       name: vendor.name,
       phone_number: vendor.phone_number || '',
+      mobile_number: (vendor as any).mobile_number || '',
       email: vendor.email || '',
       trade_type: vendor.trade_type || '',
       coi_expiration_date: vendor.coi_expiration_date || '',
       license_number: vendor.license_number || '',
       address: vendor.address || '',
+      website: (vendor as any).website || '',
       notes: vendor.notes || '',
       zelle_email: vendor.zelle_email || '',
       zelle_phone: vendor.zelle_phone || '',
@@ -318,11 +326,13 @@ const VendorsPage = () => {
     setFormData({
       name: '',
       phone_number: '',
+      mobile_number: '',
       email: '',
       trade_type: '',
       coi_expiration_date: '',
       license_number: '',
       address: '',
+      website: '',
       notes: '',
       zelle_email: '',
       zelle_phone: '',
@@ -404,7 +414,7 @@ const VendorsPage = () => {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number</Label>
+          <Label htmlFor="phone">Office Phone</Label>
           <Input
             id="phone"
             type="tel"
@@ -414,6 +424,19 @@ const VendorsPage = () => {
           />
         </div>
         <div className="space-y-2">
+          <Label htmlFor="mobile">Mobile</Label>
+          <Input
+            id="mobile"
+            type="tel"
+            placeholder="(555) 987-6543"
+            value={formData.mobile_number}
+            onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -421,6 +444,16 @@ const VendorsPage = () => {
             placeholder="vendor@company.com"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="website">Website</Label>
+          <Input
+            id="website"
+            type="url"
+            placeholder="https://company.com"
+            value={formData.website}
+            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
           />
         </div>
       </div>

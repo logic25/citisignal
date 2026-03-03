@@ -57,6 +57,26 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Log inbound message (best-effort, don't block)
+    const logInbound = async () => {
+      try {
+        // Find vendor or user associated with this chat
+        const [{ data: tUser }, { data: vMatch }] = await Promise.all([
+          supabase.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle(),
+          supabase.from("vendors").select("id").eq("telegram_chat_id", chatId).maybeSingle(),
+        ]);
+        await supabase.from("telegram_messages").insert({
+          chat_id: chatId,
+          user_id: tUser?.user_id || null,
+          vendor_id: vMatch?.id || null,
+          direction: "inbound",
+          message_text: text || caption || (photo ? "[photo]" : null),
+          telegram_message_id: message.message_id || null,
+        });
+      } catch (e) { console.error("Log inbound err:", e); }
+    };
+    logInbound(); // fire and forget
+
     // Handle /start command with linking code
     if (text.startsWith("/start")) {
       const parts = text.split(" ");
@@ -515,6 +535,25 @@ async function sendTelegram(token: string, chatId: number, text: string, parseMo
       });
     }
   }
+
+  // Log outbound message (best-effort)
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    const [{ data: tUser }, { data: vMatch }] = await Promise.all([
+      supabase.from("telegram_users").select("user_id").eq("chat_id", chatId).maybeSingle(),
+      supabase.from("vendors").select("id").eq("telegram_chat_id", chatId).maybeSingle(),
+    ]);
+    await supabase.from("telegram_messages").insert({
+      chat_id: chatId,
+      user_id: tUser?.user_id || null,
+      vendor_id: vMatch?.id || null,
+      direction: "outbound",
+      message_text: text,
+    });
+  } catch (e) { console.error("Log outbound err:", e); }
 }
 
 // ─── Lease Question Detection ───
