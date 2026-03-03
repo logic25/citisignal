@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Mail, Send, Eye, MessageCircle } from 'lucide-react';
+import { Loader2, Mail, Send, Eye, MessageCircle, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface EmailPreferences {
@@ -24,6 +24,7 @@ interface EmailPreferences {
   telegram_expirations: boolean;
   telegram_daily_summary: boolean;
   telegram_critical_alerts: boolean;
+  reminder_days: number[];
 }
 
 const defaultPrefs: EmailPreferences = {
@@ -39,7 +40,17 @@ const defaultPrefs: EmailPreferences = {
   telegram_expirations: false,
   telegram_daily_summary: false,
   telegram_critical_alerts: true,
+  reminder_days: [30, 14, 7, 3, 1],
 };
+
+const AVAILABLE_REMINDER_DAYS = [
+  { value: 60, label: '60 days' },
+  { value: 30, label: '30 days' },
+  { value: 14, label: '14 days' },
+  { value: 7, label: '7 days' },
+  { value: 3, label: '3 days' },
+  { value: 1, label: '1 day' },
+];
 
 const EmailPreferencesTab = () => {
   const { user } = useAuth();
@@ -76,6 +87,7 @@ const EmailPreferencesTab = () => {
             telegram_expirations: d.telegram_expirations ?? false,
             telegram_daily_summary: d.telegram_daily_summary ?? false,
             telegram_critical_alerts: d.telegram_critical_alerts ?? true,
+            reminder_days: d.reminder_days ?? [30, 14, 7, 3, 1],
           });
         }
         setHasTelegram(!!telegramRes.data);
@@ -340,6 +352,54 @@ const EmailPreferencesTab = () => {
               </p>
             )}
 
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Save Preferences
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reminder Intervals */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              Expiration Reminder Schedule
+            </CardTitle>
+            <CardDescription>
+              Choose when to be reminded before COI, insurance, document, and tax exemption expirations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {AVAILABLE_REMINDER_DAYS.map(({ value, label }) => {
+                const isSelected = prefs.reminder_days.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      const next = isSelected
+                        ? prefs.reminder_days.filter(d => d !== value)
+                        : [...prefs.reminder_days, value].sort((a, b) => b - a);
+                      setPrefs({ ...prefs, reminder_days: next });
+                    }}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-muted-foreground border-border hover:border-primary/50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {prefs.reminder_days.length === 0 && (
+              <p className="text-xs text-destructive mt-2">⚠️ No reminder intervals selected — you won't receive expiration reminders.</p>
+            )}
             <div className="mt-4 pt-4 border-t border-border">
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
