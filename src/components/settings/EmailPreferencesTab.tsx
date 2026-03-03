@@ -25,6 +25,8 @@ interface EmailPreferences {
   telegram_daily_summary: boolean;
   telegram_critical_alerts: boolean;
   reminder_days: number[];
+  notify_tenant_insurance_expiry: boolean;
+  tenant_reminder_days: number[];
 }
 
 const defaultPrefs: EmailPreferences = {
@@ -41,6 +43,8 @@ const defaultPrefs: EmailPreferences = {
   telegram_daily_summary: false,
   telegram_critical_alerts: true,
   reminder_days: [30, 14, 7, 3, 1],
+  notify_tenant_insurance_expiry: true,
+  tenant_reminder_days: [30, 14, 7],
 };
 
 const AVAILABLE_REMINDER_DAYS = [
@@ -88,6 +92,8 @@ const EmailPreferencesTab = () => {
             telegram_daily_summary: d.telegram_daily_summary ?? false,
             telegram_critical_alerts: d.telegram_critical_alerts ?? true,
             reminder_days: d.reminder_days ?? [30, 14, 7, 3, 1],
+            notify_tenant_insurance_expiry: d.notify_tenant_insurance_expiry ?? true,
+            tenant_reminder_days: d.tenant_reminder_days ?? [30, 14, 7],
           });
         }
         setHasTelegram(!!telegramRes.data);
@@ -400,6 +406,75 @@ const EmailPreferencesTab = () => {
             {prefs.reminder_days.length === 0 && (
               <p className="text-xs text-destructive mt-2">⚠️ No reminder intervals selected — you won't receive expiration reminders.</p>
             )}
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Save Preferences
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tenant Insurance Notifications */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Tenant Insurance Expiry Emails
+            </CardTitle>
+            <CardDescription>
+              Automatically email tenants when their COI is approaching expiration
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 rounded-lg border border-border">
+              <div>
+                <p className="font-medium">Email Tenants About Expiring Insurance</p>
+                <p className="text-sm text-muted-foreground">
+                  Tenants with a contact email on file will receive renewal reminders
+                </p>
+              </div>
+              <Switch
+                checked={prefs.notify_tenant_insurance_expiry}
+                onCheckedChange={(checked) =>
+                  setPrefs({ ...prefs, notify_tenant_insurance_expiry: checked })
+                }
+              />
+            </div>
+
+            {prefs.notify_tenant_insurance_expiry && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Remind tenants at these intervals</Label>
+                <div className="flex flex-wrap gap-3">
+                  {AVAILABLE_REMINDER_DAYS.map(({ value, label }) => {
+                    const isSelected = prefs.tenant_reminder_days.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          const next = isSelected
+                            ? prefs.tenant_reminder_days.filter(d => d !== value)
+                            : [...prefs.tenant_reminder_days, value].sort((a, b) => b - a);
+                          setPrefs({ ...prefs, tenant_reminder_days: next });
+                        }}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-muted-foreground border-border hover:border-primary/50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {prefs.tenant_reminder_days.length === 0 && (
+                  <p className="text-xs text-destructive">⚠️ No intervals selected — tenants won't receive email reminders.</p>
+                )}
+              </div>
+            )}
+
             <div className="mt-4 pt-4 border-t border-border">
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
