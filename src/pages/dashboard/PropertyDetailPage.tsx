@@ -521,7 +521,7 @@ const PropertyDetailPage = () => {
             Violations {openViolations > 0 && `(${openViolations})`}
           </TabsTrigger>
           <TabsTrigger value="complaints">
-            Complaints {complaints.length > 0 && `(${complaints.length})`}
+            Complaints {complaints.filter(c => c.status === 'open').length > 0 && `(${complaints.filter(c => c.status === 'open').length})`}
           </TabsTrigger>
           <TabsTrigger value="applications">
             Applications {activeAppCount > 0 && `(${activeAppCount})`}

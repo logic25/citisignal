@@ -241,7 +241,6 @@ Deno.serve(async (req) => {
           emailsSent++;
           changeIds.push(...userChanges.map(c => c.id));
 
-          // Log the email
           await supabase.from("email_log").insert({
             user_id: userId,
             email_type: "change_summary",
@@ -252,6 +251,80 @@ Deno.serve(async (req) => {
         } else {
           const err = await resendRes.json();
           console.error("Resend error:", err);
+        }
+
+        // Send Telegram alerts if user opted in
+        try {
+          const { data: telegramPrefs } = await supabase
+            .from("email_preferences")
+            .select("telegram_new_violations, telegram_status_changes, telegram_critical_alerts, telegram_daily_summary")
+            .eq("user_id", userId)
+            .single();
+
+          const { data: telegramUser } = await supabase
+            .from("telegram_users")
+            .select("chat_id, is_active")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .single();
+
+          if (telegramUser && telegramPrefs) {
+            let telegramMsg = "";
+            let shouldSend = false;
+
+            // Critical alerts
+            const criticalChanges = filteredChanges.filter((c: any) =>
+              c.description?.toLowerCase().includes("stop work") ||
+              c.description?.toLowerCase().includes("vacate") ||
+              c.description?.toLowerCase().includes("swo")
+            );
+            if (criticalChanges.length > 0 && telegramPrefs.telegram_critical_alerts) {
+              telegramMsg += `🚨 *CRITICAL ALERT*\n`;
+              for (const c of criticalChanges) {
+                telegramMsg += `⛔ ${c.entity_label}\n${c.description?.slice(0, 120)}\n\n`;
+              }
+              shouldSend = true;
+            }
+
+            // New violations
+            const newViolations = filteredChanges.filter((c: any) => c.entity_type === 'violation' && c.change_type === 'new');
+            if (newViolations.length > 0 && telegramPrefs.telegram_new_violations) {
+              telegramMsg += `⚠️ *${newViolations.length} New Violation${newViolations.length > 1 ? "s" : ""}*\n`;
+              for (const v of newViolations.slice(0, 5)) {
+                telegramMsg += `• ${v.entity_label} — ${v.description?.slice(0, 80)}\n`;
+              }
+              if (newViolations.length > 5) telegramMsg += `_...and ${newViolations.length - 5} more_\n`;
+              telegramMsg += "\n";
+              shouldSend = true;
+            }
+
+            // Status changes
+            const statusChanges = filteredChanges.filter((c: any) => c.change_type === 'status_change');
+            if (statusChanges.length > 0 && telegramPrefs.telegram_status_changes) {
+              telegramMsg += `🔄 *${statusChanges.length} Status Change${statusChanges.length > 1 ? "s" : ""}*\n`;
+              for (const s of statusChanges.slice(0, 5)) {
+                telegramMsg += `• ${s.entity_label}: ${s.previous_value} → *${s.new_value}*\n`;
+              }
+              if (statusChanges.length > 5) telegramMsg += `_...and ${statusChanges.length - 5} more_\n`;
+              telegramMsg += "\n";
+              shouldSend = true;
+            }
+
+            // Daily summary fallback
+            if (telegramPrefs.telegram_daily_summary && !shouldSend) {
+              telegramMsg = `📡 *Daily Summary*\n${filteredChanges.length} changes detected across your properties.\nUse /status for details.`;
+              shouldSend = true;
+            }
+
+            if (shouldSend && telegramMsg) {
+              await supabase.functions.invoke("send-telegram", {
+                body: { user_id: userId, message: telegramMsg.slice(0, 4000), parse_mode: "Markdown" },
+              });
+              console.log("Sent Telegram alert to user:", userId);
+            }
+          }
+        } catch (telegramErr) {
+          console.error("Error sending Telegram alert:", telegramErr);
         }
       } catch (e) {
         console.error(`Error sending summary to user ${userId}:`, e);

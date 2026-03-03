@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Mail, Send, Eye } from 'lucide-react';
+import { Loader2, Mail, Send, Eye, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface EmailPreferences {
@@ -18,6 +18,12 @@ interface EmailPreferences {
   notify_status_changes: boolean;
   notify_expirations: boolean;
   notify_new_applications: boolean;
+  telegram_new_violations: boolean;
+  telegram_status_changes: boolean;
+  telegram_new_applications: boolean;
+  telegram_expirations: boolean;
+  telegram_daily_summary: boolean;
+  telegram_critical_alerts: boolean;
 }
 
 const defaultPrefs: EmailPreferences = {
@@ -27,6 +33,12 @@ const defaultPrefs: EmailPreferences = {
   notify_status_changes: true,
   notify_expirations: true,
   notify_new_applications: true,
+  telegram_new_violations: false,
+  telegram_status_changes: false,
+  telegram_new_applications: false,
+  telegram_expirations: false,
+  telegram_daily_summary: false,
+  telegram_critical_alerts: true,
 };
 
 const EmailPreferencesTab = () => {
@@ -38,35 +50,42 @@ const EmailPreferencesTab = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [hasTelegram, setHasTelegram] = useState(false);
 
   useEffect(() => {
-    const fetchPrefs = async () => {
+    const fetchData = async () => {
       if (!user) return;
       try {
-        const { data, error } = await supabase
-          .from('email_preferences')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const [prefsRes, telegramRes] = await Promise.all([
+          supabase.from('email_preferences').select('*').eq('user_id', user.id).single(),
+          supabase.from('telegram_users' as any).select('is_active').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
+        ]);
 
-        if (error && error.code !== 'PGRST116') throw error;
-        if (data) {
+        if (prefsRes.data) {
+          const d = prefsRes.data as any;
           setPrefs({
-            digest_frequency: (data as any).digest_frequency || 'none',
-            digest_day: (data as any).digest_day || 'monday',
-            notify_new_violations: (data as any).notify_new_violations ?? true,
-            notify_status_changes: (data as any).notify_status_changes ?? true,
-            notify_expirations: (data as any).notify_expirations ?? true,
-            notify_new_applications: (data as any).notify_new_applications ?? true,
+            digest_frequency: d.digest_frequency || 'none',
+            digest_day: d.digest_day || 'monday',
+            notify_new_violations: d.notify_new_violations ?? true,
+            notify_status_changes: d.notify_status_changes ?? true,
+            notify_expirations: d.notify_expirations ?? true,
+            notify_new_applications: d.notify_new_applications ?? true,
+            telegram_new_violations: d.telegram_new_violations ?? false,
+            telegram_status_changes: d.telegram_status_changes ?? false,
+            telegram_new_applications: d.telegram_new_applications ?? false,
+            telegram_expirations: d.telegram_expirations ?? false,
+            telegram_daily_summary: d.telegram_daily_summary ?? false,
+            telegram_critical_alerts: d.telegram_critical_alerts ?? true,
           });
         }
+        setHasTelegram(!!telegramRes.data);
       } catch (err) {
-        console.error('Error fetching email prefs:', err);
+        console.error('Error fetching prefs:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchPrefs();
+    fetchData();
   }, [user]);
 
   const handleSave = async () => {
@@ -82,9 +101,9 @@ const EmailPreferencesTab = () => {
         } as any, { onConflict: 'user_id' });
 
       if (error) throw error;
-      toast.success('Email preferences saved');
+      toast.success('Notification preferences saved');
     } catch (err) {
-      console.error('Error saving email prefs:', err);
+      console.error('Error saving prefs:', err);
       toast.error('Failed to save preferences');
     } finally {
       setIsSaving(false);
@@ -120,9 +139,7 @@ const EmailPreferencesTab = () => {
       const response = await supabase.functions.invoke('send-email-digest', {
         body: { user_id: user.id, preview_only: true },
       });
-      // The response will be HTML string
       if (response.error) throw response.error;
-      // The edge function returns HTML directly in preview mode
       const html = typeof response.data === 'string' ? response.data : response.data?.toString() || '<p>Unable to generate preview</p>';
       setPreviewHtml(html);
     } catch (err: any) {
@@ -143,6 +160,13 @@ const EmailPreferencesTab = () => {
     );
   }
 
+  const ALERT_TYPES = [
+    { emailKey: 'notify_new_violations' as const, telegramKey: 'telegram_new_violations' as const, label: 'New Violations', desc: 'Newly issued violations from any agency' },
+    { emailKey: 'notify_status_changes' as const, telegramKey: 'telegram_status_changes' as const, label: 'Status Changes', desc: 'Violations or applications that changed status' },
+    { emailKey: 'notify_new_applications' as const, telegramKey: 'telegram_new_applications' as const, label: 'New Applications', desc: 'DOB/FDNY/HPD application filings' },
+    { emailKey: 'notify_expirations' as const, telegramKey: 'telegram_expirations' as const, label: 'Expiring Insurance & Docs', desc: 'Insurance policies and documents expiring soon' },
+  ];
+
   return (
     <>
       <div className="space-y-6">
@@ -158,7 +182,6 @@ const EmailPreferencesTab = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Main toggle */}
             <div className="flex items-center justify-between p-4 rounded-lg border border-border">
               <div>
                 <p className="font-medium">Enable Weekly Digest</p>
@@ -176,17 +199,11 @@ const EmailPreferencesTab = () => {
 
             {digestEnabled && (
               <>
-                {/* Frequency + Day */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Frequency</Label>
-                    <Select
-                      value={prefs.digest_frequency}
-                      onValueChange={(v) => setPrefs({ ...prefs, digest_frequency: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Select value={prefs.digest_frequency} onValueChange={(v) => setPrefs({ ...prefs, digest_frequency: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="daily">Daily</SelectItem>
@@ -196,52 +213,16 @@ const EmailPreferencesTab = () => {
                   {prefs.digest_frequency === 'weekly' && (
                     <div className="space-y-2">
                       <Label>Send On</Label>
-                      <Select
-                        value={prefs.digest_day}
-                        onValueChange={(v) => setPrefs({ ...prefs, digest_day: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Select value={prefs.digest_day} onValueChange={(v) => setPrefs({ ...prefs, digest_day: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="monday">Monday</SelectItem>
-                          <SelectItem value="tuesday">Tuesday</SelectItem>
-                          <SelectItem value="wednesday">Wednesday</SelectItem>
-                          <SelectItem value="thursday">Thursday</SelectItem>
-                          <SelectItem value="friday">Friday</SelectItem>
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map(d => (
+                            <SelectItem key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
-                </div>
-
-                {/* Content Checkboxes */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Include in Digest
-                  </Label>
-                  <div className="space-y-3">
-                    {[
-                      { key: 'notify_new_violations' as const, label: 'Active violations', desc: 'Open violations with severity and hearing dates' },
-                      { key: 'notify_status_changes' as const, label: 'Status changes', desc: 'Violations and applications that changed status' },
-                      { key: 'notify_expirations' as const, label: 'Expiring documents & permits', desc: 'Documents expiring within 7 days' },
-                      { key: 'notify_new_applications' as const, label: 'Application updates', desc: 'Recent DOB/FDNY/HPD application filings' },
-                    ].map(({ key, label, desc }) => (
-                      <div key={key} className="flex items-start gap-3 p-3 rounded-lg border border-border">
-                        <Checkbox
-                          checked={prefs[key]}
-                          onCheckedChange={(checked) =>
-                            setPrefs({ ...prefs, [key]: !!checked })
-                          }
-                          className="mt-0.5"
-                        />
-                        <div>
-                          <p className="font-medium text-sm">{label}</p>
-                          <p className="text-xs text-muted-foreground">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </>
             )}
@@ -264,26 +245,106 @@ const EmailPreferencesTab = () => {
           </CardContent>
         </Card>
 
-        {/* Other notifications */}
+        {/* Notification Channel Preferences */}
         <Card>
           <CardHeader>
-            <CardTitle>Real-time Notifications</CardTitle>
-            <CardDescription>Instant alerts for critical compliance events</CardDescription>
+            <CardTitle>Alert Channels</CardTitle>
+            <CardDescription>
+              Choose how you receive each type of alert — via email, Telegram, or both.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg border border-border">
-              <div>
-                <p className="font-medium">SMS Notifications</p>
-                <p className="text-sm text-muted-foreground">Urgent alerts via text message</p>
-              </div>
-              <Switch defaultChecked />
+          <CardContent>
+            {/* Header row */}
+            <div className="grid grid-cols-[1fr,80px,100px] gap-2 mb-3 px-3">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Alert Type</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">
+                <Mail className="w-3.5 h-3.5 inline mr-1" />Email
+              </span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">
+                <MessageCircle className="w-3.5 h-3.5 inline mr-1" />Telegram
+              </span>
             </div>
-            <div className="flex items-center justify-between p-4 rounded-lg border border-border">
-              <div>
-                <p className="font-medium">Critical Alerts</p>
-                <p className="text-sm text-muted-foreground">Immediate email for stop work orders & vacate orders</p>
+
+            <div className="space-y-2">
+              {ALERT_TYPES.map(({ emailKey, telegramKey, label, desc }) => (
+                <div key={emailKey} className="grid grid-cols-[1fr,80px,100px] gap-2 items-center p-3 rounded-lg border border-border">
+                  <div>
+                    <p className="font-medium text-sm">{label}</p>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                  <div className="flex justify-center">
+                    <Checkbox
+                      checked={prefs[emailKey]}
+                      onCheckedChange={(checked) => setPrefs({ ...prefs, [emailKey]: !!checked })}
+                    />
+                  </div>
+                  <div className="flex justify-center">
+                    {hasTelegram ? (
+                      <Checkbox
+                        checked={prefs[telegramKey]}
+                        onCheckedChange={(checked) => setPrefs({ ...prefs, [telegramKey]: !!checked })}
+                      />
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground text-center leading-tight">Link first</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Telegram-only: Daily Summary */}
+              <div className="grid grid-cols-[1fr,80px,100px] gap-2 items-center p-3 rounded-lg border border-border">
+                <div>
+                  <p className="font-medium text-sm">Daily Change Summary</p>
+                  <p className="text-xs text-muted-foreground">Telegram ping when daily sync detects changes</p>
+                </div>
+                <div className="flex justify-center">
+                  <span className="text-[10px] text-muted-foreground">—</span>
+                </div>
+                <div className="flex justify-center">
+                  {hasTelegram ? (
+                    <Checkbox
+                      checked={prefs.telegram_daily_summary}
+                      onCheckedChange={(checked) => setPrefs({ ...prefs, telegram_daily_summary: !!checked })}
+                    />
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground text-center leading-tight">Link first</span>
+                  )}
+                </div>
               </div>
-              <Switch defaultChecked />
+
+              {/* Critical Alerts */}
+              <div className="grid grid-cols-[1fr,80px,100px] gap-2 items-center p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                <div>
+                  <p className="font-medium text-sm text-destructive">Critical Alerts (SWO / Vacate)</p>
+                  <p className="text-xs text-muted-foreground">Immediate push for stop work and vacate orders</p>
+                </div>
+                <div className="flex justify-center">
+                  <Checkbox checked disabled className="opacity-60" />
+                </div>
+                <div className="flex justify-center">
+                  {hasTelegram ? (
+                    <Checkbox
+                      checked={prefs.telegram_critical_alerts}
+                      onCheckedChange={(checked) => setPrefs({ ...prefs, telegram_critical_alerts: !!checked })}
+                    />
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground text-center leading-tight">Link first</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {!hasTelegram && (
+              <p className="text-xs text-muted-foreground mt-4 p-3 rounded-lg bg-muted/50">
+                💡 To enable Telegram alerts, link your Telegram account in the Telegram tab first.
+              </p>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Save Preferences
+              </Button>
             </div>
           </CardContent>
         </Card>
