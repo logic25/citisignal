@@ -73,6 +73,7 @@ import { decodeComplaintCategory, getComplaintSeverityColor } from '@/lib/compla
 import { Gavel } from 'lucide-react';
 import { shouldSuppressViolation } from '@/lib/violation-aging';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ViolationTenantAssignment } from '@/components/violations/ViolationTenantAssignment';
 
 interface OATHHearing {
   id: string;
@@ -109,6 +110,7 @@ interface Violation {
   suppressed?: boolean | null;
   suppression_reason?: string | null;
   source?: string | null;
+  tenant_id?: string | null;
 }
 
 interface PropertyViolationsTabProps {
@@ -116,6 +118,7 @@ interface PropertyViolationsTabProps {
   onRefresh: () => void;
   bbl?: string | null;
   propertyId: string;
+  propertyAddress?: string;
 }
 
 type SortField = 'issued_date' | 'agency' | 'status' | 'violation_number' | 'violation_type';
@@ -190,7 +193,7 @@ const decodeDOBCode = (code: string | null): string | null => {
   return null;
 };
 
-export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }: PropertyViolationsTabProps) => {
+export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId, propertyAddress }: PropertyViolationsTabProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -937,30 +940,46 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId }
                                     </div>
                                   </div>
 
-                                  {/* Right Column: Notes */}
-                                  <div className="space-y-3">
-                                    <h4 className="font-semibold text-sm flex items-center gap-2">
-                                      <MessageSquare className="w-4 h-4" />
-                                      Notes
-                                    </h4>
-                                    <Textarea
-                                      placeholder="Add notes about this violation (e.g., resolution steps, payment info, contractor contact)..."
-                                      value={editingNotes[violation.id] ?? violation.notes ?? ''}
-                                      onChange={(e) => setEditingNotes(prev => ({ ...prev, [violation.id]: e.target.value }))}
-                                      className="min-h-[100px]"
+                                  {/* Right Column: Tenant Assignment + Notes */}
+                                  <div className="space-y-5">
+                                    {/* Tenant Assignment */}
+                                    <ViolationTenantAssignment
+                                      violationId={violation.id}
+                                      propertyId={propertyId}
+                                      currentTenantId={violation.tenant_id || null}
+                                      descriptionRaw={violation.description_raw}
+                                      violationNumber={violation.violation_number}
+                                      agency={violation.agency}
+                                      issuedDate={violation.issued_date}
+                                      propertyAddress={propertyAddress || ''}
+                                      onAssigned={onRefresh}
                                     />
-                                    <Button 
-                                      size="sm" 
-                                      onClick={() => saveNotes(violation.id)}
-                                      disabled={savingNotes.has(violation.id) || (editingNotes[violation.id] ?? violation.notes ?? '') === (violation.notes ?? '')}
-                                    >
-                                      {savingNotes.has(violation.id) ? (
-                                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                      ) : (
-                                        <Save className="w-3 h-3 mr-2" />
-                                      )}
-                                      Save Notes
-                                    </Button>
+
+                                    {/* Notes */}
+                                    <div className="space-y-3">
+                                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                                        <MessageSquare className="w-4 h-4" />
+                                        Notes
+                                      </h4>
+                                      <Textarea
+                                        placeholder="Add notes about this violation (e.g., resolution steps, payment info, contractor contact)..."
+                                        value={editingNotes[violation.id] ?? violation.notes ?? ''}
+                                        onChange={(e) => setEditingNotes(prev => ({ ...prev, [violation.id]: e.target.value }))}
+                                        className="min-h-[100px]"
+                                      />
+                                      <Button 
+                                        size="sm" 
+                                        onClick={() => saveNotes(violation.id)}
+                                        disabled={savingNotes.has(violation.id) || (editingNotes[violation.id] ?? violation.notes ?? '') === (violation.notes ?? '')}
+                                      >
+                                        {savingNotes.has(violation.id) ? (
+                                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                        ) : (
+                                          <Save className="w-3 h-3 mr-2" />
+                                        )}
+                                        Save Notes
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
