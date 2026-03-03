@@ -2487,64 +2487,97 @@ export type Database = {
       }
       tenants: {
         Row: {
+          annual_escalation_pct: number | null
           company_name: string
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
           escalation_notes: string | null
+          guarantor_name: string | null
+          guarantor_phone: string | null
           id: string
           lease_end: string | null
           lease_start: string | null
           lease_type: string | null
+          move_in_date: string | null
           notes: string | null
+          option_terms: string | null
+          parking_spaces: number | null
+          percentage_rent: number | null
+          percentage_rent_breakpoint: number | null
           property_id: string
           renewal_option_date: string | null
           rent_amount: number | null
           security_deposit: number | null
           status: string
+          tenant_sqft: number | null
+          ti_allowance: number | null
           unit_number: string | null
           updated_at: string
+          use_clause: string | null
         }
         Insert: {
+          annual_escalation_pct?: number | null
           company_name: string
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
           escalation_notes?: string | null
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
           id?: string
           lease_end?: string | null
           lease_start?: string | null
           lease_type?: string | null
+          move_in_date?: string | null
           notes?: string | null
+          option_terms?: string | null
+          parking_spaces?: number | null
+          percentage_rent?: number | null
+          percentage_rent_breakpoint?: number | null
           property_id: string
           renewal_option_date?: string | null
           rent_amount?: number | null
           security_deposit?: number | null
           status?: string
+          tenant_sqft?: number | null
+          ti_allowance?: number | null
           unit_number?: string | null
           updated_at?: string
+          use_clause?: string | null
         }
         Update: {
+          annual_escalation_pct?: number | null
           company_name?: string
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
           escalation_notes?: string | null
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
           id?: string
           lease_end?: string | null
           lease_start?: string | null
           lease_type?: string | null
+          move_in_date?: string | null
           notes?: string | null
+          option_terms?: string | null
+          parking_spaces?: number | null
+          percentage_rent?: number | null
+          percentage_rent_breakpoint?: number | null
           property_id?: string
           renewal_option_date?: string | null
           rent_amount?: number | null
           security_deposit?: number | null
           status?: string
+          tenant_sqft?: number | null
+          ti_allowance?: number | null
           unit_number?: string | null
           updated_at?: string
+          use_clause?: string | null
         }
         Relationships: [
           {
