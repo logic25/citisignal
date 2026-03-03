@@ -336,6 +336,58 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Log API call metrics to api_call_logs table
+    async function logApiCall(
+      endpoint: string,
+      url: string,
+      statusCode: number | null,
+      responseTimeMs: number,
+      errorMessage: string | null,
+      propId: string | null
+    ) {
+      try {
+        await supabase.from('api_call_logs').insert({
+          endpoint,
+          url: url.substring(0, 500),
+          status_code: statusCode,
+          response_time_ms: responseTimeMs,
+          error_message: errorMessage,
+          property_id: propId,
+        });
+      } catch (e) {
+        console.warn('Failed to log API call:', e);
+      }
+    }
+
+    // Map safeFetch agency labels to standardized endpoint names
+    const endpointNameMap: Record<string, string> = {
+      DOB_OLD: 'DOB_VIOLATIONS_OLD',
+      DOB_NEW: 'DOB_VIOLATIONS_NEW',
+      ECB: 'ECB',
+      HPD: 'HPD',
+      DOB_COMPLAINTS: 'DOB_COMPLAINTS',
+      DOB_BIS_JOBS: 'DOB_JOBS',
+      DOB_NOW_BUILD: 'DOB_NOW_BUILD',
+      DOB_NOW_LIMITED_ALT: 'DOB_NOW_LIMITED_ALT',
+      DOB_NOW_ELECTRICAL: 'DOB_NOW_ELECTRICAL',
+      DOB_NOW_ELEVATOR: 'DOB_NOW_ELEVATOR',
+      DOB_PERMIT_ISSUANCE: 'DOB_PERMITS',
+      FDNY_DIRECT: 'FDNY_DIRECT',
+    };
+
+    function resolveEndpointName(agency: string): string {
+      // Direct mapping
+      if (endpointNameMap[agency]) return endpointNameMap[agency];
+      // OATH sub-agency pattern: "FDNY/OATH/FIRE DEPARTMENT OF NYC" -> "OATH_FDNY"
+      if (agency.includes('/OATH/')) {
+        const parts = agency.split('/');
+        return `OATH_${parts[0]}`;
+      }
+      // OATH reconciliation pattern
+      if (agency.startsWith('OATH_RECON/')) return 'OATH';
+      return agency;
+    }
+
     // Fetch with timeout and single retry
     async function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
       const controller = new AbortController();
@@ -374,22 +426,28 @@ Deno.serve(async (req) => {
     }
 
     const safeFetch = async (url: string, agency: string): Promise<unknown[]> => {
+      const endpointName = resolveEndpointName(agency);
       const attempt = async (): Promise<{ data: unknown[]; shouldRetry: boolean }> => {
+        const start = Date.now();
         try {
           console.log(`Fetching ${agency}: ${url}`);
           const response = await fetchWithTimeout(url);
+          const elapsed = Date.now() - start;
           if (!response.ok) {
             console.error(`${agency} API error: ${response.status}`);
+            await logApiCall(endpointName, url, response.status, elapsed, `HTTP ${response.status}`, property_id || null);
             return { data: [], shouldRetry: response.status >= 500 || response.status === 429 };
           }
           const data = await response.json();
+          await logApiCall(endpointName, url, response.status, elapsed, null, property_id || null);
           return { data, shouldRetry: false };
         } catch (error) {
-          if (error instanceof DOMException && error.name === 'AbortError') {
-            console.error(`${agency} fetch timeout after 15s`);
-          } else {
-            console.error(`${agency} fetch error:`, error);
-          }
+          const elapsed = Date.now() - start;
+          const errMsg = error instanceof DOMException && error.name === 'AbortError'
+            ? 'Timeout after 15s'
+            : (error as Error)?.message || 'Network error';
+          console.error(`${agency} fetch error:`, errMsg);
+          await logApiCall(endpointName, url, null, elapsed, errMsg, property_id || null);
           return { data: [], shouldRetry: true };
         }
       };
