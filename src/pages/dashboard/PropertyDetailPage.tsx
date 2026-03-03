@@ -354,32 +354,41 @@ const PropertyDetailPage = () => {
               </div>
             </div>
             
-            {/* Status Badges */}
+            {/* Status Badges — violations-first, sorted by count descending */}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${coStatus.className}`}>
                 <span>{coStatus.icon}</span>
                 {coStatus.label}
               </span>
-              {(property.applicable_agencies || []).map((agency) => {
-                const count = violationCountsByAgency[agency] || 0;
-                const hasViolations = count > 0;
-                return (
-                  <Badge 
-                    key={agency} 
-                    variant="outline" 
-                    className={`text-xs ${hasViolations ? getAgencyColor(agency) : 'bg-muted/50 text-muted-foreground border-muted'}`}
-                  >
-                    {agency}
-                    <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold ${
-                      hasViolations 
-                        ? 'bg-background/80 text-foreground' 
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {count}
-                    </span>
-                  </Badge>
-                );
-              })}
+              {[...(property.applicable_agencies || [])]
+                .sort((a, b) => {
+                  const countA = violationCountsByAgency[a] || 0;
+                  const countB = violationCountsByAgency[b] || 0;
+                  if (countB !== countA) return countB - countA;
+                  return a.localeCompare(b);
+                })
+                .map((agency) => {
+                  const count = violationCountsByAgency[agency] || 0;
+                  const hasViolations = count > 0;
+                  return (
+                    <Badge 
+                      key={agency} 
+                      variant="outline" 
+                      className={`text-xs transition-opacity ${
+                        hasViolations 
+                          ? getAgencyColor(agency) 
+                          : 'bg-muted/30 text-muted-foreground/60 border-border/50'
+                      }`}
+                    >
+                      {agency}
+                      {hasViolations && (
+                        <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold bg-background/80 text-foreground">
+                          {count}
+                        </span>
+                      )}
+                    </Badge>
+                  );
+                })}
               {property.jurisdiction !== 'NYC' && (
                 <Badge variant="secondary">Non-NYC</Badge>
               )}
