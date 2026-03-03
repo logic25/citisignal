@@ -773,6 +773,12 @@ export type Database = {
           notify_new_applications: boolean
           notify_new_violations: boolean
           notify_status_changes: boolean
+          telegram_critical_alerts: boolean | null
+          telegram_daily_summary: boolean | null
+          telegram_expirations: boolean | null
+          telegram_new_applications: boolean | null
+          telegram_new_violations: boolean | null
+          telegram_status_changes: boolean | null
           updated_at: string
           user_id: string
         }
@@ -786,6 +792,12 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          telegram_critical_alerts?: boolean | null
+          telegram_daily_summary?: boolean | null
+          telegram_expirations?: boolean | null
+          telegram_new_applications?: boolean | null
+          telegram_new_violations?: boolean | null
+          telegram_status_changes?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -799,6 +811,12 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          telegram_critical_alerts?: boolean | null
+          telegram_daily_summary?: boolean | null
+          telegram_expirations?: boolean | null
+          telegram_new_applications?: boolean | null
+          telegram_new_violations?: boolean | null
+          telegram_status_changes?: boolean | null
           updated_at?: string
           user_id?: string
         }
