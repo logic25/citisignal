@@ -500,11 +500,27 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
           {/* Agencies to Track - Always show for NYC */}
           {formData.jurisdiction === 'NYC' && (
             <div className="space-y-3">
-              <div>
-                <Label>Agencies to Track</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Select which agencies to monitor for violations
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Agencies to Track</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select which agencies to monitor for violations
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const allSelected = formData.selected_agencies.length === ALL_AGENCIES.length;
+                    setFormData(prev => ({
+                      ...prev,
+                      selected_agencies: allSelected ? [] : [...ALL_AGENCIES],
+                    }));
+                  }}
+                >
+                  {formData.selected_agencies.length === ALL_AGENCIES.length ? 'Deselect All' : 'Select All'}
+                </Button>
               </div>
               <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {ALL_AGENCIES.map((agency) => {
