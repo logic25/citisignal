@@ -285,6 +285,98 @@ export type Database = {
         }
         Relationships: []
       }
+      building_insurance_policies: {
+        Row: {
+          aggregate_limit: number | null
+          ai_review_notes: string | null
+          ai_review_status: string | null
+          ai_reviewed_at: string | null
+          broker_email: string | null
+          broker_name: string | null
+          broker_phone: string | null
+          carrier_name: string | null
+          certificate_url: string | null
+          coverage_amount: number | null
+          created_at: string
+          deductible: number | null
+          effective_date: string | null
+          endorsements: string | null
+          expiration_date: string | null
+          id: string
+          notes: string | null
+          per_occurrence_limit: number | null
+          policy_number: string | null
+          policy_type: string
+          premium_annual: number | null
+          property_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aggregate_limit?: number | null
+          ai_review_notes?: string | null
+          ai_review_status?: string | null
+          ai_reviewed_at?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          carrier_name?: string | null
+          certificate_url?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          deductible?: number | null
+          effective_date?: string | null
+          endorsements?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          per_occurrence_limit?: number | null
+          policy_number?: string | null
+          policy_type: string
+          premium_annual?: number | null
+          property_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aggregate_limit?: number | null
+          ai_review_notes?: string | null
+          ai_review_status?: string | null
+          ai_reviewed_at?: string | null
+          broker_email?: string | null
+          broker_name?: string | null
+          broker_phone?: string | null
+          carrier_name?: string | null
+          certificate_url?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          deductible?: number | null
+          effective_date?: string | null
+          endorsements?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          per_occurrence_limit?: number | null
+          policy_number?: string | null
+          policy_type?: string
+          premium_annual?: number | null
+          property_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_insurance_policies_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           created_at: string
@@ -2479,18 +2571,29 @@ export type Database = {
       tenant_insurance_policies: {
         Row: {
           additional_insured: boolean
+          additional_insured_entity_name: string | null
           additional_insured_required: boolean
+          aggregate_limit: number | null
+          ai_review_notes: string | null
+          ai_review_status: string | null
+          ai_reviewed_at: string | null
           carrier_name: string | null
           certificate_url: string | null
           coverage_amount: number | null
           created_at: string
+          deductible: number | null
           effective_date: string | null
+          endorsements: string | null
           expiration_date: string | null
           id: string
           notes: string | null
+          per_occurrence_limit: number | null
           policy_number: string | null
           policy_type: string
           property_id: string
+          renewal_reminder_sent_at: string | null
+          renewal_requested_at: string | null
+          renewal_status: string | null
           required_minimum: number | null
           status: string
           tenant_id: string
@@ -2498,18 +2601,29 @@ export type Database = {
         }
         Insert: {
           additional_insured?: boolean
+          additional_insured_entity_name?: string | null
           additional_insured_required?: boolean
+          aggregate_limit?: number | null
+          ai_review_notes?: string | null
+          ai_review_status?: string | null
+          ai_reviewed_at?: string | null
           carrier_name?: string | null
           certificate_url?: string | null
           coverage_amount?: number | null
           created_at?: string
+          deductible?: number | null
           effective_date?: string | null
+          endorsements?: string | null
           expiration_date?: string | null
           id?: string
           notes?: string | null
+          per_occurrence_limit?: number | null
           policy_number?: string | null
           policy_type: string
           property_id: string
+          renewal_reminder_sent_at?: string | null
+          renewal_requested_at?: string | null
+          renewal_status?: string | null
           required_minimum?: number | null
           status?: string
           tenant_id: string
@@ -2517,18 +2631,29 @@ export type Database = {
         }
         Update: {
           additional_insured?: boolean
+          additional_insured_entity_name?: string | null
           additional_insured_required?: boolean
+          aggregate_limit?: number | null
+          ai_review_notes?: string | null
+          ai_review_status?: string | null
+          ai_reviewed_at?: string | null
           carrier_name?: string | null
           certificate_url?: string | null
           coverage_amount?: number | null
           created_at?: string
+          deductible?: number | null
           effective_date?: string | null
+          endorsements?: string | null
           expiration_date?: string | null
           id?: string
           notes?: string | null
+          per_occurrence_limit?: number | null
           policy_number?: string | null
           policy_type?: string
           property_id?: string
+          renewal_reminder_sent_at?: string | null
+          renewal_requested_at?: string | null
+          renewal_status?: string | null
           required_minimum?: number | null
           status?: string
           tenant_id?: string
