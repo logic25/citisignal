@@ -773,6 +773,7 @@ export type Database = {
           notify_new_applications: boolean
           notify_new_violations: boolean
           notify_status_changes: boolean
+          reminder_days: number[]
           telegram_critical_alerts: boolean | null
           telegram_daily_summary: boolean | null
           telegram_expirations: boolean | null
@@ -792,6 +793,7 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          reminder_days?: number[]
           telegram_critical_alerts?: boolean | null
           telegram_daily_summary?: boolean | null
           telegram_expirations?: boolean | null
@@ -811,6 +813,7 @@ export type Database = {
           notify_new_applications?: boolean
           notify_new_violations?: boolean
           notify_status_changes?: boolean
+          reminder_days?: number[]
           telegram_critical_alerts?: boolean | null
           telegram_daily_summary?: boolean | null
           telegram_expirations?: boolean | null

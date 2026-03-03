@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,11 @@ import {
   ClipboardList,
   X,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Star,
+  Mail,
+  Building2,
+  CreditCard,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,9 +66,18 @@ interface Vendor {
   id: string;
   name: string;
   phone_number: string | null;
+  email: string | null;
   trade_type: string | null;
   coi_expiration_date: string | null;
   status: string;
+  license_number: string | null;
+  address: string | null;
+  notes: string | null;
+  zelle_email: string | null;
+  zelle_phone: string | null;
+  payment_preference: string | null;
+  avg_rating: number;
+  total_reviews: number;
 }
 
 interface WorkOrder {
@@ -120,8 +134,15 @@ const VendorsPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone_number: '',
+    email: '',
     trade_type: '',
     coi_expiration_date: '',
+    license_number: '',
+    address: '',
+    notes: '',
+    zelle_email: '',
+    zelle_phone: '',
+    payment_preference: 'zelle',
   });
 
   const fetchVendors = async () => {
@@ -190,8 +211,15 @@ const VendorsPage = () => {
         user_id: user.id,
         name: formData.name,
         phone_number: formData.phone_number || null,
+        email: formData.email || null,
         trade_type: formData.trade_type || null,
         coi_expiration_date: formData.coi_expiration_date || null,
+        license_number: formData.license_number || null,
+        address: formData.address || null,
+        notes: formData.notes || null,
+        zelle_email: formData.zelle_email || null,
+        zelle_phone: formData.zelle_phone || null,
+        payment_preference: formData.payment_preference || 'zelle',
       });
 
       if (error) throw error;
@@ -220,8 +248,15 @@ const VendorsPage = () => {
         .update({
           name: formData.name,
           phone_number: formData.phone_number || null,
+          email: formData.email || null,
           trade_type: formData.trade_type || null,
           coi_expiration_date: formData.coi_expiration_date || null,
+          license_number: formData.license_number || null,
+          address: formData.address || null,
+          notes: formData.notes || null,
+          zelle_email: formData.zelle_email || null,
+          zelle_phone: formData.zelle_phone || null,
+          payment_preference: formData.payment_preference || 'zelle',
         })
         .eq('id', editingVendor.id);
 
@@ -260,8 +295,15 @@ const VendorsPage = () => {
     setFormData({
       name: vendor.name,
       phone_number: vendor.phone_number || '',
+      email: vendor.email || '',
       trade_type: vendor.trade_type || '',
       coi_expiration_date: vendor.coi_expiration_date || '',
+      license_number: vendor.license_number || '',
+      address: vendor.address || '',
+      notes: vendor.notes || '',
+      zelle_email: vendor.zelle_email || '',
+      zelle_phone: vendor.zelle_phone || '',
+      payment_preference: vendor.payment_preference || 'zelle',
     });
     setIsEditDialogOpen(true);
   };
@@ -276,8 +318,15 @@ const VendorsPage = () => {
     setFormData({
       name: '',
       phone_number: '',
+      email: '',
       trade_type: '',
       coi_expiration_date: '',
+      license_number: '',
+      address: '',
+      notes: '',
+      zelle_email: '',
+      zelle_phone: '',
+      payment_preference: 'zelle',
     });
   };
 
@@ -324,26 +373,15 @@ const VendorsPage = () => {
 
   const VendorForm = ({ onSubmit, isEdit = false }: { onSubmit: (e: React.FormEvent) => void, isEdit?: boolean }) => (
     <form onSubmit={onSubmit} className="space-y-5 mt-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Company Name *</Label>
-        <Input
-          id="name"
-          placeholder="ABC Plumbing Corp"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
-      </div>
-
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number</Label>
+          <Label htmlFor="name">Company Name *</Label>
           <Input
-            id="phone"
-            type="tel"
-            placeholder="(555) 123-4567"
-            value={formData.phone_number}
-            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+            id="name"
+            placeholder="ABC Plumbing Corp"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
           />
         </div>
         <div className="space-y-2">
@@ -364,13 +402,113 @@ const VendorsPage = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            placeholder="(555) 123-4567"
+            value={formData.phone_number}
+            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="vendor@company.com"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="license">License #</Label>
+          <Input
+            id="license"
+            placeholder="LIC-12345"
+            value={formData.license_number}
+            onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="coi">COI Expiration Date</Label>
+          <Input
+            id="coi"
+            type="date"
+            value={formData.coi_expiration_date}
+            onChange={(e) => setFormData({ ...formData, coi_expiration_date: e.target.value })}
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
-        <Label htmlFor="coi">COI Expiration Date</Label>
+        <Label htmlFor="address">Address</Label>
         <Input
-          id="coi"
-          type="date"
-          value={formData.coi_expiration_date}
-          onChange={(e) => setFormData({ ...formData, coi_expiration_date: e.target.value })}
+          id="address"
+          placeholder="123 Main St, Brooklyn, NY 11201"
+          value={formData.address}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+        />
+      </div>
+
+      {/* Payment Info */}
+      <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <CreditCard className="w-4 h-4 text-muted-foreground" />
+          Payment Information
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label className="text-xs">Preference</Label>
+            <Select 
+              value={formData.payment_preference} 
+              onValueChange={(v) => setFormData({ ...formData, payment_preference: v })}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zelle">Zelle</SelectItem>
+                <SelectItem value="check">Check</SelectItem>
+                <SelectItem value="ach">ACH</SelectItem>
+                <SelectItem value="wire">Wire</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Zelle Email</Label>
+            <Input
+              className="h-8 text-sm"
+              placeholder="vendor@zelle.com"
+              value={formData.zelle_email}
+              onChange={(e) => setFormData({ ...formData, zelle_email: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Zelle Phone</Label>
+            <Input
+              className="h-8 text-sm"
+              placeholder="(555) 123-4567"
+              value={formData.zelle_phone}
+              onChange={(e) => setFormData({ ...formData, zelle_phone: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">Notes</Label>
+        <Textarea
+          id="notes"
+          placeholder="Any additional notes about this vendor..."
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          className="min-h-[60px]"
         />
       </div>
 
@@ -446,6 +584,7 @@ const VendorsPage = () => {
                 <TableHead className="w-10"></TableHead>
                 <TableHead className="font-semibold">Company Name</TableHead>
                 <TableHead className="font-semibold">Trade</TableHead>
+                <TableHead className="font-semibold">Rating</TableHead>
                 <TableHead className="font-semibold">Phone</TableHead>
                 <TableHead className="font-semibold">COI Status</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -480,6 +619,20 @@ const VendorsPage = () => {
                           <Badge variant="secondary">{vendor.trade_type}</Badge>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {vendor.avg_rating > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map(i => (
+                                <Star key={i} className={`w-3 h-3 ${i <= Math.round(vendor.avg_rating) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`} />
+                              ))}
+                            </div>
+                            <span className="text-xs text-muted-foreground">({vendor.total_reviews})</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No reviews</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -540,7 +693,7 @@ const VendorsPage = () => {
                     </TableRow>
                     <CollapsibleContent asChild>
                       <tr className="bg-muted/20">
-                        <td colSpan={6} className="p-4 border-t border-border">
+                        <td colSpan={7} className="p-4 border-t border-border">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">Status:</span>
