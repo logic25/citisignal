@@ -21,7 +21,7 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, Check, Building2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SmartAddressAutocomplete } from './SmartAddressAutocomplete';
-import { determineApplicableAgencies, getBoroughName, type Agency } from '@/lib/property-utils';
+import { determineApplicableAgencies, getBoroughName, ALL_AGENCIES, type Agency } from '@/lib/property-utils';
 
 
 interface AddPropertyDialogProps {
@@ -30,8 +30,7 @@ interface AddPropertyDialogProps {
   onSuccess: () => void;
 }
 
-// All agencies that can be tracked
-const ALL_AGENCIES: Agency[] = ['DOB', 'ECB', 'HPD', 'FDNY', 'DOT', 'DSNY'];
+// ALL_AGENCIES imported from property-utils
 
 interface FormData {
   address: string;
@@ -78,7 +77,7 @@ const initialFormData: FormData = {
   owner_name: '',
   owner_phone: '',
   sms_enabled: false,
-  selected_agencies: ['DOB', 'ECB'], // Default agencies
+  selected_agencies: [...ALL_AGENCIES], // All agencies by default
 };
 
 export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddPropertyDialogProps) => {
@@ -507,10 +506,9 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
                   Select which agencies to monitor for violations
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {ALL_AGENCIES.map((agency) => {
                   const isChecked = formData.selected_agencies.includes(agency);
-                  const isSuggested = suggestedAgencies.includes(agency);
                   return (
                     <label
                       key={agency}
@@ -526,12 +524,7 @@ export const AddPropertyDialog = ({ open, onOpenChange, onSuccess }: AddProperty
                         onChange={() => toggleAgency(agency)}
                         className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                       />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{agency}</span>
-                        {isSuggested && (
-                          <span className="text-xs text-muted-foreground">Recommended</span>
-                        )}
-                      </div>
+                      <span className="text-sm font-medium">{agency}</span>
                     </label>
                   );
                 })}

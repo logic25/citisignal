@@ -1,37 +1,15 @@
 // Property type detection utilities
 
-export type Agency = 'DOB' | 'ECB' | 'HPD' | 'FDNY' | 'DOT' | 'DSNY';
+export type Agency = 'DOB' | 'ECB' | 'HPD' | 'FDNY' | 'DOT' | 'DSNY' | 'DEP' | 'LPC' | 'DOF' | 'DOHMH';
+
+export const ALL_AGENCIES: Agency[] = ['DOB', 'ECB', 'HPD', 'FDNY', 'DOT', 'DSNY', 'DEP', 'LPC', 'DOF', 'DOHMH'];
 
 export function determineApplicableAgencies(
   primaryUseGroup: string | null,
   dwellingUnits: number | null
 ): Agency[] {
-  const occupancy = (primaryUseGroup || '').toUpperCase();
-  const units = dwellingUnits || 0;
-
-  // Multi-family residential (3+ units or R-2/R-1 occupancy)
-  if (
-    occupancy.includes('R-2') ||
-    occupancy.includes('R-1') ||
-    units >= 3
-  ) {
-    return ['DOB', 'ECB', 'HPD', 'FDNY'];
-  }
-
-  // Commercial/retail (M or B occupancy)
-  if (occupancy.includes('M') || occupancy.includes('B')) {
-    // DO NOT include HPD for commercial
-    return ['DOB', 'ECB', 'FDNY'];
-  }
-
-  // 1-2 family residential
-  if (occupancy.includes('R-3') && units < 3) {
-    // HPD only for lead paint issues (handled separately)
-    return ['DOB', 'ECB', 'FDNY'];
-  }
-
-  // Default: basic agencies
-  return ['DOB', 'ECB'];
+  // All agencies are applicable by default for comprehensive monitoring
+  return [...ALL_AGENCIES];
 }
 
 export type COStatus = 'valid' | 'temporary' | 'expired_tco' | 'missing' | 'pre_1938' | 'use_violation' | 'unknown';
