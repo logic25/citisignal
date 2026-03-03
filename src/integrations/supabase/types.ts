@@ -1929,12 +1929,18 @@ export type Database = {
         Row: {
           amount_paid: number | null
           assessed_value: number | null
+          attorney_email: string | null
           attorney_fee: number | null
           attorney_firm: string | null
           attorney_name: string | null
+          attorney_phone: string | null
           balance_due: number | null
           created_at: string
           due_date: string | null
+          exemption_end_date: string | null
+          exemption_notes: string | null
+          exemption_start_date: string | null
+          exemption_type: string | null
           id: string
           notes: string | null
           paid_date: string | null
@@ -1944,6 +1950,22 @@ export type Database = {
           protest_hearing_date: string | null
           protest_outcome_notes: string | null
           protest_status: string | null
+          q1_amount: number | null
+          q1_due_date: string | null
+          q1_paid: number | null
+          q1_status: string | null
+          q2_amount: number | null
+          q2_due_date: string | null
+          q2_paid: number | null
+          q2_status: string | null
+          q3_amount: number | null
+          q3_due_date: string | null
+          q3_paid: number | null
+          q3_status: string | null
+          q4_amount: number | null
+          q4_due_date: string | null
+          q4_paid: number | null
+          q4_status: string | null
           tax_amount: number | null
           tax_rate: number | null
           tax_year: number
@@ -1954,12 +1976,18 @@ export type Database = {
         Insert: {
           amount_paid?: number | null
           assessed_value?: number | null
+          attorney_email?: string | null
           attorney_fee?: number | null
           attorney_firm?: string | null
           attorney_name?: string | null
+          attorney_phone?: string | null
           balance_due?: number | null
           created_at?: string
           due_date?: string | null
+          exemption_end_date?: string | null
+          exemption_notes?: string | null
+          exemption_start_date?: string | null
+          exemption_type?: string | null
           id?: string
           notes?: string | null
           paid_date?: string | null
@@ -1969,6 +1997,22 @@ export type Database = {
           protest_hearing_date?: string | null
           protest_outcome_notes?: string | null
           protest_status?: string | null
+          q1_amount?: number | null
+          q1_due_date?: string | null
+          q1_paid?: number | null
+          q1_status?: string | null
+          q2_amount?: number | null
+          q2_due_date?: string | null
+          q2_paid?: number | null
+          q2_status?: string | null
+          q3_amount?: number | null
+          q3_due_date?: string | null
+          q3_paid?: number | null
+          q3_status?: string | null
+          q4_amount?: number | null
+          q4_due_date?: string | null
+          q4_paid?: number | null
+          q4_status?: string | null
           tax_amount?: number | null
           tax_rate?: number | null
           tax_year: number
@@ -1979,12 +2023,18 @@ export type Database = {
         Update: {
           amount_paid?: number | null
           assessed_value?: number | null
+          attorney_email?: string | null
           attorney_fee?: number | null
           attorney_firm?: string | null
           attorney_name?: string | null
+          attorney_phone?: string | null
           balance_due?: number | null
           created_at?: string
           due_date?: string | null
+          exemption_end_date?: string | null
+          exemption_notes?: string | null
+          exemption_start_date?: string | null
+          exemption_type?: string | null
           id?: string
           notes?: string | null
           paid_date?: string | null
@@ -1994,6 +2044,22 @@ export type Database = {
           protest_hearing_date?: string | null
           protest_outcome_notes?: string | null
           protest_status?: string | null
+          q1_amount?: number | null
+          q1_due_date?: string | null
+          q1_paid?: number | null
+          q1_status?: string | null
+          q2_amount?: number | null
+          q2_due_date?: string | null
+          q2_paid?: number | null
+          q2_status?: string | null
+          q3_amount?: number | null
+          q3_due_date?: string | null
+          q3_paid?: number | null
+          q3_status?: string | null
+          q4_amount?: number | null
+          q4_due_date?: string | null
+          q4_paid?: number | null
+          q4_status?: string | null
           tax_amount?: number | null
           tax_rate?: number | null
           tax_year?: number
