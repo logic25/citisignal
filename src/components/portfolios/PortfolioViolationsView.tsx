@@ -33,7 +33,8 @@ import {
   getAgencyLookupUrl, 
   getAgencyColor, 
   getStatusColor,
-  isActiveViolation
+  isActiveViolation,
+  isComplaint
 } from '@/lib/violation-utils';
 
 interface Violation {
