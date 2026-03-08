@@ -167,12 +167,8 @@ export const isComplaint = (v: Record<string, any>): boolean => {
 };
 
 // Check if a complaint should be counted as active
-export const isActiveComplaint = (v: {
-  source?: string | null;
-  violation_number?: string | null;
-  status?: string | null;
-  suppressed?: boolean | null;
-}): boolean => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isActiveComplaint = (v: Record<string, any>): boolean => {
   if (!isComplaint(v)) return false;
   if (v.suppressed) return false;
   if (v.status === 'closed') return false;
