@@ -1274,7 +1274,11 @@ Deno.serve(async (req) => {
                             jobType || 'Job Filing';
 
         // Use primary doc for status (already deduped to latest dobrundate)
-        const appStatus: string | null = (primary.withdrawal_flag && primary.withdrawal_flag !== '0' && primary.withdrawal_flag !== 'N')
+        // Check withdrawal_flag first, then fall back to description text pattern
+        const hasWithdrawalFlag = primary.withdrawal_flag && primary.withdrawal_flag !== '0' && primary.withdrawal_flag !== 'N';
+        const descriptionText = String(primary.job_description || '').trim();
+        const hasWithdrawnInDescription = /^JOB WITHDRAWN/i.test(descriptionText);
+        const appStatus: string | null = (hasWithdrawalFlag || hasWithdrawnInDescription)
           ? 'Withdrawn'
           : (primary.job_status as string) || (primary.latest_action_date ? 'Filed' : null);
 
