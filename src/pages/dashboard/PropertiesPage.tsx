@@ -370,18 +370,18 @@ const PropertiesPage = () => {
       {/* Properties Display */}
       {filteredProperties.length > 0 ? (
         viewMode === 'table' ? (
-          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
-            <Table>
+          <div className="rounded-xl border border-border overflow-x-auto bg-card shadow-card">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow className="bg-primary text-primary-foreground hover:bg-primary">
                   <TableHead className="font-semibold text-primary-foreground">Address</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Borough</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Type</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">CO Status</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Agencies</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden sm:table-cell">Borough</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden md:table-cell">Type</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden lg:table-cell">CO Status</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden lg:table-cell">Agencies</TableHead>
                   <TableHead className="font-semibold text-primary-foreground text-center">Violations</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Status</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Last Synced</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden md:table-cell">Status</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden sm:table-cell">Last Synced</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

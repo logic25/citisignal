@@ -350,7 +350,7 @@ const PropertyDetailPage = () => {
                 <h1 className="font-display text-xl md:text-2xl font-bold text-foreground">
                   {property.address}
                 </h1>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground flex-wrap">
                   {property.borough && <span>{getBoroughName(property.borough)}</span>}
                   {property.bin && <span>• BIN: {property.bin}</span>}
                   {property.stories && <span>• {property.stories} stories</span>}
