@@ -48,7 +48,7 @@ export const TenantPoliciesTab = ({
   const [complianceNotes, setComplianceNotes] = useState<string | null>(null);
   const dialogFileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: tenants } = (await import('@tanstack/react-query')).useQuery({
+  const { data: tenants } = useQuery({
     queryKey: ['tenants-for-property', tenantForm.property_id],
     queryFn: async () => {
       const { data, error } = await supabase.from('tenants').select('id, company_name').eq('property_id', tenantForm.property_id).order('company_name');
