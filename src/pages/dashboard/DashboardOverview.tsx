@@ -18,13 +18,11 @@ import {
   AlertTriangle, 
   Users, 
   ClipboardList, 
-  Plus,
   ArrowRight,
   Bell,
   FileCheck,
   Loader2,
   DollarSign,
-  Calendar,
   Gavel,
   TrendingUp,
   MapPin
@@ -181,31 +179,23 @@ const DashboardOverview = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-sm md:text-base mt-1">
             Portfolio overview — {stats.totalProperties} properties monitored
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={startTour} className="gap-2">
-            <MapPin className="w-4 h-4" />
-            Take a Tour
-          </Button>
-          <Link to="/dashboard/properties?add=true">
-            <Button variant="hero">
-              <Plus className="w-4 h-4" />
-              Add Property
-            </Button>
-          </Link>
-        </div>
+        <Button variant="outline" size="sm" onClick={startTour} className="gap-2 self-start sm:self-auto">
+          <MapPin className="w-4 h-4" />
+          Take a Tour
+        </Button>
       </div>
 
       {/* Top Summary Bar - spec §10.1 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <StatsCard
           title="Properties"
           value={stats.totalProperties}
@@ -253,8 +243,8 @@ const DashboardOverview = () => {
 
       {/* Agency Breakdown Bar */}
       {agencyBreakdown.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-card rounded-xl border border-border p-4 md:p-5 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="font-display text-sm font-semibold text-foreground uppercase tracking-wide">
               Active Violations by Agency
             </h3>
@@ -262,19 +252,19 @@ const DashboardOverview = () => {
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             {agencyBreakdown.map(({ agency, count }) => (
               <div 
                 key={agency}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${getAgencyColor(agency)}`}
+                className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border ${getAgencyColor(agency)}`}
               >
-                <span className="text-sm font-bold">{agency}</span>
-                <span className="text-lg font-display font-bold">{count}</span>
+                <span className="text-xs md:text-sm font-bold">{agency}</span>
+                <span className="text-base md:text-lg font-display font-bold">{count}</span>
               </div>
             ))}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted/50">
-              <span className="text-sm font-medium text-muted-foreground">Total</span>
-              <span className="text-lg font-display font-bold text-foreground">{stats.activeViolations}</span>
+            <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-border bg-muted/50">
+              <span className="text-xs md:text-sm font-medium text-muted-foreground">Total</span>
+              <span className="text-base md:text-lg font-display font-bold text-foreground">{stats.activeViolations}</span>
             </div>
           </div>
         </div>
@@ -320,7 +310,7 @@ const DashboardOverview = () => {
 
       {/* Portfolio Compliance Score */}
       {averageScore !== null && averageGrade !== null && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <ComplianceScoreCard
             score={averageScore}
             grade={averageGrade}
@@ -354,10 +344,10 @@ const DashboardOverview = () => {
       )}
 
       {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Recent Violations - wider */}
-        <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-card">
-          <div className="flex items-center justify-between mb-5">
+        <div className="lg:col-span-2 bg-card rounded-xl border border-border p-4 md:p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4 md:mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
                 <Bell className="w-5 h-5 text-destructive" />
@@ -443,7 +433,7 @@ const DashboardOverview = () => {
         </div>
 
         {/* Quick Actions - narrower */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-card">
+        <div className="bg-card rounded-xl border border-border p-4 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
               <FileCheck className="w-5 h-5 text-accent" />
