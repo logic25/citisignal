@@ -46,6 +46,47 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // ── Shared AI call helper ──
+    const callAI = async (systemPrompt: string, userPrompt: string, feature: string) => {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        if (status === 429) throw { status: 429, message: "Rate limit exceeded" };
+        if (status === 402) throw { status: 402, message: "AI credits exhausted" };
+        throw new Error(`AI gateway error: ${status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const usage = aiData.usage;
+      if (usage) {
+        await serviceClient.from("ai_usage_logs").insert({
+          user_id: user.id,
+          feature,
+          model: "google/gemini-3-flash-preview",
+          prompt_tokens: usage.prompt_tokens || 0,
+          completion_tokens: usage.completion_tokens || 0,
+          total_tokens: usage.total_tokens || 0,
+          estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.15 + (usage.completion_tokens || 0) * 0.6) / 1_000_000,
+        });
+      }
+
+      return aiData.choices?.[0]?.message?.content || "";
+    };
+
     // ── MODE: extract — Parse a COI document into structured fields ──
     if (mode === "extract") {
       const { document_text, owner_entity_name } = body;
@@ -56,7 +97,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const extractPrompt = `You are a commercial real estate insurance document parser. Extract structured policy data from this Certificate of Insurance (COI) or insurance policy document.
+      const extractPrompt = `You are a commercial real estate insurance document parser. Extract structured policy data from this Certificate of Insurance (COI).
 
 Return a JSON object with these fields (use null for any field you cannot find):
 {
@@ -77,101 +118,117 @@ Return a JSON object with these fields (use null for any field you cannot find):
 
 IMPORTANT: Return ONLY valid JSON, no markdown fences, no explanation text outside the JSON.`;
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: extractPrompt },
-            { role: "user", content: `Parse this insurance document:\n\n${document_text.slice(0, 15000)}` },
-          ],
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error(`AI gateway error: ${status}`);
-      }
-
-      const aiData = await aiResponse.json();
-      let content = aiData.choices?.[0]?.message?.content || "";
-
-      // Log usage
-      const usage = aiData.usage;
-      if (usage) {
-        await serviceClient.from("ai_usage_logs").insert({
-          user_id: user.id,
-          feature: "insurance_extract",
-          model: "google/gemini-3-flash-preview",
-          prompt_tokens: usage.prompt_tokens || 0,
-          completion_tokens: usage.completion_tokens || 0,
-          total_tokens: usage.total_tokens || 0,
-          estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.15 + (usage.completion_tokens || 0) * 0.6) / 1_000_000,
-        });
-      }
-
-      // Clean markdown fences if present
-      content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-      let parsed;
       try {
-        parsed = JSON.parse(content);
-      } catch {
-        return new Response(JSON.stringify({ error: "AI returned unparseable response", raw: content.slice(0, 500) }), {
-          status: 500,
+        let content = await callAI(extractPrompt, `Parse this COI:\n\n${document_text.slice(0, 15000)}`, "insurance_extract");
+        content = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          return new Response(JSON.stringify({ error: "AI returned unparseable response", raw: content.slice(0, 500) }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ extracted: parsed }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        if (e.status) return new Response(JSON.stringify({ error: e.message }), { status: e.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw e;
+      }
+    }
+
+    // ── MODE: deep_review — Full CRE compliance review of an insurance policy ──
+    if (mode === "deep_review" || !mode) {
+      const { policy_id, policy_data, policy_document_text } = body;
+      if (!policy_id || !policy_data) {
+        return new Response(JSON.stringify({ error: "Missing policy_id or policy_data" }), {
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      return new Response(JSON.stringify({ extracted: parsed }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      // Try to fetch extracted document text from COI or policy document
+      let documentText = policy_document_text || "";
 
-    // ── MODE: review (default) — Full compliance review of an existing policy ──
-    const { policy_id, policy_data } = body;
-    if (!policy_id || !policy_data) {
-      return new Response(JSON.stringify({ error: "Missing policy_id or policy_data" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Try to fetch extracted document text if a certificate was uploaded
-    let documentText = "";
-
-    if (policy_data.certificate_url) {
-      const { data: docs } = await serviceClient
-        .from("property_documents")
-        .select("extracted_text")
-        .eq("file_url", policy_data.certificate_url)
-        .limit(1);
-
-      if (docs && docs.length > 0 && docs[0].extracted_text) {
-        documentText = docs[0].extracted_text;
+      if (!documentText && policy_data.policy_document_url) {
+        const { data: docs } = await serviceClient
+          .from("property_documents")
+          .select("extracted_text")
+          .eq("file_url", policy_data.policy_document_url)
+          .limit(1);
+        if (docs?.[0]?.extracted_text) documentText = docs[0].extracted_text;
       }
-    }
 
-    const hasDocument = documentText.length > 100;
+      if (!documentText && policy_data.certificate_url) {
+        const { data: docs } = await serviceClient
+          .from("property_documents")
+          .select("extracted_text")
+          .eq("file_url", policy_data.certificate_url)
+          .limit(1);
+        if (docs?.[0]?.extracted_text) documentText = docs[0].extracted_text;
+      }
 
-    const systemPrompt = `You are a commercial real estate insurance compliance analyst. Review this insurance policy and provide:
+      const hasDocument = documentText.length > 100;
+      const hasFullPolicy = !!policy_document_text || !!policy_data.policy_document_url;
 
-1. **Coverage Assessment** — Is the coverage adequate for a NYC commercial property? Flag any gaps.
-2. **Additional Insured Check** — Is the landlord properly listed? Any entity name mismatches?
-3. **Endorsement Review** — Are standard CRE endorsements present? (Waiver of Subrogation, Primary & Non-Contributory, etc.)
-4. **Expiration Risk** — Any timing concerns?
-5. **Recommendations** — What should the landlord request from the tenant?
+      const systemPrompt = `You are a senior commercial real estate (CRE) insurance compliance analyst with deep expertise in NYC landlord/tenant insurance requirements. You are reviewing a tenant's insurance ${hasFullPolicy ? 'FULL POLICY DOCUMENT' : hasDocument ? 'Certificate of Insurance (COI)' : 'metadata'} for compliance with typical NYC commercial lease requirements.
 
-Be specific and actionable. Use bullet points. Flag critical issues with ⚠️.
-${hasDocument ? '\nYou have the actual certificate/policy document text below. Cross-reference the document text against the metadata for discrepancies.' : '\nNote: No certificate document was uploaded. This review is based on manually entered metadata only. Recommend requesting the actual COI for a complete review.'}`;
+## Your Review Checklist — evaluate EACH item as ✅ PASS, ⚠️ CONCERN, or ❌ FAIL:
 
-    const userPrompt = `Review this insurance policy:
+### 1. COVERAGE LIMITS
+- General Liability: Minimum $1M per occurrence / $2M aggregate is standard NYC CRE
+- Check if the stated coverage meets or exceeds the required minimum (if provided)
+- Flag any sub-limits that effectively reduce coverage
+
+### 2. ADDITIONAL INSURED STATUS
+- Is the landlord/owner entity properly named as Additional Insured?
+- Check for exact entity name match — "LLC" vs "Inc" vs "Corp" mismatches matter
+- Verify the AI endorsement is on a standard ISO form (CG 20 11 or CG 20 26)
+- Owner entity: ${policy_data.additional_insured_entity_name || policy_data.tenant_name || 'Not specified'}
+
+### 3. REQUIRED ENDORSEMENTS
+Check for these standard CRE endorsements:
+- **Waiver of Subrogation** — Must be present
+- **Primary & Non-Contributory** — Must be present so tenant's policy pays first
+- **Per Project/Per Location Aggregate** — Recommended for multi-tenant properties
+- Flag any missing standard endorsements
+
+### 4. EXCLUSIONS & CARVE-OUTS (Full Policy Only)
+${hasFullPolicy ? `Carefully review the policy exclusions section for:
+- **Mold/Fungi exclusion** — common, but problematic in older NYC buildings
+- **Asbestos/Lead Paint exclusion** — critical for pre-1978 buildings
+- **Terrorism exclusion** (TRIA) — important for NYC commercial
+- **Assault & Battery exclusion** — relevant for restaurants/bars/nightclubs
+- **Pollution/Environmental exclusion** — relevant for industrial/manufacturing
+- **Contractual Liability exclusion** — would void the lease indemnification
+- **Building ordinance exclusion** — problematic for code upgrade costs
+- Flag any exclusion that could leave the landlord exposed` : 'Not available — no full policy document uploaded. Recommend requesting the full policy to review exclusions.'}
+
+### 5. DEDUCTIBLE / SELF-INSURED RETENTION (SIR)
+- Flag if deductible exceeds $10,000 (typical NYC CRE maximum)
+- SIR is more concerning than deductible — landlord may not be protected until SIR is satisfied
+- Note whether the SIR applies to defense costs
+
+### 6. POLICY TERM & GAPS
+- Is the policy currently in force?
+- Any gap between prior policy expiration and current effective date?
+- How many days until expiration? Flag if < 30 days
+
+### 7. COI vs POLICY DISCREPANCIES (if both available)
+${hasFullPolicy && hasDocument ? '- Cross-reference the COI summary against the actual policy terms\n- Flag any limits on the COI that differ from the policy declarations page\n- Check if endorsements listed on the COI are actually in the policy' : 'Only one document available — cannot cross-reference.'}
+
+### 8. OVERALL RISK ASSESSMENT
+Provide a brief summary:
+- Overall compliance grade: A (fully compliant) / B (minor issues) / C (significant gaps) / D (non-compliant)
+- Top 3 action items for the property manager
+
+Be specific, actionable, and use the checklist format above. Flag critical issues with ❌.`;
+
+      const userPrompt = `Review this ${policy_data.is_building_policy ? 'building' : 'tenant'} insurance policy:
 
 Policy Type: ${policy_data.policy_type}
 Carrier: ${policy_data.carrier_name || 'Not specified'}
@@ -189,66 +246,30 @@ Additional Insured Entity: ${policy_data.additional_insured_entity_name || 'Not 
 Endorsements: ${policy_data.endorsements || 'None listed'}
 Tenant: ${policy_data.tenant_name || 'Not specified'}
 Property: ${policy_data.property_address || 'Not specified'}
-${hasDocument ? `\n--- CERTIFICATE / POLICY DOCUMENT TEXT ---\n${documentText.slice(0, 12000)}` : ''}`;
+${hasDocument ? `\n--- ${hasFullPolicy ? 'FULL POLICY DOCUMENT' : 'CERTIFICATE OF INSURANCE'} TEXT ---\n${documentText.slice(0, 20000)}` : ''}`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+      try {
+        const reviewText = await callAI(systemPrompt, userPrompt, hasFullPolicy ? "insurance_deep_review" : "insurance_review");
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429,
+        // Update the policy with AI review
+        const table = policy_data.is_building_policy ? "building_insurance_policies" : "tenant_insurance_policies";
+        await serviceClient.from(table).update({
+          ai_review_status: "reviewed",
+          ai_review_notes: reviewText,
+          ai_reviewed_at: new Date().toISOString(),
+        }).eq("id", policy_id);
+
+        return new Response(JSON.stringify({ review: reviewText }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } catch (e: any) {
+        if (e.status) return new Response(JSON.stringify({ error: e.message }), { status: e.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw e;
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in workspace settings." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${status}`);
     }
 
-    const aiData = await aiResponse.json();
-    const reviewText = aiData.choices?.[0]?.message?.content || "No review generated.";
-
-    // Log usage
-    const usage = aiData.usage;
-    if (usage) {
-      await serviceClient.from("ai_usage_logs").insert({
-        user_id: user.id,
-        feature: "insurance_review",
-        model: "google/gemini-3-flash-preview",
-        prompt_tokens: usage.prompt_tokens || 0,
-        completion_tokens: usage.completion_tokens || 0,
-        total_tokens: usage.total_tokens || 0,
-        estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.15 + (usage.completion_tokens || 0) * 0.6) / 1_000_000,
-      });
-    }
-
-    // Update the policy with AI review
-    const table = policy_data.is_building_policy ? "building_insurance_policies" : "tenant_insurance_policies";
-    await serviceClient.from(table).update({
-      ai_review_status: "reviewed",
-      ai_review_notes: reviewText,
-      ai_reviewed_at: new Date().toISOString(),
-    }).eq("id", policy_id);
-
-    return new Response(JSON.stringify({ review: reviewText }), {
+    return new Response(JSON.stringify({ error: "Unknown mode" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
