@@ -282,7 +282,7 @@ const PropertiesPage = () => {
     <div className="space-y-6">
       {/* Bold Header Banner */}
       <div className="gradient-hero rounded-2xl p-6 md:p-8 shadow-elevated">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-primary-foreground">
               Properties
@@ -291,9 +291,10 @@ const PropertiesPage = () => {
               Manage your buildings and track compliance
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button 
               variant="outline" 
+              size="sm"
               onClick={syncAllViolations}
               disabled={isSyncing || properties.length === 0}
               className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 bg-primary-foreground/5"
@@ -303,11 +304,11 @@ const PropertiesPage = () => {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              {isSyncing ? 'Syncing...' : 'Sync All'}
+              <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync All'}</span>
             </Button>
-            <Button variant="hero" onClick={() => setIsDialogOpen(true)}>
+            <Button variant="hero" size="sm" onClick={() => setIsDialogOpen(true)}>
               <Plus className="w-4 h-4" />
-              Add Property
+              <span className="hidden sm:inline">Add Property</span>
             </Button>
           </div>
         </div>
@@ -369,18 +370,18 @@ const PropertiesPage = () => {
       {/* Properties Display */}
       {filteredProperties.length > 0 ? (
         viewMode === 'table' ? (
-          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
-            <Table>
+          <div className="rounded-xl border border-border overflow-x-auto bg-card shadow-card">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow className="bg-primary text-primary-foreground hover:bg-primary">
                   <TableHead className="font-semibold text-primary-foreground">Address</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Borough</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Type</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">CO Status</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Agencies</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden sm:table-cell">Borough</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden md:table-cell">Type</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden lg:table-cell">CO Status</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden lg:table-cell">Agencies</TableHead>
                   <TableHead className="font-semibold text-primary-foreground text-center">Violations</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Status</TableHead>
-                  <TableHead className="font-semibold text-primary-foreground">Last Synced</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden md:table-cell">Status</TableHead>
+                  <TableHead className="font-semibold text-primary-foreground hidden sm:table-cell">Last Synced</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -418,7 +419,7 @@ const PropertiesPage = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {property.jurisdiction === 'NYC' ? (
                           <span className="text-sm">
                             {property.borough ? getBoroughName(property.borough) : 'NYC'}
@@ -427,16 +428,16 @@ const PropertiesPage = () => {
                           <span className="text-sm text-muted-foreground">Non-NYC</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="text-sm">{getPropertyTypeDisplay(property)}</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${coStatus.className}`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${coStatus.dotClass}`} />
                           {coStatus.label}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {(property.applicable_agencies || []).slice(0, 3).map((agency) => (
                             <Badge key={agency} variant="outline" className="text-[10px] px-1.5 py-0">
@@ -460,7 +461,7 @@ const PropertiesPage = () => {
                           <span className="text-xs text-muted-foreground">0</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {property.has_swo || property.has_vacate ? (
                           <Badge variant="destructive" className="text-xs font-bold">
                             {property.has_vacate ? 'VACATE' : 'SWO'}
@@ -475,7 +476,7 @@ const PropertiesPage = () => {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <span className="text-xs text-muted-foreground">
                           {formatLastSynced(property.last_synced_at)}
                         </span>

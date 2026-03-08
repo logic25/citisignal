@@ -347,10 +347,10 @@ const PropertyDetailPage = () => {
                 <Building2 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h1 className="font-display text-2xl font-bold text-foreground">
+                <h1 className="font-display text-xl md:text-2xl font-bold text-foreground">
                   {property.address}
                 </h1>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground flex-wrap">
                   {property.borough && <span>{getBoroughName(property.borough)}</span>}
                   {property.bin && <span>• BIN: {property.bin}</span>}
                   {property.stories && <span>• {property.stories} stories</span>}
@@ -528,28 +528,30 @@ const PropertyDetailPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex flex-wrap gap-1 h-auto p-1 w-full max-w-5xl">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="violations">
-            Violations {openViolations > 0 && `(${openViolations})`}
-          </TabsTrigger>
-          <TabsTrigger value="complaints">
-            Complaints {complaints.filter(c => c.status === 'open').length > 0 && `(${complaints.filter(c => c.status === 'open').length})`}
-          </TabsTrigger>
-          <TabsTrigger value="applications">
-            Applications {activeAppCount > 0 && `(${activeAppCount})`}
-          </TabsTrigger>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
-          <TabsTrigger value="documents">
-            Docs {documents.length > 0 && `(${documents.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="work-orders">
-            Work Orders {workOrders.length > 0 && `(${workOrders.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="taxes">Taxes</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex gap-1 h-auto p-1 w-auto min-w-full md:flex md:flex-wrap md:w-full md:max-w-5xl">
+            <TabsTrigger value="overview" className="whitespace-nowrap text-xs md:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="violations" className="whitespace-nowrap text-xs md:text-sm">
+              Violations {openViolations > 0 && `(${openViolations})`}
+            </TabsTrigger>
+            <TabsTrigger value="complaints" className="whitespace-nowrap text-xs md:text-sm">
+              Complaints {complaints.filter(c => c.status === 'open').length > 0 && `(${complaints.filter(c => c.status === 'open').length})`}
+            </TabsTrigger>
+            <TabsTrigger value="applications" className="whitespace-nowrap text-xs md:text-sm">
+              Applications {activeAppCount > 0 && `(${activeAppCount})`}
+            </TabsTrigger>
+            <TabsTrigger value="tenants" className="whitespace-nowrap text-xs md:text-sm">Tenants</TabsTrigger>
+            <TabsTrigger value="documents" className="whitespace-nowrap text-xs md:text-sm">
+              Docs {documents.length > 0 && `(${documents.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="work-orders" className="whitespace-nowrap text-xs md:text-sm">
+              Work Orders {workOrders.length > 0 && `(${workOrders.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="taxes" className="whitespace-nowrap text-xs md:text-sm">Taxes</TabsTrigger>
+            <TabsTrigger value="activity" className="whitespace-nowrap text-xs md:text-sm">Activity</TabsTrigger>
+            <TabsTrigger value="settings" className="whitespace-nowrap text-xs md:text-sm">Settings</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-6">
           <PropertyOverviewTab 
