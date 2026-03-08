@@ -959,9 +959,9 @@ const InsurancePage = () => {
                                               <TableCell>
                                                 <Button
                                                   variant="ghost" size="icon" className="h-6 w-6"
-                                                  onClick={(e) => { e.stopPropagation(); handleAIReview(p, false); }}
+                                                  onClick={(e) => { e.stopPropagation(); handleDeepReview(p, false); }}
                                                   disabled={reviewingId === p.id}
-                                                  title={p.certificate_url ? "AI Review (with document)" : "AI Review (metadata only)"}
+                                                  title={p.policy_document_url ? "Deep AI Review (with policy doc)" : p.certificate_url ? "AI Review (with COI)" : "AI Review (metadata only)"}
                                                 >
                                                   {reviewingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />}
                                                 </Button>
@@ -979,18 +979,47 @@ const InsurancePage = () => {
                                                     <div><p className="text-xs text-muted-foreground">Add'l Insured Entity</p><p className="font-medium">{p.additional_insured_entity_name || '—'}</p></div>
                                                     <div className="col-span-2"><p className="text-xs text-muted-foreground">Endorsements</p><p className="font-medium">{p.endorsements || '—'}</p></div>
                                                   </div>
-                                                  {p.certificate_url && (
-                                                    <div className="mt-3 flex items-center gap-2">
-                                                      <FileText className="w-4 h-4 text-primary" />
-                                                      <span className="text-xs text-muted-foreground">COI on file</span>
-                                                      <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false); }}>
-                                                        <Upload className="w-3 h-3" /> Replace
-                                                      </Button>
+
+                                                  {/* Documents Section — COI + Full Policy */}
+                                                  <div className="mt-3 grid grid-cols-2 gap-3">
+                                                    <div className="rounded-lg border border-border p-3">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Certificate of Insurance (COI)</p>
+                                                      {p.certificate_url ? (
+                                                        <div className="flex items-center gap-2">
+                                                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1"><FileText className="w-2.5 h-2.5" /> On File</Badge>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'coi'); }}>
+                                                            <Upload className="w-3 h-3" /> Replace
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'coi'); }} disabled={uploadingPolicyId === p.id}>
+                                                          {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload COI
+                                                        </Button>
+                                                      )}
                                                     </div>
-                                                  )}
+                                                    <div className="rounded-lg border border-border p-3">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Full Insurance Policy</p>
+                                                      {(p as any).policy_document_url ? (
+                                                        <div className="flex items-center gap-2">
+                                                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1"><FileText className="w-2.5 h-2.5" /> On File</Badge>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'policy'); }}>
+                                                            <Upload className="w-3 h-3" /> Replace
+                                                          </Button>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); handleDeepReview(p, false); }} disabled={reviewingId === p.id}>
+                                                            {reviewingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />} Re-run Review
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'policy'); }} disabled={uploadingPolicyDocId === p.id}>
+                                                          {uploadingPolicyDocId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload Policy
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+
                                                   {p.ai_review_notes && (
                                                     <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                                                      <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
+                                                      <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Compliance Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
                                                       <div className="prose prose-sm max-w-none text-xs text-foreground">
                                                         <ReactMarkdown>{p.ai_review_notes}</ReactMarkdown>
                                                       </div>
