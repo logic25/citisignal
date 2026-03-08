@@ -197,7 +197,7 @@ const DashboardOverview = () => {
       </div>
 
       {/* Top Summary Bar - spec §10.1 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <StatsCard
           title="Properties"
           value={stats.totalProperties}
