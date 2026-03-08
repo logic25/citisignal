@@ -103,7 +103,7 @@ const DashboardOverview = () => {
         ]);
 
         const fetchedViolations = violationsRes.data || [];
-        const active = fetchedViolations.filter(isActiveViolation);
+        const active = fetchedViolations.filter(v => isActiveViolation(v) && !isComplaint(v));
         
         // Calculate penalties
         const totalPenalties = active.reduce((sum, v) => sum + (v.penalty_amount || 0), 0);
