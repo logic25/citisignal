@@ -1125,11 +1125,20 @@ const InsurancePage = () => {
                               <FileText className="w-2.5 h-2.5" /> COI
                             </Badge>
                           ) : (
-                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true)} disabled={uploadingPolicyId === p.id}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true, 'coi')} disabled={uploadingPolicyId === p.id}>
                               {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload COI
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAIReview(p, true)} disabled={reviewingId === p.id}>
+                          {(p as any).policy_document_url ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1">
+                              <FileText className="w-2.5 h-2.5" /> Policy
+                            </Badge>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true, 'policy')} disabled={uploadingPolicyDocId === p.id}>
+                              {uploadingPolicyDocId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload Policy
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeepReview(p, true)} disabled={reviewingId === p.id}>
                             {reviewingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
                           </Button>
                         </div>
