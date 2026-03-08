@@ -435,7 +435,7 @@ const DashboardOverview = () => {
         </div>
 
         {/* Quick Actions - narrower */}
-        <div className="bg-card rounded-xl border border-border p-6 shadow-card">
+        <div className="bg-card rounded-xl border border-border p-4 md:p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
               <FileCheck className="w-5 h-5 text-accent" />
