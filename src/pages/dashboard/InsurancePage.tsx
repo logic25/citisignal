@@ -186,6 +186,9 @@ const InsurancePage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadPolicyId, setPendingUploadPolicyId] = useState<string | null>(null);
   const [pendingUploadIsBuildingPolicy, setPendingUploadIsBuildingPolicy] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [complianceNotes, setComplianceNotes] = useState<string | null>(null);
+  const dialogFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Queries ──
   const { data: properties } = useQuery({
