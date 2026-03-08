@@ -370,8 +370,8 @@ const PropertiesPage = () => {
       {/* Properties Display */}
       {filteredProperties.length > 0 ? (
         viewMode === 'table' ? (
-          <div className="rounded-xl border border-border overflow-x-auto bg-card shadow-card">
-            <Table className="min-w-[700px]">
+          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
+            <Table>
               <TableHeader>
                 <TableRow className="bg-primary text-primary-foreground hover:bg-primary">
                   <TableHead className="font-semibold text-primary-foreground">Address</TableHead>
