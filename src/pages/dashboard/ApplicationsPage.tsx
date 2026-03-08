@@ -70,7 +70,7 @@ const BIS_STATUS_CODES: Record<string, string> = {
   '3': 'Suspended',
 };
 
-const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn', 'Stale'];
+const COMPLETED_STATUSES = ['Sign-Off', 'Signed-Off', 'Completed', 'Plan Exam Disapproved', 'Suspended', 'Withdrawn'];
 
 const normalizeStatusLabel = (status: string): string => {
   const cleanups: [RegExp, string][] = [
