@@ -24,10 +24,10 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = 'defau
 
   if (compact) {
     return (
-      <div className="bg-card rounded-xl border border-border p-4 shadow-card">
-        <div className="flex items-center gap-3 mb-2">
-          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", iconColors[variant])}>
-            <Icon className="w-4 h-4" />
+      <div className="bg-card rounded-xl border border-border p-3 md:p-4 shadow-card">
+        <div className="flex items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
+          <div className={cn("w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center", iconColors[variant])}>
+            <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </div>
           {trend && (
             <span className={cn(
@@ -38,8 +38,8 @@ const StatsCard = ({ title, value, subtitle, icon: Icon, trend, variant = 'defau
             </span>
           )}
         </div>
-        <p className="text-xs font-medium text-muted-foreground mb-0.5">{title}</p>
-        <p className="text-2xl font-display font-bold text-foreground tabular-nums">{value}</p>
+        <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-0.5">{title}</p>
+        <p className="text-xl md:text-2xl font-display font-bold text-foreground tabular-nums truncate">{value}</p>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
     );
