@@ -24,7 +24,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { getBoroughName } from '@/lib/property-utils';
-import { isActiveViolation } from '@/lib/violation-utils';
+import { isActiveViolation, isComplaint } from '@/lib/violation-utils';
 import { LocalLawComplianceGrid } from '@/components/properties/detail/LocalLawComplianceGrid';
 
 interface Property {
