@@ -305,10 +305,15 @@ const InsurancePage = () => {
     setUploadingPolicyId(null);
   };
 
-  const triggerUpload = (policyId: string, isBuildingPolicy: boolean) => {
+  const triggerUpload = (policyId: string, isBuildingPolicy: boolean, type: 'coi' | 'policy' = 'coi') => {
     setPendingUploadPolicyId(policyId);
     setPendingUploadIsBuildingPolicy(isBuildingPolicy);
-    fileInputRef.current?.click();
+    setPendingUploadType(type);
+    if (type === 'policy') {
+      policyDocInputRef.current?.click();
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -317,6 +322,113 @@ const InsurancePage = () => {
       handleCOIUpload(file, pendingUploadPolicyId, pendingUploadIsBuildingPolicy);
     }
     e.target.value = '';
+  };
+
+  const onPolicyDocSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && pendingUploadPolicyId) {
+      handlePolicyDocUpload(file, pendingUploadPolicyId, pendingUploadIsBuildingPolicy);
+    }
+    e.target.value = '';
+  };
+
+  // ── Full Policy Document Upload + Auto Deep Review ──
+  const handlePolicyDocUpload = async (file: File, policyId: string, isBuildingPolicy: boolean) => {
+    setUploadingPolicyDocId(policyId);
+    try {
+      const policy = isBuildingPolicy
+        ? (buildingPolicies || []).find(p => p.id === policyId)
+        : (tenantPolicies || []).find(p => p.id === policyId);
+      if (!policy) throw new Error('Policy not found');
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const fileName = `${policy.property_id}/policy_doc_${policyId}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('property-documents')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(fileName);
+      const fileUrl = publicUrl || fileName;
+
+      // Update the policy's policy_document_url
+      const table = isBuildingPolicy ? 'building_insurance_policies' : 'tenant_insurance_policies';
+      await supabase.from(table).update({ policy_document_url: fileUrl } as any).eq('id', policyId);
+
+      // Create a property_documents record
+      const tenantName = !isBuildingPolicy ? policy.tenants?.company_name : null;
+      const policyType = isBuildingPolicy
+        ? BUILDING_POLICY_TYPES[policy.policy_type] || policy.policy_type
+        : TENANT_POLICY_TYPES[policy.policy_type] || policy.policy_type;
+      const docName = tenantName
+        ? `Full Policy — ${tenantName} — ${policyType}`
+        : `Full Building Policy — ${policyType}`;
+
+      await supabase.from('property_documents').insert({
+        property_id: policy.property_id,
+        document_type: 'Insurance Policy',
+        document_name: docName,
+        file_url: fileUrl,
+        file_type: file.type || `application/${fileExt}`,
+        file_size_bytes: file.size,
+        expiration_date: policy.expiration_date || null,
+        uploaded_by: user?.id,
+        description: `Full insurance policy document. Policy #${policy.policy_number || 'N/A'}`,
+      });
+
+      // Extract text
+      let extractedText = '';
+      try {
+        const { data: extractData } = await supabase.functions.invoke('extract-document-text', {
+          body: { file_url: fileUrl, property_id: policy.property_id },
+        });
+        extractedText = extractData?.text || '';
+      } catch {
+        // Non-critical
+      }
+
+      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
+      toast.success('Policy document uploaded');
+
+      // Auto-trigger deep AI compliance review if we got text
+      if (extractedText.length > 100) {
+        toast.info('Running deep AI compliance review...');
+        handleDeepReview(policy, isBuildingPolicy, extractedText);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Upload failed');
+    }
+    setUploadingPolicyDocId(null);
+  };
+
+  // ── Deep AI Policy Review ──
+  const handleDeepReview = async (policy: any, isBuildingPolicy: boolean, documentText?: string) => {
+    setReviewingId(policy.id);
+    try {
+      const policyData = {
+        ...policy,
+        tenant_name: policy.tenants?.company_name,
+        property_address: policy.properties?.address,
+        is_building_policy: isBuildingPolicy,
+      };
+      const { data, error } = await supabase.functions.invoke('review-insurance', {
+        body: {
+          mode: 'deep_review',
+          policy_id: policy.id,
+          policy_data: policyData,
+          ...(documentText ? { policy_document_text: documentText } : {}),
+        },
+      });
+      if (error) throw error;
+      setReviewResult(data.review);
+      setReviewDialogOpen(true);
+      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
+      toast.success('Deep AI compliance review complete');
+    } catch (e: any) {
+      toast.error(e.message || 'AI review failed');
+    }
+    setReviewingId(null);
   };
 
   // ── COI Upload + AI Extract for Add Dialog ──
