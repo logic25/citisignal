@@ -11,6 +11,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const resendFromAddress = Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <no-reply@citisignal.com>";
 
     if (!supabaseUrl || !supabaseServiceKey || !resendApiKey) {
       throw new Error("Missing required environment variables");
