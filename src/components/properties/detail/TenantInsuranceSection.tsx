@@ -20,14 +20,9 @@ interface TenantInsuranceSectionProps {
   tenantName: string;
 }
 
-const POLICY_TYPES: Record<string, string> = {
-  general_liability: 'General Liability',
-  workers_comp: 'Workers Comp',
-  property_contents: 'Property / Contents',
-  umbrella: 'Umbrella / Excess',
-  auto: 'Auto',
-  other: 'Other',
-};
+import { TENANT_POLICY_TYPES } from '@/lib/insurance-constants';
+
+const POLICY_TYPES = TENANT_POLICY_TYPES;
 
 const emptyForm = {
   policy_type: 'general_liability',
