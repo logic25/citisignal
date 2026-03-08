@@ -258,10 +258,10 @@ const DashboardOverview = () => {
             {agencyBreakdown.map(({ agency, count }) => (
               <div 
                 key={agency}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${getAgencyColor(agency)}`}
+                className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border ${getAgencyColor(agency)}`}
               >
-                <span className="text-sm font-bold">{agency}</span>
-                <span className="text-lg font-display font-bold">{count}</span>
+                <span className="text-xs md:text-sm font-bold">{agency}</span>
+                <span className="text-base md:text-lg font-display font-bold">{count}</span>
               </div>
             ))}
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted/50">
