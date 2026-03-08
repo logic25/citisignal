@@ -1279,21 +1279,9 @@ Deno.serve(async (req) => {
         const descriptionText = String(primary.job_description || '').trim();
         const hasWithdrawnInDescription = /^JOB WITHDRAWN/i.test(descriptionText);
 
-        // Detect stale pre-permit jobs: status A-P with no action in 10+ years
-        const PRE_PERMIT_STATUSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'L', 'M', 'P'];
         const rawJobStatus = (primary.job_status as string) || '';
-        const isPrePermit = PRE_PERMIT_STATUSES.includes(rawJobStatus.toUpperCase());
-        let isStale = false;
-        if (isPrePermit && primary.latest_action_date) {
-          const lastAction = new Date(primary.latest_action_date as string);
-          const yearsAgo = (Date.now() - lastAction.getTime()) / (1000 * 60 * 60 * 24 * 365);
-          if (yearsAgo > 10) isStale = true;
-        }
-
         const appStatus: string | null = (hasWithdrawalFlag || hasWithdrawnInDescription)
           ? 'Withdrawn'
-          : isStale
-          ? 'Stale'
           : rawJobStatus || (primary.latest_action_date ? 'Filed' : null);
 
         // ── Build bis_documents array ──
