@@ -649,14 +649,9 @@ const InsurancePage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Hidden file input for COI uploads */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
-        className="hidden"
-        onChange={onFileSelected}
-      />
+      {/* Hidden file inputs */}
+      <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={onFileSelected} />
+      <input ref={policyDocInputRef} type="file" accept=".pdf" className="hidden" onChange={onPolicyDocSelected} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
