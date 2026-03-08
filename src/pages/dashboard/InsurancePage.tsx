@@ -572,29 +572,7 @@ const InsurancePage = () => {
     onError: () => toast.error('Failed to add policy'),
   });
 
-  // ── AI Review ──
-  const handleAIReview = async (policy: any, isBuildingPolicy: boolean) => {
-    setReviewingId(policy.id);
-    try {
-      const policyData = {
-        ...policy,
-        tenant_name: policy.tenants?.company_name,
-        property_address: policy.properties?.address,
-        is_building_policy: isBuildingPolicy,
-      };
-      const { data, error } = await supabase.functions.invoke('review-insurance', {
-        body: { policy_id: policy.id, policy_data: policyData },
-      });
-      if (error) throw error;
-      setReviewResult(data.review);
-      setReviewDialogOpen(true);
-      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
-      toast.success('AI review complete');
-    } catch (e: any) {
-      toast.error(e.message || 'AI review failed');
-    }
-    setReviewingId(null);
-  };
+  // handleAIReview replaced by handleDeepReview above
 
   // ── Toggle helpers ──
   const toggleProperty = (id: string) => {
