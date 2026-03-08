@@ -183,12 +183,18 @@ const InsurancePage = () => {
   const [reviewResult, setReviewResult] = useState<string | null>(null);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [uploadingPolicyId, setUploadingPolicyId] = useState<string | null>(null);
+  const [uploadingPolicyDocId, setUploadingPolicyDocId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const policyDocInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadPolicyId, setPendingUploadPolicyId] = useState<string | null>(null);
   const [pendingUploadIsBuildingPolicy, setPendingUploadIsBuildingPolicy] = useState(false);
+  const [pendingUploadType, setPendingUploadType] = useState<'coi' | 'policy'>('coi');
   const [extracting, setExtracting] = useState(false);
   const [complianceNotes, setComplianceNotes] = useState<string | null>(null);
   const dialogFileInputRef = useRef<HTMLInputElement>(null);
+  const dialogPolicyFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState('tenant');
+  const [uploadingDialogPolicy, setUploadingDialogPolicy] = useState(false);
 
   // ── Queries ──
   const { data: properties } = useQuery({
