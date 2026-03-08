@@ -30,7 +30,7 @@ import { EditPropertyDialog } from '@/components/properties/EditPropertyDialog';
 
 import { getBoroughName } from '@/lib/property-utils';
 import { Badge } from '@/components/ui/badge';
-import { getAgencyColor, isActiveViolation } from '@/lib/violation-utils';
+import { getAgencyColor, isActiveViolation, isComplaint, isActiveComplaint } from '@/lib/violation-utils';
 
 interface Property {
   id: string;
