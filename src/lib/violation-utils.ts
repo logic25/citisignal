@@ -160,6 +160,21 @@ export const isResolvedViolationClass = (violationClass: string | null | undefin
   return RESOLVED_VIOLATION_STATUSES.some((resolved) => normalized.includes(resolved));
 };
 
+// Check if a record is a complaint (not a violation)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isComplaint = (v: Record<string, any>): boolean => {
+  return v.source === 'dob_complaints' || (v.violation_number?.startsWith('COMP-') ?? false);
+};
+
+// Check if a complaint should be counted as active
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isActiveComplaint = (v: Record<string, any>): boolean => {
+  if (!isComplaint(v)) return false;
+  if (v.suppressed) return false;
+  if (v.status === 'closed') return false;
+  return true;
+};
+
 // Check if a violation should be counted as active
 export const isActiveViolation = (violation: {
   status?: string | null;

@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Building2, AlertTriangle, ClipboardList, ExternalLink, ShieldCheck } from 'lucide-react';
-import { isActiveViolation, getAgencyColor } from '@/lib/violation-utils';
+import { isActiveViolation, getAgencyColor, isComplaint } from '@/lib/violation-utils';
 import { usePortfolioScores } from '@/hooks/useComplianceScore';
 
 interface Property {
@@ -75,7 +75,7 @@ export const PortfolioOverviewTab = ({ properties, violations, workOrderCount }:
   const navigate = useNavigate();
   const { scores } = usePortfolioScores();
 
-  const activeViolations = useMemo(() => violations.filter(isActiveViolation), [violations]);
+  const activeViolations = useMemo(() => violations.filter(v => isActiveViolation(v) && !isComplaint(v)), [violations]);
 
   const agencyData = useMemo(() => {
     const counts: Record<string, number> = {};

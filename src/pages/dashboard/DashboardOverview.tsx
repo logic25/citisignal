@@ -11,7 +11,7 @@ import BoroughHeatmap from '@/components/dashboard/BoroughHeatmap';
 import TopPropertiesCard from '@/components/dashboard/TopPropertiesCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { isActiveViolation, getAgencyColor } from '@/lib/violation-utils';
+import { isActiveViolation, getAgencyColor, isComplaint } from '@/lib/violation-utils';
 import { useTour } from '@/components/tour/TourContext';
 import { 
   Building2, 
@@ -103,7 +103,7 @@ const DashboardOverview = () => {
         ]);
 
         const fetchedViolations = violationsRes.data || [];
-        const active = fetchedViolations.filter(isActiveViolation);
+        const active = fetchedViolations.filter(v => isActiveViolation(v) && !isComplaint(v));
         
         // Calculate penalties
         const totalPenalties = active.reduce((sum, v) => sum + (v.penalty_amount || 0), 0);

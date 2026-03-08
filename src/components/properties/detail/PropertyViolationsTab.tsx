@@ -65,7 +65,8 @@ import {
   getAgencyLookupUrl, 
   getAgencyColor, 
   getStatusColor,
-  isActiveViolation
+  isActiveViolation,
+  isComplaint
 } from '@/lib/violation-utils';
 import { calculateViolationSeverity, getSeverityBadgeClasses } from '@/lib/violation-severity';
 import { CreateWorkOrderDialog } from '@/components/violations/CreateWorkOrderDialog';
@@ -319,8 +320,8 @@ export const PropertyViolationsTab = ({ violations, onRefresh, bbl, propertyId, 
     setDateTo(undefined);
   };
 
-  // Helper: detect complaints by source OR COMP- prefix
-  const isComplaintRecord = (v: Violation) => v.source === 'dob_complaints' || v.violation_number?.startsWith('COMP-');
+  // Use shared isComplaint utility from violation-utils
+  const isComplaintRecord = isComplaint;
 
   const filteredAndSortedViolations = useMemo(() => {
     // Filter out complaints (shown in Complaints tab) and SWO/Vacate (shown in Critical Issues)

@@ -30,7 +30,7 @@ import { EditPropertyDialog } from '@/components/properties/EditPropertyDialog';
 
 import { getBoroughName } from '@/lib/property-utils';
 import { Badge } from '@/components/ui/badge';
-import { getAgencyColor, isActiveViolation } from '@/lib/violation-utils';
+import { getAgencyColor, isActiveViolation, isComplaint, isActiveComplaint } from '@/lib/violation-utils';
 
 interface Property {
   id: string;
@@ -277,9 +277,6 @@ const PropertyDetailPage = () => {
     }
   };
 
-  // Helper: is this a complaint record?
-  const isComplaint = (v: Violation) => v.source === 'dob_complaints' || v.violation_number?.startsWith('COMP-');
-
   // Critical issues — SWOs and vacate orders should ALWAYS show, even if suppressed
   const criticalIssuesAll = useMemo(() => {
     return violations.filter(v => (v.is_stop_work_order || v.is_vacate_order) && v.status === 'open');
@@ -290,7 +287,7 @@ const PropertyDetailPage = () => {
     return violations.filter(v => isActiveViolation(v) && !isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
   }, [violations]);
 
-  // Separate complaints from violations — exclude suppressed
+  // Separate complaints from violations — use shared utility
   const complaints = useMemo(() => {
     return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order && !v.suppressed);
   }, [violations]);

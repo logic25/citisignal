@@ -33,7 +33,8 @@ import {
   getAgencyLookupUrl, 
   getAgencyColor, 
   getStatusColor,
-  isActiveViolation
+  isActiveViolation,
+  isComplaint
 } from '@/lib/violation-utils';
 
 interface Violation {
@@ -165,7 +166,7 @@ export const PortfolioViolationsView = ({ violations, portfolioName }: Portfolio
   }, [violations, searchQuery, statusFilter, agencyFilter, propertyFilter, typeFilter, sortField, sortDirection]);
 
   // Calculate active violations using proper filtering
-  const activeViolations = violations.filter(isActiveViolation);
+  const activeViolations = violations.filter(v => isActiveViolation(v) && !isComplaint(v));
   const activeOpenCount = activeViolations.filter(v => v.status === 'open').length;
   const activeInProgressCount = activeViolations.filter(v => v.status === 'in_progress').length;
   const criticalCount = activeViolations.filter(v => v.is_stop_work_order || v.is_vacate_order).length;
