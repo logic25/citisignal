@@ -101,7 +101,7 @@ const PropertiesPage = () => {
       if (propertyIds.length > 0) {
         const { data: violationsData, error: violationsError } = await supabase
           .from('violations')
-          .select('property_id, is_stop_work_order, is_vacate_order')
+          .select('property_id, is_stop_work_order, is_vacate_order, suppressed')
           .in('property_id', propertyIds)
           .neq('status', 'closed'); // Only count non-closed violations
         
