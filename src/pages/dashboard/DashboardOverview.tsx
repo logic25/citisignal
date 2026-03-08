@@ -245,8 +245,8 @@ const DashboardOverview = () => {
 
       {/* Agency Breakdown Bar */}
       {agencyBreakdown.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-card rounded-xl border border-border p-4 md:p-5 shadow-card">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="font-display text-sm font-semibold text-foreground uppercase tracking-wide">
               Active Violations by Agency
             </h3>
