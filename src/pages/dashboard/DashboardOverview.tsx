@@ -18,13 +18,11 @@ import {
   AlertTriangle, 
   Users, 
   ClipboardList, 
-  Plus,
   ArrowRight,
   Bell,
   FileCheck,
   Loader2,
   DollarSign,
-  Calendar,
   Gavel,
   TrendingUp,
   MapPin
