@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Plus, FolderOpen, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isActiveViolation } from '@/lib/violation-utils';
+import { isActiveViolation, isComplaint } from '@/lib/violation-utils';
 import { CreatePortfolioDialog } from '@/components/portfolios/CreatePortfolioDialog';
 import type { PortfolioWithStats } from '@/types/portfolio';
 import {
