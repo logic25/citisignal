@@ -1616,9 +1616,35 @@ Deno.serve(async (req) => {
     }
 
     // Deduplicate applications by source + application_number
-    const uniqueApps = Array.from(
-      new Map(applicationRecords.map(a => [`${a.source}:${a.application_number}`, a])).values()
-    );
+    // When duplicates exist (e.g., DOB NOW I1 + P1 for same job), prefer terminal status
+    const TERMINAL_STATUSES_LC = [
+      'signed off', 'signed-off', 'sign-off', 'completed', 'complete',
+      'co issued', 'letter of completion', 'loc issued', 'withdrawn',
+      'filing withdrawn', 'disapproved', 'suspended', 'cancelled', 'cancel',
+    ];
+    const isTerminalStatus = (s: string | null) => {
+      if (!s) return false;
+      const lower = s.toLowerCase();
+      return TERMINAL_STATUSES_LC.some(t => lower.includes(t));
+    };
+
+    const appMap = new Map<string, typeof applicationRecords[0]>();
+    for (const a of applicationRecords) {
+      const key = `${a.source}:${a.application_number}`;
+      const existing = appMap.get(key);
+      if (!existing) {
+        appMap.set(key, a);
+      } else {
+        // If the existing record has a terminal status, keep it — don't overwrite with an active amendment
+        if (isTerminalStatus(existing.status)) {
+          // Keep existing terminal status
+        } else {
+          // Overwrite with newer record (or if new record is terminal, it wins)
+          appMap.set(key, a);
+        }
+      }
+    }
+    const uniqueApps = Array.from(appMap.values());
 
     let newAppsCount = 0;
     if (uniqueApps.length > 0 && property_id) {
