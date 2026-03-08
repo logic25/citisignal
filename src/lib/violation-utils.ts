@@ -161,10 +161,8 @@ export const isResolvedViolationClass = (violationClass: string | null | undefin
 };
 
 // Check if a record is a complaint (not a violation)
-export const isComplaint = (v: {
-  source?: string | null;
-  violation_number?: string | null;
-}): boolean => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isComplaint = (v: Record<string, any>): boolean => {
   return v.source === 'dob_complaints' || (v.violation_number?.startsWith('COMP-') ?? false);
 };
 
