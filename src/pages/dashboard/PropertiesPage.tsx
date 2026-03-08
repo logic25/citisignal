@@ -419,7 +419,7 @@ const PropertiesPage = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {property.jurisdiction === 'NYC' ? (
                           <span className="text-sm">
                             {property.borough ? getBoroughName(property.borough) : 'NYC'}
@@ -428,16 +428,16 @@ const PropertiesPage = () => {
                           <span className="text-sm text-muted-foreground">Non-NYC</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="text-sm">{getPropertyTypeDisplay(property)}</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${coStatus.className}`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${coStatus.dotClass}`} />
                           {coStatus.label}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {(property.applicable_agencies || []).slice(0, 3).map((agency) => (
                             <Badge key={agency} variant="outline" className="text-[10px] px-1.5 py-0">
@@ -461,7 +461,7 @@ const PropertiesPage = () => {
                           <span className="text-xs text-muted-foreground">0</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {property.has_swo || property.has_vacate ? (
                           <Badge variant="destructive" className="text-xs font-bold">
                             {property.has_vacate ? 'VACATE' : 'SWO'}
@@ -476,7 +476,7 @@ const PropertiesPage = () => {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <span className="text-xs text-muted-foreground">
                           {formatLastSynced(property.last_synced_at)}
                         </span>
