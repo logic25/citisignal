@@ -347,7 +347,7 @@ const PropertyDetailPage = () => {
                 <Building2 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h1 className="font-display text-2xl font-bold text-foreground">
+                <h1 className="font-display text-xl md:text-2xl font-bold text-foreground">
                   {property.address}
                 </h1>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
