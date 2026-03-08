@@ -181,27 +181,19 @@ const DashboardOverview = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-sm md:text-base mt-1">
             Portfolio overview — {stats.totalProperties} properties monitored
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={startTour} className="gap-2">
-            <MapPin className="w-4 h-4" />
-            Take a Tour
-          </Button>
-          <Link to="/dashboard/properties?add=true">
-            <Button variant="hero">
-              <Plus className="w-4 h-4" />
-              Add Property
-            </Button>
-          </Link>
-        </div>
+        <Button variant="outline" size="sm" onClick={startTour} className="gap-2 self-start sm:self-auto">
+          <MapPin className="w-4 h-4" />
+          Take a Tour
+        </Button>
       </div>
 
       {/* Top Summary Bar - spec §10.1 */}
