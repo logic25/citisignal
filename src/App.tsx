@@ -45,6 +45,7 @@ const ComplianceGuidePage = lazy(() => import("./pages/dashboard/ComplianceGuide
 const queryClient = new QueryClient();
 
 const App = () => (
+  <Sentry.ErrorBoundary fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground"><p>Something went wrong. Please refresh the page.</p></div>}>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
