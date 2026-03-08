@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { AddPropertyDialog } from '@/components/properties/AddPropertyDialog';
 import { PropertyCard } from '@/components/properties/PropertyCard';
 import { getBoroughName } from '@/lib/property-utils';
+import { isActiveViolation, isComplaint } from '@/lib/violation-utils';
 
 interface Property {
   id: string;
