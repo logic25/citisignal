@@ -254,7 +254,7 @@ const DashboardOverview = () => {
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             {agencyBreakdown.map(({ agency, count }) => (
               <div 
                 key={agency}
