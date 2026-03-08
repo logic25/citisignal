@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "CitiSignal <no-reply@citisignal.com>",
+        from: resendFromAddress,
         to: [recipientEmail],
         subject: `You're invited to CitiSignal — use code ${inviteCode}`,
         html,
