@@ -313,6 +313,79 @@ const InsurancePage = () => {
     e.target.value = '';
   };
 
+  // ── COI Upload + AI Extract for Add Dialog ──
+  const handleDialogCOIUpload = async (file: File) => {
+    if (!tenantForm.property_id) {
+      toast.error('Please select a property first');
+      return;
+    }
+    setExtracting(true);
+    setComplianceNotes(null);
+    try {
+      // 1. Upload file to storage
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const fileName = `${tenantForm.property_id}/coi_new_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('property-documents').upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(fileName);
+
+      // 2. Extract text from the document
+      const { data: extractData } = await supabase.functions.invoke('extract-document-text', {
+        body: { file_url: publicUrl || fileName, property_id: tenantForm.property_id },
+      });
+      const extractedText = extractData?.text || '';
+      if (!extractedText || extractedText.length < 50) {
+        toast.error('Could not extract enough text from the document. Please fill the form manually.');
+        setExtracting(false);
+        return;
+      }
+
+      // 3. Get the owner's entity name for Additional Insured check
+      const { data: profile } = await supabase.from('profiles').select('company_name').eq('user_id', user!.id).maybeSingle();
+
+      // 4. Call AI to parse into structured fields
+      const { data: parseResult, error: parseError } = await supabase.functions.invoke('review-insurance', {
+        body: {
+          mode: 'extract',
+          document_text: extractedText,
+          owner_entity_name: profile?.company_name || '',
+        },
+      });
+      if (parseError) throw parseError;
+
+      const fields = parseResult?.extracted;
+      if (!fields) throw new Error('AI could not parse the document');
+
+      // 5. Auto-fill the form
+      setTenantForm(prev => ({
+        ...prev,
+        policy_type: fields.policy_type || prev.policy_type,
+        carrier_name: fields.carrier_name || prev.carrier_name,
+        policy_number: fields.policy_number || prev.policy_number,
+        coverage_amount: fields.coverage_amount ? String(fields.coverage_amount) : prev.coverage_amount,
+        per_occurrence_limit: fields.per_occurrence_limit ? String(fields.per_occurrence_limit) : prev.per_occurrence_limit,
+        aggregate_limit: fields.aggregate_limit ? String(fields.aggregate_limit) : prev.aggregate_limit,
+        deductible: fields.deductible ? String(fields.deductible) : prev.deductible,
+        effective_date: fields.effective_date || prev.effective_date,
+        expiration_date: fields.expiration_date || prev.expiration_date,
+        additional_insured: fields.additional_insured ?? prev.additional_insured,
+        additional_insured_entity_name: fields.additional_insured_entity_name || prev.additional_insured_entity_name,
+        endorsements: fields.endorsements || prev.endorsements,
+      }));
+
+      if (fields.compliance_notes) {
+        setComplianceNotes(fields.compliance_notes);
+      }
+
+      toast.success('AI extracted policy details — review and adjust before saving');
+    } catch (e: any) {
+      console.error('COI extraction error:', e);
+      toast.error(e.message || 'Failed to extract policy details');
+    }
+    setExtracting(false);
+  };
+
   // ── Mutations ──
   const saveTenantMutation = useMutation({
     mutationFn: async () => {
