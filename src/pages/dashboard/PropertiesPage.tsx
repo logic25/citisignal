@@ -102,18 +102,17 @@ const PropertiesPage = () => {
       if (propertyIds.length > 0) {
         const { data: violationsData, error: violationsError } = await supabase
           .from('violations')
-          .select('property_id, is_stop_work_order, is_vacate_order, suppressed')
-          .in('property_id', propertyIds)
-          .neq('status', 'closed'); // Only count non-closed violations
+          .select('property_id, is_stop_work_order, is_vacate_order, suppressed, status, oath_status, violation_class, source, violation_number')
+          .in('property_id', propertyIds);
         
         if (!violationsError && violationsData) {
-          // Count violations per property + detect SWO/Vacate
+          // Count only active, non-complaint violations per property
           violationsData.forEach(v => {
-            if (!v.suppressed) {
+            if (!isComplaint(v) && isActiveViolation(v)) {
               violationCounts[v.property_id] = (violationCounts[v.property_id] || 0) + 1;
             }
-            if (v.is_stop_work_order) swoFlags.add(v.property_id);
-            if (v.is_vacate_order) vacateFlags.add(v.property_id);
+            if (v.is_stop_work_order && !v.suppressed) swoFlags.add(v.property_id);
+            if (v.is_vacate_order && !v.suppressed) vacateFlags.add(v.property_id);
           });
         }
       }
