@@ -298,8 +298,8 @@ Deno.serve(async (req) => {
       throw new Error("Invalid applicable_agencies format");
     }
 
-    // Verify property ownership
-    if (property_id) {
+    // Verify property ownership (skip for service role calls like scheduled-sync)
+    if (property_id && !isServiceRole) {
       const { data: prop, error: propErr } = await supabase
         .from("properties")
         .select("user_id")
