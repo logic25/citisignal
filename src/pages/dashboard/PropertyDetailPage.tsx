@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -290,9 +290,9 @@ const PropertyDetailPage = () => {
     return violations.filter(v => isActiveViolation(v) && !isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
   }, [violations]);
 
-  // Separate complaints from violations
+  // Separate complaints from violations — exclude suppressed
   const complaints = useMemo(() => {
-    return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
+    return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order && !v.suppressed);
   }, [violations]);
 
   // Count violations per agency - only active ones, excluding complaints
@@ -528,30 +528,49 @@ const PropertyDetailPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex gap-1 h-auto p-1 w-auto min-w-full md:flex md:flex-wrap md:w-full md:max-w-5xl">
-            <TabsTrigger value="overview" className="whitespace-nowrap text-xs md:text-sm">Overview</TabsTrigger>
-            <TabsTrigger value="violations" className="whitespace-nowrap text-xs md:text-sm">
-              Violations {openViolations > 0 && `(${openViolations})`}
-            </TabsTrigger>
-            <TabsTrigger value="complaints" className="whitespace-nowrap text-xs md:text-sm">
-              Complaints {complaints.filter(c => c.status === 'open').length > 0 && `(${complaints.filter(c => c.status === 'open').length})`}
-            </TabsTrigger>
-            <TabsTrigger value="applications" className="whitespace-nowrap text-xs md:text-sm">
-              Applications {activeAppCount > 0 && `(${activeAppCount})`}
-            </TabsTrigger>
-            <TabsTrigger value="tenants" className="whitespace-nowrap text-xs md:text-sm">Tenants</TabsTrigger>
-            <TabsTrigger value="documents" className="whitespace-nowrap text-xs md:text-sm">
-              Docs {documents.length > 0 && `(${documents.length})`}
-            </TabsTrigger>
-            <TabsTrigger value="work-orders" className="whitespace-nowrap text-xs md:text-sm">
-              Work Orders {workOrders.length > 0 && `(${workOrders.length})`}
-            </TabsTrigger>
-            <TabsTrigger value="taxes" className="whitespace-nowrap text-xs md:text-sm">Taxes</TabsTrigger>
-            <TabsTrigger value="activity" className="whitespace-nowrap text-xs md:text-sm">Activity</TabsTrigger>
-            <TabsTrigger value="settings" className="whitespace-nowrap text-xs md:text-sm">Settings</TabsTrigger>
-          </TabsList>
+        {/* Mobile: Select dropdown */}
+        <div className="md:hidden">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="overview">Overview</option>
+            <option value="violations">Violations {openViolations > 0 ? `(${openViolations})` : ''}</option>
+            <option value="complaints">Complaints {complaints.filter(c => c.status === 'open').length > 0 ? `(${complaints.filter(c => c.status === 'open').length})` : ''}</option>
+            <option value="applications">Applications {activeAppCount > 0 ? `(${activeAppCount})` : ''}</option>
+            <option value="tenants">Tenants</option>
+            <option value="documents">Docs {documents.length > 0 ? `(${documents.length})` : ''}</option>
+            <option value="work-orders">Work Orders {workOrders.length > 0 ? `(${workOrders.length})` : ''}</option>
+            <option value="taxes">Taxes</option>
+            <option value="activity">Activity</option>
+            <option value="settings">Settings</option>
+          </select>
         </div>
+
+        {/* Desktop: Tab bar */}
+        <TabsList className="hidden md:flex gap-1 h-auto p-1 flex-wrap w-full max-w-5xl">
+          <TabsTrigger value="overview" className="whitespace-nowrap text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="violations" className="whitespace-nowrap text-sm">
+            Violations {openViolations > 0 && `(${openViolations})`}
+          </TabsTrigger>
+          <TabsTrigger value="complaints" className="whitespace-nowrap text-sm">
+            Complaints {complaints.filter(c => c.status === 'open').length > 0 && `(${complaints.filter(c => c.status === 'open').length})`}
+          </TabsTrigger>
+          <TabsTrigger value="applications" className="whitespace-nowrap text-sm">
+            Applications {activeAppCount > 0 && `(${activeAppCount})`}
+          </TabsTrigger>
+          <TabsTrigger value="tenants" className="whitespace-nowrap text-sm">Tenants</TabsTrigger>
+          <TabsTrigger value="documents" className="whitespace-nowrap text-sm">
+            Docs {documents.length > 0 && `(${documents.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="work-orders" className="whitespace-nowrap text-sm">
+            Work Orders {workOrders.length > 0 && `(${workOrders.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="taxes" className="whitespace-nowrap text-sm">Taxes</TabsTrigger>
+          <TabsTrigger value="activity" className="whitespace-nowrap text-sm">Activity</TabsTrigger>
+          <TabsTrigger value="settings" className="whitespace-nowrap text-sm">Settings</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="overview" className="mt-6">
           <PropertyOverviewTab 
