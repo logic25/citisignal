@@ -1497,23 +1497,48 @@ Deno.serve(async (req) => {
       }
 
       // DOB NOW: Build – Limited Alteration Applications (plumbing, fire suppression, oil work, etc.)
+      // Group by job_number so I1 + P1 + S1 for the same job are merged into one record
+      const laaByJob = new Map<string, Record<string, unknown>[]>();
       for (const la of dobNowLimitedAlt as Record<string, unknown>[]) {
-        const appNum = (la.permit_number || la.job_number) as string;
-        if (!appNum) continue;
+        const jobNum = la.job_number as string;
+        if (!jobNum) continue;
+        if (!laaByJob.has(jobNum)) laaByJob.set(jobNum, []);
+        laaByJob.get(jobNum)!.push(la);
+      }
+
+      for (const [jobNum, filings] of laaByJob) {
+        // Sort: I1 first, then by filing_number
+        filings.sort((a, b) => {
+          const aNum = String(a.filing_number || '');
+          const bNum = String(b.filing_number || '');
+          const aIsI = aNum.startsWith('I');
+          const bIsI = bNum.startsWith('I');
+          if (aIsI && !bIsI) return -1;
+          if (!aIsI && bIsI) return 1;
+          return aNum.localeCompare(bNum);
+        });
+
+        const i1 = filings.find(f => String(f.filing_number || '').startsWith('I'));
+        const primary = i1 || filings[0];
+
+        // Use I1 status as authoritative; if I1 is terminal, job is terminal
+        const i1Status = i1 ? (i1.filing_status_name as string) || null : null;
+        const primaryStatus = (primary.filing_status_name as string) || null;
+        const status = i1Status || primaryStatus;
 
         applicationRecords.push({
           property_id,
-          application_number: String(appNum),
-          application_type: (la.work_type_name as string) || 'Limited Alteration',
+          application_number: String(jobNum),
+          application_type: (primary.work_type_name as string) || 'Limited Alteration',
           agency: 'DOB',
           source: 'DOB NOW Limited Alt',
-          status: (la.filing_status_name as string) || null,
-          filing_date: la.filing_date ? (la.filing_date as string).split('T')[0] : null,
-          approval_date: la.permit_issued_date ? (la.permit_issued_date as string).split('T')[0] : null,
-          expiration_date: la.permit_expiration_date ? (la.permit_expiration_date as string).split('T')[0] : null,
-          job_type: (la.filing_type_name as string) || null,
-          work_type: (la.work_type_name as string) || null,
-          description: (la.proposed_work_summary as string) || null,
+          status,
+          filing_date: primary.filing_date ? (primary.filing_date as string).split('T')[0] : null,
+          approval_date: primary.permit_issued_date ? (primary.permit_issued_date as string).split('T')[0] : null,
+          expiration_date: primary.permit_expiration_date ? (primary.permit_expiration_date as string).split('T')[0] : null,
+          job_type: (primary.filing_type_name as string) || null,
+          work_type: (primary.work_type_name as string) || null,
+          description: (primary.proposed_work_summary as string) || null,
           applicant_name: null,
           owner_name: null,
           estimated_cost: null,
@@ -1521,10 +1546,17 @@ Deno.serve(async (req) => {
           dwelling_units: null,
           floor_area: null,
           raw_data: {
-            building_type: la.building_type_name || null,
-            inspection_type: la.inspection_type_name || null,
-            inspection_date: la.inspection_date ? (la.inspection_date as string).split('T')[0] : null,
-            signoff_date: la.laasign_off_date ? (la.laasign_off_date as string).split('T')[0] : null,
+            building_type: primary.building_type_name || null,
+            inspection_type: primary.inspection_type_name || null,
+            inspection_date: primary.inspection_date ? (primary.inspection_date as string).split('T')[0] : null,
+            signoff_date: primary.laasign_off_date ? (primary.laasign_off_date as string).split('T')[0] : null,
+            filing_count: filings.length,
+            filings: filings.map(f => ({
+              filing_number: f.filing_number || null,
+              filing_type: f.filing_type_name || null,
+              status: f.filing_status_name || null,
+              permit_number: f.permit_number || null,
+            })),
           },
         });
       }
