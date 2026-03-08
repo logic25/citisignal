@@ -281,7 +281,7 @@ const PropertiesPage = () => {
   return (
     <div className="space-y-6">
       {/* Bold Header Banner */}
-      <div className="gradient-hero rounded-2xl p-6 md:p-8 shadow-elevated">
+      <div className="gradient-hero rounded-2xl p-4 sm:p-6 md:p-8 shadow-elevated overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-primary-foreground">
@@ -370,8 +370,8 @@ const PropertiesPage = () => {
       {/* Properties Display */}
       {filteredProperties.length > 0 ? (
         viewMode === 'table' ? (
-          <div className="rounded-xl border border-border overflow-x-auto bg-card shadow-card">
-            <Table className="min-w-[700px]">
+          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
+            <Table>
               <TableHeader>
                 <TableRow className="bg-primary text-primary-foreground hover:bg-primary">
                   <TableHead className="font-semibold text-primary-foreground">Address</TableHead>
