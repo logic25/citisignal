@@ -11,7 +11,7 @@ import BoroughHeatmap from '@/components/dashboard/BoroughHeatmap';
 import TopPropertiesCard from '@/components/dashboard/TopPropertiesCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { isActiveViolation, getAgencyColor } from '@/lib/violation-utils';
+import { isActiveViolation, getAgencyColor, isComplaint } from '@/lib/violation-utils';
 import { useTour } from '@/components/tour/TourContext';
 import { 
   Building2, 
