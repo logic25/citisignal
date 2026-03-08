@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import * as Sentry from "@sentry/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,6 +45,7 @@ const ComplianceGuidePage = lazy(() => import("./pages/dashboard/ComplianceGuide
 const queryClient = new QueryClient();
 
 const App = () => (
+  <Sentry.ErrorBoundary fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground"><p>Something went wrong. Please refresh the page.</p></div>}>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
@@ -96,6 +98,7 @@ const App = () => (
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </Sentry.ErrorBoundary>
 );
 
 export default App;
