@@ -282,7 +282,7 @@ const PropertiesPage = () => {
     <div className="space-y-6">
       {/* Bold Header Banner */}
       <div className="gradient-hero rounded-2xl p-6 md:p-8 shadow-elevated">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl md:text-3xl font-bold text-primary-foreground">
               Properties
@@ -291,9 +291,10 @@ const PropertiesPage = () => {
               Manage your buildings and track compliance
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button 
               variant="outline" 
+              size="sm"
               onClick={syncAllViolations}
               disabled={isSyncing || properties.length === 0}
               className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10 bg-primary-foreground/5"
@@ -303,11 +304,11 @@ const PropertiesPage = () => {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              {isSyncing ? 'Syncing...' : 'Sync All'}
+              <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync All'}</span>
             </Button>
-            <Button variant="hero" onClick={() => setIsDialogOpen(true)}>
+            <Button variant="hero" size="sm" onClick={() => setIsDialogOpen(true)}>
               <Plus className="w-4 h-4" />
-              Add Property
+              <span className="hidden sm:inline">Add Property</span>
             </Button>
           </div>
         </div>
