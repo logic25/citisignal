@@ -75,7 +75,7 @@ export const PortfolioOverviewTab = ({ properties, violations, workOrderCount }:
   const navigate = useNavigate();
   const { scores } = usePortfolioScores();
 
-  const activeViolations = useMemo(() => violations.filter(isActiveViolation), [violations]);
+  const activeViolations = useMemo(() => violations.filter(v => isActiveViolation(v) && !isComplaint(v)), [violations]);
 
   const agencyData = useMemo(() => {
     const counts: Record<string, number> = {};

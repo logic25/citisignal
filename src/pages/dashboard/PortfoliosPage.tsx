@@ -90,7 +90,7 @@ const PortfoliosPage = () => {
               .in('property_id', propertyIds);
 
             // Filter using proper resolved status check
-            const activeViolations = (violations || []).filter(isActiveViolation);
+            const activeViolations = (violations || []).filter(v => isActiveViolation(v) && !isComplaint(v));
             totalViolations = violations?.length || 0;
             openViolations = activeViolations.length;
             criticalViolations = activeViolations.filter(v => v.is_stop_work_order || v.is_vacate_order).length;

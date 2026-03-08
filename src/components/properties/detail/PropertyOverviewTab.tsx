@@ -166,7 +166,7 @@ export const PropertyOverviewTab = ({
     }
   }, [scoreLoading, complianceData, property.id, recalculate]);
   
-  const activeViolations = violations.filter(isActiveViolation);
+  const activeViolations = violations.filter(v => isActiveViolation(v) && !isComplaint(v));
   const openViolations = activeViolations.filter(v => v.status === 'open').length;
   const inProgressViolations = activeViolations.filter(v => v.status === 'in_progress').length;
   const activeWorkOrders = workOrders.filter(w => w.status !== 'completed').length;
