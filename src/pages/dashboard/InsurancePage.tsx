@@ -588,12 +588,66 @@ const InsurancePage = () => {
           <div className="flex justify-end">
             <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" disabled={!properties?.length} onClick={() => setTenantForm(EMPTY_TENANT_FORM)}>
+                <Button size="sm" disabled={!properties?.length} onClick={() => { setTenantForm(EMPTY_TENANT_FORM); setComplianceNotes(null); }}>
                   <Plus className="w-4 h-4 mr-1" /> Add Tenant Policy
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Add Tenant Insurance Policy</DialogTitle></DialogHeader>
+
+                {/* COI Upload + AI Auto-Fill */}
+                <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-4 mb-1">
+                  <input
+                    ref={dialogFileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleDialogCOIUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-5 h-5 text-primary" />
+                      <span className="font-semibold text-sm text-foreground">Upload COI for AI Auto-Fill</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload the tenant's Certificate of Insurance and AI will extract all policy details, check Additional Insured status, and flag compliance issues.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!tenantForm.property_id || extracting}
+                      onClick={() => dialogFileInputRef.current?.click()}
+                      className="mt-1"
+                    >
+                      {extracting ? (
+                        <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Analyzing COI...</>
+                      ) : (
+                        <><Upload className="w-4 h-4 mr-1" /> Choose File</>
+                      )}
+                    </Button>
+                    {!tenantForm.property_id && (
+                      <p className="text-[11px] text-warning">Select a property first</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Compliance Notes */}
+                {complianceNotes && (
+                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 mb-1">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-xs text-foreground mb-1">AI Compliance Check</p>
+                        <p className="text-xs text-muted-foreground">{complianceNotes}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label>Property *</Label>
