@@ -153,7 +153,7 @@ const getStatusVariant = (status: string | null, source: string) => {
     return 'secondary' as const;
   }
   // Terminal/negative
-  if (['disapproved', 'withdrawn', 'suspended', 'expired', 'denied', 'cancelled'].some(s => decoded.includes(s))) {
+  if (['disapproved', 'withdrawn', 'suspended', 'expired', 'denied', 'cancelled', 'stale'].some(s => decoded.includes(s))) {
     return 'destructive' as const;
   }
   return 'outline' as const;
