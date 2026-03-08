@@ -65,7 +65,8 @@ import {
   getAgencyLookupUrl, 
   getAgencyColor, 
   getStatusColor,
-  isActiveViolation
+  isActiveViolation,
+  isComplaint
 } from '@/lib/violation-utils';
 import { calculateViolationSeverity, getSeverityBadgeClasses } from '@/lib/violation-severity';
 import { CreateWorkOrderDialog } from '@/components/violations/CreateWorkOrderDialog';
