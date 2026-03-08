@@ -290,9 +290,9 @@ const PropertyDetailPage = () => {
     return violations.filter(v => isActiveViolation(v) && !isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
   }, [violations]);
 
-  // Separate complaints from violations
+  // Separate complaints from violations — exclude suppressed
   const complaints = useMemo(() => {
-    return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order);
+    return violations.filter(v => isComplaint(v) && !v.is_stop_work_order && !v.is_vacate_order && !v.suppressed);
   }, [violations]);
 
   // Count violations per agency - only active ones, excluding complaints
