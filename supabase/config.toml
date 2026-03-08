@@ -88,3 +88,15 @@ verify_jwt = false
 [functions.admin-get-user-data]
 verify_jwt = false
 
+[functions.review-insurance]
+verify_jwt = false
+
+[functions.admin-delete-user]
+verify_jwt = false
+
+[functions.send-invite]
+verify_jwt = false
+
+[functions.send-change-summary]
+verify_jwt = false
+
