@@ -183,12 +183,18 @@ const InsurancePage = () => {
   const [reviewResult, setReviewResult] = useState<string | null>(null);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [uploadingPolicyId, setUploadingPolicyId] = useState<string | null>(null);
+  const [uploadingPolicyDocId, setUploadingPolicyDocId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const policyDocInputRef = useRef<HTMLInputElement>(null);
   const [pendingUploadPolicyId, setPendingUploadPolicyId] = useState<string | null>(null);
   const [pendingUploadIsBuildingPolicy, setPendingUploadIsBuildingPolicy] = useState(false);
+  const [pendingUploadType, setPendingUploadType] = useState<'coi' | 'policy'>('coi');
   const [extracting, setExtracting] = useState(false);
   const [complianceNotes, setComplianceNotes] = useState<string | null>(null);
   const dialogFileInputRef = useRef<HTMLInputElement>(null);
+  const dialogPolicyFileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState('tenant');
+  const [uploadingDialogPolicy, setUploadingDialogPolicy] = useState(false);
 
   // ── Queries ──
   const { data: properties } = useQuery({
@@ -299,10 +305,15 @@ const InsurancePage = () => {
     setUploadingPolicyId(null);
   };
 
-  const triggerUpload = (policyId: string, isBuildingPolicy: boolean) => {
+  const triggerUpload = (policyId: string, isBuildingPolicy: boolean, type: 'coi' | 'policy' = 'coi') => {
     setPendingUploadPolicyId(policyId);
     setPendingUploadIsBuildingPolicy(isBuildingPolicy);
-    fileInputRef.current?.click();
+    setPendingUploadType(type);
+    if (type === 'policy') {
+      policyDocInputRef.current?.click();
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,6 +322,113 @@ const InsurancePage = () => {
       handleCOIUpload(file, pendingUploadPolicyId, pendingUploadIsBuildingPolicy);
     }
     e.target.value = '';
+  };
+
+  const onPolicyDocSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && pendingUploadPolicyId) {
+      handlePolicyDocUpload(file, pendingUploadPolicyId, pendingUploadIsBuildingPolicy);
+    }
+    e.target.value = '';
+  };
+
+  // ── Full Policy Document Upload + Auto Deep Review ──
+  const handlePolicyDocUpload = async (file: File, policyId: string, isBuildingPolicy: boolean) => {
+    setUploadingPolicyDocId(policyId);
+    try {
+      const policy = isBuildingPolicy
+        ? (buildingPolicies || []).find(p => p.id === policyId)
+        : (tenantPolicies || []).find(p => p.id === policyId);
+      if (!policy) throw new Error('Policy not found');
+
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const fileName = `${policy.property_id}/policy_doc_${policyId}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('property-documents')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(fileName);
+      const fileUrl = publicUrl || fileName;
+
+      // Update the policy's policy_document_url
+      const table = isBuildingPolicy ? 'building_insurance_policies' : 'tenant_insurance_policies';
+      await supabase.from(table).update({ policy_document_url: fileUrl } as any).eq('id', policyId);
+
+      // Create a property_documents record
+      const tenantName = !isBuildingPolicy ? policy.tenants?.company_name : null;
+      const policyType = isBuildingPolicy
+        ? BUILDING_POLICY_TYPES[policy.policy_type] || policy.policy_type
+        : TENANT_POLICY_TYPES[policy.policy_type] || policy.policy_type;
+      const docName = tenantName
+        ? `Full Policy — ${tenantName} — ${policyType}`
+        : `Full Building Policy — ${policyType}`;
+
+      await supabase.from('property_documents').insert({
+        property_id: policy.property_id,
+        document_type: 'Insurance Policy',
+        document_name: docName,
+        file_url: fileUrl,
+        file_type: file.type || `application/${fileExt}`,
+        file_size_bytes: file.size,
+        expiration_date: policy.expiration_date || null,
+        uploaded_by: user?.id,
+        description: `Full insurance policy document. Policy #${policy.policy_number || 'N/A'}`,
+      });
+
+      // Extract text
+      let extractedText = '';
+      try {
+        const { data: extractData } = await supabase.functions.invoke('extract-document-text', {
+          body: { file_url: fileUrl, property_id: policy.property_id },
+        });
+        extractedText = extractData?.text || '';
+      } catch {
+        // Non-critical
+      }
+
+      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
+      toast.success('Policy document uploaded');
+
+      // Auto-trigger deep AI compliance review if we got text
+      if (extractedText.length > 100) {
+        toast.info('Running deep AI compliance review...');
+        handleDeepReview(policy, isBuildingPolicy, extractedText);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Upload failed');
+    }
+    setUploadingPolicyDocId(null);
+  };
+
+  // ── Deep AI Policy Review ──
+  const handleDeepReview = async (policy: any, isBuildingPolicy: boolean, documentText?: string) => {
+    setReviewingId(policy.id);
+    try {
+      const policyData = {
+        ...policy,
+        tenant_name: policy.tenants?.company_name,
+        property_address: policy.properties?.address,
+        is_building_policy: isBuildingPolicy,
+      };
+      const { data, error } = await supabase.functions.invoke('review-insurance', {
+        body: {
+          mode: 'deep_review',
+          policy_id: policy.id,
+          policy_data: policyData,
+          ...(documentText ? { policy_document_text: documentText } : {}),
+        },
+      });
+      if (error) throw error;
+      setReviewResult(data.review);
+      setReviewDialogOpen(true);
+      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
+      toast.success('Deep AI compliance review complete');
+    } catch (e: any) {
+      toast.error(e.message || 'AI review failed');
+    }
+    setReviewingId(null);
   };
 
   // ── COI Upload + AI Extract for Add Dialog ──
@@ -454,29 +572,7 @@ const InsurancePage = () => {
     onError: () => toast.error('Failed to add policy'),
   });
 
-  // ── AI Review ──
-  const handleAIReview = async (policy: any, isBuildingPolicy: boolean) => {
-    setReviewingId(policy.id);
-    try {
-      const policyData = {
-        ...policy,
-        tenant_name: policy.tenants?.company_name,
-        property_address: policy.properties?.address,
-        is_building_policy: isBuildingPolicy,
-      };
-      const { data, error } = await supabase.functions.invoke('review-insurance', {
-        body: { policy_id: policy.id, policy_data: policyData },
-      });
-      if (error) throw error;
-      setReviewResult(data.review);
-      setReviewDialogOpen(true);
-      queryClient.invalidateQueries({ queryKey: isBuildingPolicy ? ['building-insurance-policies'] : ['all-insurance-policies'] });
-      toast.success('AI review complete');
-    } catch (e: any) {
-      toast.error(e.message || 'AI review failed');
-    }
-    setReviewingId(null);
-  };
+  // handleAIReview replaced by handleDeepReview above
 
   // ── Toggle helpers ──
   const toggleProperty = (id: string) => {
@@ -531,14 +627,9 @@ const InsurancePage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Hidden file input for COI uploads */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
-        className="hidden"
-        onChange={onFileSelected}
-      />
+      {/* Hidden file inputs */}
+      <input ref={fileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={onFileSelected} />
+      <input ref={policyDocInputRef} type="file" accept=".pdf" className="hidden" onChange={onPolicyDocSelected} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -552,30 +643,30 @@ const InsurancePage = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('tenant')}>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><ShieldCheck className="w-5 h-5 text-primary" /></div>
           <div><p className="text-xl font-display font-bold">{allPolicies.length}</p><p className="text-xs text-muted-foreground">Total Policies</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-warning/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('renewals')}>
           <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center"><ShieldAlert className="w-5 h-5 text-warning" /></div>
           <div><p className="text-xl font-display font-bold">{expiringSoonCount}</p><p className="text-xs text-muted-foreground">Expiring ≤30d</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-destructive/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('renewals')}>
           <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center"><ShieldX className="w-5 h-5 text-destructive" /></div>
           <div><p className="text-xl font-display font-bold">{expiredCount}</p><p className="text-xs text-muted-foreground">Expired</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-foreground/20 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('gaps')}>
           <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-foreground" /></div>
           <div><p className="text-xl font-display font-bold">{nonCompliantCount}</p><p className="text-xs text-muted-foreground">Non-Compliant</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('tenant')}>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Bot className="w-5 h-5 text-primary" /></div>
           <div><p className="text-xl font-display font-bold">{aiReviewedCount}</p><p className="text-xs text-muted-foreground">AI Reviewed</p></div>
-        </div>
+        </button>
       </div>
 
       {/* Tabbed Content */}
-      <Tabs defaultValue="tenant" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="tenant" className="gap-1"><Users className="w-3.5 h-3.5" /> Tenant Policies ({allTenant.length})</TabsTrigger>
           <TabsTrigger value="building" className="gap-1"><Building2 className="w-3.5 h-3.5" /> Building Policies ({allBuilding.length})</TabsTrigger>
@@ -846,9 +937,9 @@ const InsurancePage = () => {
                                               <TableCell>
                                                 <Button
                                                   variant="ghost" size="icon" className="h-6 w-6"
-                                                  onClick={(e) => { e.stopPropagation(); handleAIReview(p, false); }}
+                                                  onClick={(e) => { e.stopPropagation(); handleDeepReview(p, false); }}
                                                   disabled={reviewingId === p.id}
-                                                  title={p.certificate_url ? "AI Review (with document)" : "AI Review (metadata only)"}
+                                                  title={p.policy_document_url ? "Deep AI Review (with policy doc)" : p.certificate_url ? "AI Review (with COI)" : "AI Review (metadata only)"}
                                                 >
                                                   {reviewingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />}
                                                 </Button>
@@ -866,18 +957,47 @@ const InsurancePage = () => {
                                                     <div><p className="text-xs text-muted-foreground">Add'l Insured Entity</p><p className="font-medium">{p.additional_insured_entity_name || '—'}</p></div>
                                                     <div className="col-span-2"><p className="text-xs text-muted-foreground">Endorsements</p><p className="font-medium">{p.endorsements || '—'}</p></div>
                                                   </div>
-                                                  {p.certificate_url && (
-                                                    <div className="mt-3 flex items-center gap-2">
-                                                      <FileText className="w-4 h-4 text-primary" />
-                                                      <span className="text-xs text-muted-foreground">COI on file</span>
-                                                      <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false); }}>
-                                                        <Upload className="w-3 h-3" /> Replace
-                                                      </Button>
+
+                                                  {/* Documents Section — COI + Full Policy */}
+                                                  <div className="mt-3 grid grid-cols-2 gap-3">
+                                                    <div className="rounded-lg border border-border p-3">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Certificate of Insurance (COI)</p>
+                                                      {p.certificate_url ? (
+                                                        <div className="flex items-center gap-2">
+                                                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1"><FileText className="w-2.5 h-2.5" /> On File</Badge>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'coi'); }}>
+                                                            <Upload className="w-3 h-3" /> Replace
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'coi'); }} disabled={uploadingPolicyId === p.id}>
+                                                          {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload COI
+                                                        </Button>
+                                                      )}
                                                     </div>
-                                                  )}
+                                                    <div className="rounded-lg border border-border p-3">
+                                                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Full Insurance Policy</p>
+                                                      {(p as any).policy_document_url ? (
+                                                        <div className="flex items-center gap-2">
+                                                          <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1"><FileText className="w-2.5 h-2.5" /> On File</Badge>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'policy'); }}>
+                                                            <Upload className="w-3 h-3" /> Replace
+                                                          </Button>
+                                                          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1" onClick={(e) => { e.stopPropagation(); handleDeepReview(p, false); }} disabled={reviewingId === p.id}>
+                                                            {reviewingId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />} Re-run Review
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); triggerUpload(p.id, false, 'policy'); }} disabled={uploadingPolicyDocId === p.id}>
+                                                          {uploadingPolicyDocId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload Policy
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+
                                                   {p.ai_review_notes && (
                                                     <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
-                                                      <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
+                                                      <p className="text-xs text-primary font-medium mb-1 flex items-center gap-1"><Bot className="w-3 h-3" /> AI Compliance Review — {p.ai_reviewed_at ? format(new Date(p.ai_reviewed_at), 'MM/dd/yy') : ''}</p>
                                                       <div className="prose prose-sm max-w-none text-xs text-foreground">
                                                         <ReactMarkdown>{p.ai_review_notes}</ReactMarkdown>
                                                       </div>
@@ -983,11 +1103,20 @@ const InsurancePage = () => {
                               <FileText className="w-2.5 h-2.5" /> COI
                             </Badge>
                           ) : (
-                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true)} disabled={uploadingPolicyId === p.id}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true, 'coi')} disabled={uploadingPolicyId === p.id}>
                               {uploadingPolicyId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload COI
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleAIReview(p, true)} disabled={reviewingId === p.id}>
+                          {(p as any).policy_document_url ? (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-[10px] gap-1">
+                              <FileText className="w-2.5 h-2.5" /> Policy
+                            </Badge>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => triggerUpload(p.id, true, 'policy')} disabled={uploadingPolicyDocId === p.id}>
+                              {uploadingPolicyDocId === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Upload Policy
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeepReview(p, true)} disabled={reviewingId === p.id}>
                             {reviewingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
                           </Button>
                         </div>
