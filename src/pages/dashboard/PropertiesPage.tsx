@@ -108,7 +108,9 @@ const PropertiesPage = () => {
         if (!violationsError && violationsData) {
           // Count violations per property + detect SWO/Vacate
           violationsData.forEach(v => {
-            violationCounts[v.property_id] = (violationCounts[v.property_id] || 0) + 1;
+            if (!v.suppressed) {
+              violationCounts[v.property_id] = (violationCounts[v.property_id] || 0) + 1;
+            }
             if (v.is_stop_work_order) swoFlags.add(v.property_id);
             if (v.is_vacate_order) vacateFlags.add(v.property_id);
           });
