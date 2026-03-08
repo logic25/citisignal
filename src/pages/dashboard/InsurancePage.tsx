@@ -665,30 +665,30 @@ const InsurancePage = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('tenant')}>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><ShieldCheck className="w-5 h-5 text-primary" /></div>
           <div><p className="text-xl font-display font-bold">{allPolicies.length}</p><p className="text-xs text-muted-foreground">Total Policies</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-warning/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('renewals')}>
           <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center"><ShieldAlert className="w-5 h-5 text-warning" /></div>
           <div><p className="text-xl font-display font-bold">{expiringSoonCount}</p><p className="text-xs text-muted-foreground">Expiring ≤30d</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-destructive/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('renewals')}>
           <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center"><ShieldX className="w-5 h-5 text-destructive" /></div>
           <div><p className="text-xl font-display font-bold">{expiredCount}</p><p className="text-xs text-muted-foreground">Expired</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-foreground/20 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('gaps')}>
           <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-foreground" /></div>
           <div><p className="text-xl font-display font-bold">{nonCompliantCount}</p><p className="text-xs text-muted-foreground">Non-Compliant</p></div>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
+        </button>
+        <button className="bg-card rounded-xl border border-border p-4 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left" onClick={() => setActiveTab('tenant')}>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Bot className="w-5 h-5 text-primary" /></div>
           <div><p className="text-xl font-display font-bold">{aiReviewedCount}</p><p className="text-xs text-muted-foreground">AI Reviewed</p></div>
-        </div>
+        </button>
       </div>
 
       {/* Tabbed Content */}
-      <Tabs defaultValue="tenant" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="tenant" className="gap-1"><Users className="w-3.5 h-3.5" /> Tenant Policies ({allTenant.length})</TabsTrigger>
           <TabsTrigger value="building" className="gap-1"><Building2 className="w-3.5 h-3.5" /> Building Policies ({allBuilding.length})</TabsTrigger>
