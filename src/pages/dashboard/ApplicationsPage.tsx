@@ -97,7 +97,7 @@ const getStatusVariant = (status: string | null, source: string) => {
   if (['sign-off', 'signed-off', 'completed'].some(s => decoded.includes(s))) return 'default' as const;
   if (['permit issued', 'approved'].some(s => decoded.includes(s))) return 'default' as const;
   if (['pre-filed', 'application process', 'plan exam', 'assigned', 'paa fee', 'partial approval'].some(s => decoded.includes(s))) return 'secondary' as const;
-  if (['disapproved', 'withdrawn', 'suspended', 'expired', 'denied', 'cancelled', 'stale'].some(s => decoded.includes(s))) return 'destructive' as const;
+  if (['disapproved', 'withdrawn', 'suspended', 'expired', 'denied', 'cancelled'].some(s => decoded.includes(s))) return 'destructive' as const;
   return 'outline' as const;
 };
 
