@@ -305,6 +305,7 @@ export type Database = {
           id: string
           notes: string | null
           per_occurrence_limit: number | null
+          policy_document_url: string | null
           policy_number: string | null
           policy_type: string
           premium_annual: number | null
@@ -332,6 +333,7 @@ export type Database = {
           id?: string
           notes?: string | null
           per_occurrence_limit?: number | null
+          policy_document_url?: string | null
           policy_number?: string | null
           policy_type: string
           premium_annual?: number | null
@@ -359,6 +361,7 @@ export type Database = {
           id?: string
           notes?: string | null
           per_occurrence_limit?: number | null
+          policy_document_url?: string | null
           policy_number?: string | null
           policy_type?: string
           premium_annual?: number | null
@@ -2594,6 +2597,7 @@ export type Database = {
           id: string
           notes: string | null
           per_occurrence_limit: number | null
+          policy_document_url: string | null
           policy_number: string | null
           policy_type: string
           property_id: string
@@ -2624,6 +2628,7 @@ export type Database = {
           id?: string
           notes?: string | null
           per_occurrence_limit?: number | null
+          policy_document_url?: string | null
           policy_number?: string | null
           policy_type: string
           property_id: string
@@ -2654,6 +2659,7 @@ export type Database = {
           id?: string
           notes?: string | null
           per_occurrence_limit?: number | null
+          policy_document_url?: string | null
           policy_number?: string | null
           policy_type?: string
           property_id?: string
