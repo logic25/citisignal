@@ -75,6 +75,7 @@ const COMPLETED_STATUSES = [
   'Plan Exam Disapproved',
   'Suspended', 'Withdrawn', 'Cancel', 'Cancelled',
   'LOC Issued', 'Letter of Completion',
+  'Stale',
 ];
 
 // Normalize similar status labels to a single canonical form
