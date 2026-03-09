@@ -473,7 +473,12 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
             )}
             <p>Expires: <span className="text-foreground">{app.expiration_date ? format(new Date(app.expiration_date), 'MM/dd/yy') : '—'}</span></p>
             {raw.signoff_date && (
-              <p>Sign-Off: <span className="text-foreground">{raw.signoff_date as string}</span></p>
+              <p>Sign-Off: <span className="text-foreground">{(() => {
+                try {
+                  const d = new Date(raw.signoff_date as string);
+                  return isNaN(d.getTime()) ? String(raw.signoff_date) : format(d, 'MM/dd/yy');
+                } catch { return String(raw.signoff_date); }
+              })()}</span></p>
             )}
             {isPermitted && (
               <p className="text-success font-medium">✓ Permitted</p>
