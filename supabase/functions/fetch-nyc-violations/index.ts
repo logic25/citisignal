@@ -263,6 +263,8 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const isServiceRole = token === supabaseServiceKey;
 
+    let authenticatedUserId: string | null = null;
+
     if (!isServiceRole) {
       // Verify the user for client calls
       const authClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -275,6 +277,7 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      authenticatedUserId = user.id;
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
