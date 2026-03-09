@@ -2397,6 +2397,47 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_health_logs: {
+        Row: {
+          created_at: string | null
+          endpoint_name: string
+          error_message: string | null
+          id: string
+          property_id: string | null
+          response_time_ms: number | null
+          result_count: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint_name: string
+          error_message?: string | null
+          id?: string
+          property_id?: string | null
+          response_time_ms?: number | null
+          result_count?: number | null
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          endpoint_name?: string
+          error_message?: string | null
+          id?: string
+          property_id?: string | null
+          response_time_ms?: number | null
+          result_count?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_health_logs_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tax_exemptions: {
         Row: {
           annual_savings: number | null
