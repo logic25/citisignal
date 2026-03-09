@@ -82,38 +82,51 @@ Deno.serve(async (req) => {
     if (text.startsWith("/start")) {
       const parts = text.split(" ");
       if (parts.length > 1) {
-        const linkCode = parts[1];
-        try {
-          const userId = atob(linkCode);
-          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-            const { error } = await supabase
-              .from("telegram_users")
-              .upsert(
-                {
-                  user_id: userId,
-                  chat_id: chatId,
-                  username,
-                  first_name: firstName,
-                  is_active: true,
-                },
-                { onConflict: "chat_id" }
-              );
+        const linkToken = parts[1];
+        // Look up the secure token in pending_account_links
+        const { data: linkRecord, error: linkErr } = await supabase
+          .from("pending_account_links")
+          .select("id, user_id, expires_at, used")
+          .eq("token", linkToken)
+          .eq("channel", "telegram")
+          .eq("used", false)
+          .maybeSingle();
 
-            if (error) {
-              console.error("Error linking user:", error);
-              await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, "❌ Failed to link account. Please try again.");
-            } else {
-              await sendTelegram(
-                TELEGRAM_BOT_TOKEN,
-                chatId,
-                `✅ *Account linked!*\n\nWelcome to CitiSignal, ${firstName || "there"}! You can now:\n\n• Ask about your properties and violations\n• Get daily compliance digests\n• Query hearings and deadlines\n\nTry: _"Show violations for 123 Main St"_\n\nType /help to see all features.`,
-                "Markdown"
-              );
-            }
+        if (linkRecord && !linkErr) {
+          // Check expiry
+          if (new Date(linkRecord.expires_at) < new Date()) {
+            await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, "❌ This link has expired. Please generate a new one from Settings in CitiSignal.");
             return new Response("OK", { status: 200 });
           }
-        } catch {
-          // Invalid base64, fall through to welcome
+
+          // Mark token as used
+          await supabase.from("pending_account_links").update({ used: true }).eq("id", linkRecord.id);
+
+          const { error } = await supabase
+            .from("telegram_users")
+            .upsert(
+              {
+                user_id: linkRecord.user_id,
+                chat_id: chatId,
+                username,
+                first_name: firstName,
+                is_active: true,
+              },
+              { onConflict: "chat_id" }
+            );
+
+          if (error) {
+            console.error("Error linking user:", error);
+            await sendTelegram(TELEGRAM_BOT_TOKEN, chatId, "❌ Failed to link account. Please try again.");
+          } else {
+            await sendTelegram(
+              TELEGRAM_BOT_TOKEN,
+              chatId,
+              `✅ *Account linked!*\n\nWelcome to CitiSignal, ${firstName || "there"}! You can now:\n\n• Ask about your properties and violations\n• Get daily compliance digests\n• Query hearings and deadlines\n\nTry: _"Show violations for 123 Main St"_\n\nType /help to see all features.`,
+              "Markdown"
+            );
+          }
+          return new Response("OK", { status: 200 });
         }
       }
 
