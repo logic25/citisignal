@@ -1325,6 +1325,36 @@ export type Database = {
           },
         ]
       }
+      pending_account_links: {
+        Row: {
+          channel: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          token: string
+          used: boolean | null
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          token: string
+          used?: boolean | null
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_po_confirmations: {
         Row: {
           channel: string
