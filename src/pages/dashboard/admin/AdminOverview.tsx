@@ -315,6 +315,9 @@ export default function AdminOverview() {
           )}
         </CardContent>
       </Card>
+
+      {/* Sync Health */}
+      <SyncHealthSection />
     </div>
     </TooltipProvider>
   );
