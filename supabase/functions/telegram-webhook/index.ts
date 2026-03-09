@@ -283,14 +283,22 @@ Deno.serve(async (req) => {
               subject: `CitiSignal PO Confirmation Code: ${poNumber}`,
               html: emailHeader('PO Confirmation Code') +
                 emailBody(`
-                  <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${vendorMatch.name || 'there'},</p>
-                  <p style="color:#64748b;font-size:14px;margin:0 0 20px;">
-                    Enter the code below in Telegram to confirm and sign <strong>${poNumber}</strong> ($${po.amount?.toLocaleString()}).
+                  <p style="color:#1e293b;font-size:15px;margin:0 0 6px;">Hi ${vendorMatch.name || 'there'},</p>
+                  <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 20px;">
+                    Enter the code below in Telegram to confirm and sign <strong>${poNumber}</strong>.
                   </p>
-                  <div style="background:#f1f5f9;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center;">
-                    <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Confirmation Code</p>
-                    <p style="font-size:36px;font-weight:800;letter-spacing:8px;color:#0f172a;margin:0;">${code}</p>
-                    <p style="color:#94a3b8;font-size:12px;margin:8px 0 0;">This code expires in 10 minutes</p>
+                  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr><td style="padding:4px 0;"><span style="color:#64748b;font-size:12px;">PO Number</span></td>
+                          <td style="text-align:right;"><strong style="color:#1e293b;font-size:13px;">${poNumber}</strong></td></tr>
+                      <tr><td style="padding:4px 0;"><span style="color:#64748b;font-size:12px;">Amount</span></td>
+                          <td style="text-align:right;"><strong style="color:#0f172a;font-size:16px;">$${po.amount?.toLocaleString()}</strong></td></tr>
+                    </table>
+                  </div>
+                  <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:12px;padding:28px;text-align:center;margin-bottom:20px;">
+                    <p style="color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Your Confirmation Code</p>
+                    <div style="font-size:40px;font-weight:800;letter-spacing:10px;color:#ffffff;font-family:monospace;">${code}</div>
+                    <p style="color:#64748b;font-size:12px;margin:10px 0 0;">Expires in 10 minutes</p>
                   </div>
                   <p style="color:#94a3b8;font-size:12px;margin:0;">If you did not request this, you can safely ignore this email.</p>
                 `) +
