@@ -434,6 +434,28 @@ Deno.serve(async (req) => {
       return null;
     }
 
+    // Log sync health per endpoint
+    async function logSyncHealth(
+      endpointName: string,
+      status: 'success' | 'empty' | 'error' | 'timeout',
+      resultCount: number,
+      errorMessage: string | null,
+      responseTimeMs: number
+    ) {
+      try {
+        await supabase.from('sync_health_logs').insert({
+          property_id: property_id || null,
+          endpoint_name: endpointName,
+          status,
+          result_count: resultCount,
+          error_message: errorMessage,
+          response_time_ms: responseTimeMs,
+        });
+      } catch (e) {
+        console.warn('Failed to log sync health:', e);
+      }
+    }
+
     const safeFetch = async (url: string, agency: string): Promise<unknown[]> => {
       const endpointName = resolveEndpointName(agency);
       const attempt = async (): Promise<{ data: unknown[]; shouldRetry: boolean }> => {
@@ -462,12 +484,27 @@ Deno.serve(async (req) => {
       };
 
       // First attempt
+      const fetchStart = Date.now();
       const first = await attempt();
-      if (!first.shouldRetry) return first.data;
+      if (!first.shouldRetry) {
+        const elapsed = Date.now() - fetchStart;
+        const resultCount = first.data.length;
+        const healthStatus = resultCount > 0 ? 'success' : 'empty';
+        await logSyncHealth(endpointName, healthStatus, resultCount, null, elapsed);
+        return first.data;
+      }
 
       // Retry once only for transient failures (timeout/network/5xx/429)
       console.log(`${agency}: Retrying once...`);
       const second = await attempt();
+      const elapsed = Date.now() - fetchStart;
+      if (second.data.length > 0) {
+        await logSyncHealth(endpointName, 'success', second.data.length, null, elapsed);
+      } else if (second.shouldRetry) {
+        await logSyncHealth(endpointName, 'timeout', 0, 'Failed after retry', elapsed);
+      } else {
+        await logSyncHealth(endpointName, second.data.length > 0 ? 'success' : 'empty', second.data.length, null, elapsed);
+      }
       return second.data;
     };
 
@@ -1009,7 +1046,10 @@ Deno.serve(async (req) => {
 
         const { error: insertError } = await supabase
           .from("violations")
-          .insert(violationsToInsert);
+          .upsert(violationsToInsert, {
+            onConflict: 'property_id,violation_number,agency',
+            ignoreDuplicates: false,
+          });
 
         if (insertError) {
           console.error("Error inserting violations:", insertError);
@@ -1708,7 +1748,10 @@ Deno.serve(async (req) => {
       if (newApps.length > 0) {
         const { error: appInsertError } = await supabase
           .from('applications')
-          .insert(newApps);
+          .upsert(newApps, {
+            onConflict: 'property_id,source,application_number',
+            ignoreDuplicates: false,
+          });
 
         if (appInsertError) {
           console.error('Error inserting applications:', appInsertError);
