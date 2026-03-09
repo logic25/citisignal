@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Activity, Users, Building2, AlertTriangle, UserPlus, Ticket, ExternalLink } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
+import SyncHealthSection from '@/components/admin/SyncHealthSection';
 
 export default function AdminOverview() {
   const [, setSearchParams] = useSearchParams();
