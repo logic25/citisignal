@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { emailHeader, emailBody, emailFooter } from "../_shared/email-template.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
