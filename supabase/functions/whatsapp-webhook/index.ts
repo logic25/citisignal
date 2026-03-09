@@ -250,19 +250,34 @@ RULES:
   */
 });
 
-// ── LINK COMMAND HANDLER ──
-async function handleLinkCommand(supabase: any, code: string, phone: string, displayName: string) {
+// ── LINK COMMAND HANDLER (uses secure tokens from pending_account_links) ──
+async function handleLinkCommand(supabase: any, token: string, phone: string, displayName: string) {
   try {
-    const userId = atob(code);
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-      return twimlResponse("❌ Invalid link code. Please copy the code from Settings > WhatsApp in CitiSignal.");
+    // Look up the secure token
+    const { data: linkRecord, error: linkErr } = await supabase
+      .from("pending_account_links")
+      .select("id, user_id, expires_at, used")
+      .eq("token", token)
+      .eq("channel", "whatsapp")
+      .eq("used", false)
+      .maybeSingle();
+
+    if (!linkRecord || linkErr) {
+      return twimlResponse("❌ Invalid or expired link code. Please generate a new one from Settings > WhatsApp in CitiSignal.");
     }
+
+    if (new Date(linkRecord.expires_at) < new Date()) {
+      return twimlResponse("❌ This link has expired. Please generate a new one from Settings > WhatsApp in CitiSignal.");
+    }
+
+    // Mark token as used
+    await supabase.from("pending_account_links").update({ used: true }).eq("id", linkRecord.id);
 
     const { error } = await supabase
       .from("whatsapp_users")
       .upsert(
         {
-          user_id: userId,
+          user_id: linkRecord.user_id,
           phone_number: phone,
           display_name: displayName,
           is_active: true,
@@ -286,7 +301,7 @@ async function handleLinkCommand(supabase: any, code: string, phone: string, dis
       `Type HELP for all commands.`
     );
   } catch {
-    return twimlResponse("❌ Invalid link code. Please copy the code from Settings > WhatsApp in CitiSignal.");
+    return twimlResponse("❌ Invalid link code. Please generate a new one from Settings > WhatsApp in CitiSignal.");
   }
 }
 
