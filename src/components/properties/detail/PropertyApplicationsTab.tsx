@@ -355,6 +355,59 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
         map.get(prefix)!.push(app);
       }
     });
+
+    // Also synthesize virtual related filing entries from aggregate records' raw_data.filings
+    // when those filings don't exist as separate DB rows (e.g. P1 only in aggregate)
+    (applications || []).forEach(app => {
+      const { suffix } = parseFilingNumber(app.application_number);
+      if (suffix) return; // not a standalone aggregate
+      const rawFilings = (app.raw_data as any)?.filings as Array<{ filing_number?: string; filing_type?: string; status?: string; permit_number?: string }> | undefined;
+      if (!rawFilings || rawFilings.length === 0) return;
+
+      const jobNum = app.application_number;
+      if (!map.has(jobNum)) map.set(jobNum, []);
+      const existing = map.get(jobNum)!;
+      const existingSuffixes = new Set(existing.map(e => {
+        const parsed = parseFilingNumber(e.application_number);
+        return parsed.suffix;
+      }));
+
+      for (const f of rawFilings) {
+        const filingNum = f.filing_number || '';
+        // Build the expected suffix key
+        const expectedAppNum = f.permit_number || `${jobNum}-${filingNum}`;
+        const parsed = parseFilingNumber(expectedAppNum);
+        if (parsed.suffix && !existingSuffixes.has(parsed.suffix)) {
+          // Synthesize a virtual Application entry
+          existing.push({
+            id: `virtual-${jobNum}-${filingNum}`,
+            application_number: expectedAppNum || `${jobNum}-${filingNum}`,
+            application_type: f.filing_type || app.application_type,
+            agency: app.agency,
+            source: app.source,
+            status: f.status || null,
+            filing_date: null,
+            approval_date: null,
+            expiration_date: null,
+            job_type: f.filing_type || null,
+            work_type: app.work_type,
+            description: null,
+            applicant_name: null,
+            owner_name: null,
+            estimated_cost: null,
+            stories: null,
+            dwelling_units: null,
+            floor_area: null,
+            notes: null,
+            tenant_name: null,
+            tenant_notes: null,
+            raw_data: null,
+          });
+          existingSuffixes.add(parsed.suffix);
+        }
+      }
+    });
+
     return map;
   }, [applications]);
 
