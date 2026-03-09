@@ -5,7 +5,12 @@ export function emailHeader(subtitle: string): string {
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
   <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
     <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
-      <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">📡 CitiSignal</div>
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+        <td style="background:#334155;border-radius:10px;padding:8px;vertical-align:middle;width:40px;height:40px;text-align:center;">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNC45IDE5LjFDMSAxNS4yIDEgOC44IDQuOSA0LjkiPjwvcGF0aD48cGF0aCBkPSJNNy44IDE2LjJjLTIuMy0yLjMtMi4zLTYuMSAwLTguNSI+PC9wYXRoPjxwYXRoIGQ9Ik0xNi4yIDcuOGMyLjMgMi4zIDIuMyA2LjEgMCA4LjUiPjwvcGF0aD48cGF0aCBkPSJNMTkuMSA0LjljMy45IDMuOSAzLjkgMTAuMiAwIDE0LjEiPjwvcGF0aD48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIj48L2NpcmNsZT48L3N2Zz4K" alt="CitiSignal" style="width:24px;height:24px;display:block;margin:0 auto;" />
+        </td>
+        <td style="padding-left:12px;vertical-align:middle;"><span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">CitiSignal</span></td>
+      </tr></table>
       <div style="color:#94a3b8;font-size:13px;margin-top:4px;">${subtitle}</div>
     </div>`;
 }

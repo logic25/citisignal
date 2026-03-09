@@ -334,23 +334,53 @@ Deno.serve(async (req) => {
                   from: fromAddress,
                   to: [tenant.contact_email],
                   subject: `Insurance renewal reminder — ${prop.address}`,
-                  html: emailHeader('Insurance Reminder') +
-                    emailBody(`
-                      <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${tenant.company_name || 'there'},</p>
-                      <p style="color:#64748b;font-size:14px;margin:0 0 20px;">
-                        Your <strong>${policy.policy_type?.replace(/_/g, ' ')}</strong> insurance policy
-                        ${policy.carrier_name ? `with <strong>${policy.carrier_name}</strong> ` : ''}
-                        for <strong>${prop.address}</strong> expires in <strong>${daysLeft} day${daysLeft !== 1 ? 's' : ''}</strong> (${policy.expiration_date}).
-                      </p>
-                      <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:20px;">
-                        <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Action Required</p>
-                        <p style="color:#1e293b;font-size:13px;margin:0;line-height:1.5;">
-                          Please provide an updated Certificate of Insurance (COI) to your property manager at your earliest convenience.
+                  html: (() => {
+                    const isUrgent = daysLeft <= 3;
+                    const urgencyBg = isUrgent ? '#fef2f2' : '#fef3c7';
+                    const urgencyBorder = isUrgent ? '#dc2626' : '#f59e0b';
+                    const urgencyTextColor = isUrgent ? '#991b1b' : '#92400e';
+                    const urgencyLabel = isUrgent ? 'COVERAGE EXPIRING' : 'POLICY EXPIRING SOON';
+                    const badgeBg = isUrgent ? '#dc2626' : '#f59e0b';
+                    const actionBg = isUrgent ? '#fef2f2' : '#fff7ed';
+                    const actionBorder = isUrgent ? '#dc2626' : '#f59e0b';
+                    const actionHeadColor = isUrgent ? '#991b1b' : '#92400e';
+                    const actionBodyColor = isUrgent ? '#7f1d1d' : '#78350f';
+
+                    const urgencyBanner = `
+                      <div style="background:${urgencyBg};border-left:4px solid ${urgencyBorder};padding:14px 28px;border-right:1px solid #e2e8f0;">
+                        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+                          <td><span style="font-weight:700;color:${urgencyTextColor};font-size:13px;">${urgencyLabel}</span></td>
+                          <td style="text-align:right;"><span style="background:${badgeBg};color:white;padding:3px 12px;border-radius:12px;font-size:11px;font-weight:700;">${daysLeft} DAYS</span></td>
+                        </tr></table>
+                      </div>`;
+
+                    return emailHeader('Insurance Reminder') +
+                      urgencyBanner +
+                      emailBody(`
+                        <p style="color:#1e293b;font-size:15px;margin:0 0 6px;">Hi ${tenant.company_name || 'there'},</p>
+                        <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 20px;">
+                          Your insurance policy for <strong>${prop.address}</strong> is ${isUrgent ? `expiring in <strong style="color:#dc2626;">${daysLeft} days</strong>. Immediate action is needed.` : 'expiring soon. Please provide an updated Certificate of Insurance (COI) to your property manager.'}
                         </p>
-                      </div>
-                      <p style="color:#94a3b8;font-size:12px;margin:0;">This is an automated reminder from CitiSignal on behalf of your property management.</p>
-                    `) +
-                    emailFooter(),
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:20px;">
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr><td style="padding:6px 0;"><span style="color:#64748b;font-size:12px;">Policy Type</span></td>
+                                <td style="padding:6px 0;text-align:right;"><strong style="color:#1e293b;font-size:13px;">${policy.policy_type?.replace(/_/g, ' ')}</strong></td></tr>
+                            ${policy.carrier_name ? `<tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 0;"><span style="color:#64748b;font-size:12px;">Carrier</span></td>
+                                <td style="padding:6px 0;text-align:right;"><strong style="color:#1e293b;font-size:13px;">${policy.carrier_name}</strong></td></tr>` : ''}
+                            <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 0;"><span style="color:#64748b;font-size:12px;">Property</span></td>
+                                <td style="padding:6px 0;text-align:right;"><strong style="color:#1e293b;font-size:13px;">${prop.address}</strong></td></tr>
+                            <tr style="border-top:1px solid #f1f5f9;"><td style="padding:6px 0;"><span style="color:#64748b;font-size:12px;">Expires</span></td>
+                                <td style="padding:6px 0;text-align:right;"><strong style="color:${isUrgent ? '#dc2626' : '#ea580c'};font-size:13px;">${policy.expiration_date}</strong></td></tr>
+                          </table>
+                        </div>
+                        <div style="background:${actionBg};border-left:4px solid ${actionBorder};border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+                          <p style="font-size:11px;font-weight:700;color:${actionHeadColor};text-transform:uppercase;letter-spacing:0.5px;margin:0 0 6px;">${isUrgent ? 'Urgent — Action Required' : 'Action Required'}</p>
+                          <p style="color:${actionBodyColor};font-size:13px;margin:0;line-height:1.5;">Please provide an updated Certificate of Insurance (COI) to your property manager${isUrgent ? ' immediately' : ''}. Lapsed coverage may affect your tenancy and vendor agreements.</p>
+                        </div>
+                        <p style="color:#94a3b8;font-size:12px;margin:0;">Automated reminder from CitiSignal on behalf of your property management.</p>
+                      `) +
+                      emailFooter();
+                  })(),
                 }),
               });
               console.log(`  -> Sent insurance reminder email to ${tenant.contact_email}`);
