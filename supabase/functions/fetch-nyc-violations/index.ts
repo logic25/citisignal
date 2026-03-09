@@ -263,6 +263,8 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const isServiceRole = token === supabaseServiceKey;
 
+    let authenticatedUserId: string | null = null;
+
     if (!isServiceRole) {
       // Verify the user for client calls
       const authClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -275,6 +277,7 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      authenticatedUserId = user.id;
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -305,7 +308,7 @@ Deno.serve(async (req) => {
         .select("user_id")
         .eq("id", property_id)
         .single();
-      if (propErr || !prop || prop.user_id !== user.id) {
+      if (propErr || !prop || prop.user_id !== authenticatedUserId) {
         return new Response(JSON.stringify({ error: "Forbidden: not your property" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
