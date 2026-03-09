@@ -160,7 +160,7 @@ function buildEmailHtml(data: {
           <p style="color:#334155;font-size:12px;margin:0;line-height:1.5;">${s.action}</p>
         </div>
         
-        <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Issued: ${formatDate(v.issued_date)}${v.hearing_date ? ` · Hearing: <strong style="color:#ea580c;">${formatDate(v.hearing_date)}</strong>` : ""}</div>
+        <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Issued: ${formatDate(v.issued_date)}${v.hearing_date ? ` · Hearing: <strong style="color:#dc2626;">${formatDate(v.hearing_date)}</strong>` : ""}</div>
       </div>
     `;
     }).join("");
