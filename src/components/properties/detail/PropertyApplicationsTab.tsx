@@ -854,8 +854,8 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
     const decodedStatus = decodeStatus(app.status, app.source);
     const isBuild = app.source.startsWith('DOB NOW');
     const { prefix, suffix } = parseFilingNumber(app.application_number);
-    // Show related filings for any app that belongs to a family (has suffix)
-    const relatedApps = suffix ? (relatedFilingsMap.get(prefix) || []).filter(a => a.id !== app.id) : [];
+    // Show related filings for any app that belongs to a family
+    const relatedApps = (relatedFilingsMap.get(prefix) || []).filter(a => a.id !== app.id);
 
     return (
       <>
