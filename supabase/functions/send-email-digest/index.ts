@@ -67,7 +67,7 @@ function calculateSeverity(v: {
   if (HIGH_KEYWORDS.some(k => text.includes(k)) || v.agency === 'FDNY') {
     return {
       level: 'High',
-      color: '#ea580c', bgColor: '#fff7ed',
+      color: '#dc2626', bgColor: '#fef2f2',
       explanation: 'Relates to building safety systems, structural integrity, or fire safety — typically carries significant penalties.',
       action: 'Schedule inspection or corrective action within 1–2 weeks. Engage a licensed PE/RA if structural or facade-related.'
     };
