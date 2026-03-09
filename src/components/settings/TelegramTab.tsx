@@ -1,17 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, MessageCircle, Link2, Unlink, ExternalLink, QrCode } from 'lucide-react';
+import { Loader2, MessageCircle, Link2, Unlink, ExternalLink } from 'lucide-react';
 
 const TelegramTab = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [telegramUser, setTelegramUser] = useState<any>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const botUsername = 'CitiSignalBot';
 
@@ -38,15 +40,43 @@ const TelegramTab = () => {
     }
   };
 
-  const getLinkUrl = () => {
-    if (!user) return '';
-    const code = btoa(user.id);
-    return `https://t.me/${botUsername}?start=${code}`;
+  const generateLinkUrl = async () => {
+    if (!user) return;
+    setIsGenerating(true);
+    try {
+      // Generate a crypto-secure random token
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const token = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 min expiry
+
+      const { error } = await supabase
+        .from('pending_account_links' as any)
+        .insert({
+          user_id: user.id,
+          token,
+          channel: 'telegram',
+          expires_at: expiresAt,
+        } as any);
+
+      if (error) throw error;
+
+      const url = `https://t.me/${botUsername}?start=${token}`;
+      setLinkUrl(url);
+    } catch (error) {
+      console.error('Error generating link:', error);
+      toast.error('Failed to generate link');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(getLinkUrl());
-    toast.success('Link copied to clipboard');
+    if (linkUrl) {
+      navigator.clipboard.writeText(linkUrl);
+      toast.success('Link copied to clipboard');
+    }
   };
 
   const handleUnlink = async () => {
@@ -60,6 +90,7 @@ const TelegramTab = () => {
 
       if (error) throw error;
       setTelegramUser(null);
+      setLinkUrl(null);
       toast.success('Telegram account unlinked');
     } catch (error) {
       console.error('Error unlinking:', error);
@@ -144,47 +175,72 @@ const TelegramTab = () => {
               <div className="p-4 rounded-lg border border-dashed border-border">
                 <h4 className="font-medium text-foreground mb-2">Connect Your Telegram</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Scan the QR code below with your phone's camera or Telegram app to link your account.
+                  Generate a secure link to connect your Telegram account. Links expire after 15 minutes.
                 </p>
-                
-                {/* QR Code */}
-                <div className="flex flex-col items-center gap-4 mb-4">
-                  <div className="bg-white p-3 rounded-lg shadow-sm border">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getLinkUrl())}`}
-                      alt="Scan to connect Telegram"
-                      width={200}
-                      height={200}
-                      className="rounded"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Scan with your phone camera or Telegram app
-                  </p>
-                </div>
 
-                <div className="flex flex-wrap gap-3 justify-center">
-                  <Button asChild>
-                    <a
-                      href={getLinkUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Link2 className="w-4 h-4 mr-2" />
-                      Open in Telegram
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </a>
-                  </Button>
-                </div>
+                {linkUrl ? (
+                  <>
+                    {/* QR Code */}
+                    <div className="flex flex-col items-center gap-4 mb-4">
+                      <div className="bg-white p-3 rounded-lg shadow-sm border">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkUrl)}`}
+                          alt="Scan to connect Telegram"
+                          width={200}
+                          height={200}
+                          className="rounded"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Scan with your phone camera or Telegram app
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      <Button asChild>
+                        <a
+                          href={linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Link2 className="w-4 h-4 mr-2" />
+                          Open in Telegram
+                          <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      </Button>
+                      <Button variant="outline" onClick={handleCopyLink}>
+                        Copy Link
+                      </Button>
+                      <Button variant="ghost" onClick={generateLinkUrl} disabled={isGenerating}>
+                        Generate New Link
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center mt-3">
+                      This link expires in 15 minutes. Generate a new one if it expires.
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex justify-center">
+                    <Button onClick={generateLinkUrl} disabled={isGenerating}>
+                      {isGenerating ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Link2 className="w-4 h-4 mr-2" />
+                      )}
+                      Generate Link
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-foreground">How it works:</h4>
                 <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Scan the QR code above with your phone</li>
+                  <li>Click "Generate Link" above</li>
+                  <li>Scan the QR code or open the link in Telegram</li>
                   <li>Press "Start" in the bot chat</li>
                   <li>Your account will be linked automatically</li>
-                  <li>Start asking questions about your properties!</li>
                 </ol>
               </div>
             </div>
