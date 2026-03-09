@@ -91,13 +91,17 @@ function buildChangeSummaryHtml(data: {
       </a>
     </div>
 
-    <div style="background:linear-gradient(135deg,#fef3c7,#fff7ed);padding:24px 32px;text-align:center;border-top:1px solid #fde68a;">
-      <p style="color:#92400e;font-size:15px;font-weight:700;margin:0 0 6px;">Need help with compliance?</p>
-      <p style="color:#78350f;font-size:12px;margin:0 0 14px;">GLE Expediting handles DOB violations, permits, and hearings.</p>
-      <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="text-align:center;">
-        <a href="tel:+17186127171" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:12px;margin:0 4px;">📞 (718) 612-7171</a>
-        <a href="mailto:info@gleexpediting.com" style="display:inline-block;background:#ea580c;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:12px;margin:0 4px;">✉️ Email GLE</a>
-      </td></tr></table>
+    <div style="background:linear-gradient(135deg,#fef3c7,#fff7ed);padding:28px 32px;text-align:center;border-top:1px solid #fde68a;">
+      <p style="color:#92400e;font-size:16px;font-weight:700;margin:0 0 8px;">Need help with compliance?</p>
+      <p style="color:#78350f;font-size:13px;margin:0 0 16px;line-height:1.5;">
+        Green Light Expediting LLC specializes in NYC DOB violations, permits, and code compliance.
+      </p>
+      <a href="mailto:info@greenlightexpediting.com?subject=Compliance%20Help" style="display:inline-block;background:#ea580c;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">
+        ✉️ Contact Green Light Expediting
+      </a>
+      <p style="color:#b45309;font-size:11px;margin:12px 0 0;">
+        Green Light Expediting LLC · <a href="https://www.greenlightexpediting.com" style="color:#b45309;text-decoration:underline;">www.greenlightexpediting.com</a>
+      </p>
     </div>
 
     <div style="padding:20px 32px;text-align:center;border-radius:0 0 16px 16px;background:#fff;border-top:1px solid #f1f5f9;">
