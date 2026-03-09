@@ -361,11 +361,25 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
   // Deduplicate: for job families, only show the primary (I1) row in the table.
   // Subsequent filings (P1, P2, S1, etc.) are nested inside the expanded detail.
   const sortedFiltered = useMemo(() => {
+    // Build a set of prefixes that have an I-filing (e.g. X00569255-I1-LA)
+    const prefixesWithInitial = new Set<string>();
+    filtered.forEach(app => {
+      const { prefix, suffix } = parseFilingNumber(app.application_number);
+      if (suffix) {
+        const suffixLetter = suffix.replace(/-[A-Z]+$/, '').charAt(0).toUpperCase();
+        if (suffixLetter === 'I') prefixesWithInitial.add(prefix);
+      }
+    });
+
     // S (Subsequent) and P (Post-Approval) filings are ALWAYS nested under their
     // parent I (Initial) filing. They should never appear as standalone rows.
+    // Also hide standalone parent records (no suffix) when an I-filing exists for that job.
     const deduped = filtered.filter(app => {
-      const { suffix } = parseFilingNumber(app.application_number);
-      if (!suffix) return true; // standalone app, always show
+      const { prefix, suffix } = parseFilingNumber(app.application_number);
+      if (!suffix) {
+        // Hide standalone record if an I-filing exists for the same job number
+        return !prefixesWithInitial.has(app.application_number);
+      }
       const suffixLetter = suffix.replace(/-[A-Z]+$/, '').charAt(0).toUpperCase();
       // Only show I (Initial) filings as top-level rows
       return suffixLetter === 'I';
