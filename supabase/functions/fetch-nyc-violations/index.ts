@@ -1046,7 +1046,10 @@ Deno.serve(async (req) => {
 
         const { error: insertError } = await supabase
           .from("violations")
-          .insert(violationsToInsert);
+          .upsert(violationsToInsert, {
+            onConflict: 'property_id,violation_number,agency',
+            ignoreDuplicates: false,
+          });
 
         if (insertError) {
           console.error("Error inserting violations:", insertError);
