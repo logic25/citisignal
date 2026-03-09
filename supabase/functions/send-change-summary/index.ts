@@ -27,6 +27,23 @@ function buildChangeSummaryHtml(data: {
 }): string {
   const { userName, properties, totalChanges, appUrl, date } = data;
 
+  // 6a: Detect critical changes and count categories
+  const CRITICAL_KEYWORDS_SUMMARY = ['stop work', 'swo', 'vacate', 'cease', 'imminent danger'];
+  const criticalChanges: Array<{ entity_label: string; description: string; address: string }> = [];
+  let newCount = 0;
+  let changedCount = 0;
+
+  for (const prop of properties) {
+    for (const c of prop.changes) {
+      const desc = (c.description || '').toLowerCase();
+      if (CRITICAL_KEYWORDS_SUMMARY.some(k => desc.includes(k))) {
+        criticalChanges.push({ entity_label: c.entity_label, description: c.description, address: prop.address });
+      }
+      if (c.change_type === 'new') newCount++;
+      else changedCount++;
+    }
+  }
+
   const propertyBlocks = properties.map(prop => {
     const changeRows = prop.changes.map(c => {
       const icon = c.entity_type === 'violation' ? '⚠️' : '📋';
@@ -60,6 +77,46 @@ function buildChangeSummaryHtml(data: {
     `;
   }).join("");
 
+  // 6b: SWO banner
+  const swoBanner = criticalChanges.length > 0 ? criticalChanges.map(c => `
+    <div style="background:#dc2626;padding:14px 24px;border:1px solid #b91c1c;border-top:0;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="vertical-align:middle;width:32px;">
+          <div style="background:rgba(255,255,255,0.2);border-radius:8px;width:32px;height:32px;text-align:center;line-height:32px;font-size:16px;color:#fff;font-weight:900;">!</div>
+        </td>
+        <td style="padding-left:12px;vertical-align:middle;">
+          <p style="color:#ffffff;font-size:14px;font-weight:800;margin:0;text-transform:uppercase;letter-spacing:0.5px;">${c.description.toLowerCase().includes('vacate') ? 'Vacate Order Issued' : 'Stop Work Order Issued'}</p>
+          <p style="color:#fecaca;font-size:12px;margin:2px 0 0;line-height:1.4;">
+            <strong>${c.entity_label}</strong> at <strong>${c.address}</strong> — All construction must cease immediately.
+          </p>
+        </td>
+        <td style="width:120px;text-align:right;vertical-align:middle;">
+          <a href="${appUrl}/dashboard" style="display:inline-block;background:#ffffff;color:#dc2626;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px;white-space:nowrap;">View →</a>
+        </td>
+      </tr></table>
+    </div>`).join('') : '';
+
+  // 6c: Stats bar
+  const statsBar = `
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      ${criticalChanges.length > 0 ? `<td style="text-align:center;padding:8px;">
+        <div style="font-size:24px;font-weight:800;color:#dc2626;">${criticalChanges.length}</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Critical</div>
+      </td>` : ''}
+      <td style="text-align:center;padding:8px;">
+        <div style="font-size:24px;font-weight:800;color:#22c55e;">${newCount}</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;">New</div>
+      </td>
+      <td style="text-align:center;padding:8px;">
+        <div style="font-size:24px;font-weight:800;color:#f59e0b;">${changedCount}</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Changed</div>
+      </td>
+      <td style="text-align:center;padding:8px;">
+        <div style="font-size:24px;font-weight:800;color:#0f172a;">${totalChanges}</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Total</div>
+      </td>
+    </tr></table>`;
+
   return `
 <!DOCTYPE html>
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
@@ -76,9 +133,10 @@ function buildChangeSummaryHtml(data: {
       <div style="color:#64748b;font-size:12px;margin-top:4px;">${date}</div>
     </div>
 
+    ${swoBanner}
+
     <div style="background:#ffffff;padding:20px 32px;text-align:center;border-bottom:1px solid #e2e8f0;">
-      <div style="font-size:36px;font-weight:800;color:#0f172a;">${totalChanges}</div>
-      <div style="font-size:12px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Changes Detected</div>
+      ${statsBar}
     </div>
 
     <div style="background:#ffffff;padding:20px 32px 12px;border-bottom:1px solid #f1f5f9;">
