@@ -378,7 +378,7 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
         const expectedAppNum = f.permit_number || `${jobNum}-${filingNum}`;
         const parsed = parseFilingNumber(expectedAppNum);
         if (parsed.suffix && !existingSuffixes.has(parsed.suffix)) {
-          // Synthesize a virtual Application entry
+          // Synthesize a virtual Application entry, inheriting shared data from aggregate
           existing.push({
             id: `virtual-${jobNum}-${filingNum}`,
             application_number: expectedAppNum || `${jobNum}-${filingNum}`,
@@ -386,22 +386,22 @@ export const PropertyApplicationsTab = ({ propertyId }: PropertyApplicationsTabP
             agency: app.agency,
             source: app.source,
             status: f.status || null,
-            filing_date: null,
-            approval_date: null,
-            expiration_date: null,
+            filing_date: app.filing_date,
+            approval_date: app.approval_date,
+            expiration_date: app.expiration_date,
             job_type: f.filing_type || null,
             work_type: app.work_type,
-            description: null,
-            applicant_name: null,
-            owner_name: null,
-            estimated_cost: null,
-            stories: null,
-            dwelling_units: null,
-            floor_area: null,
+            description: app.description,
+            applicant_name: app.applicant_name,
+            owner_name: app.owner_name,
+            estimated_cost: app.estimated_cost,
+            stories: app.stories,
+            dwelling_units: app.dwelling_units,
+            floor_area: app.floor_area,
             notes: null,
             tenant_name: null,
             tenant_notes: null,
-            raw_data: null,
+            raw_data: app.raw_data,
           });
           existingSuffixes.add(parsed.suffix);
         }
