@@ -281,7 +281,20 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               from: fromAddress, to: vendorMatch.email,
               subject: `CitiSignal PO Confirmation Code: ${poNumber}`,
-              html: `<h2>Your confirmation code to sign ${poNumber} ($${po.amount?.toLocaleString()}) is:</h2><h1 style="font-size:36px;letter-spacing:8px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;">${code}</h1><p>This code expires in 10 minutes.</p>`,
+              html: emailHeader('PO Confirmation Code') +
+                emailBody(`
+                  <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${vendorMatch.name || 'there'},</p>
+                  <p style="color:#64748b;font-size:14px;margin:0 0 20px;">
+                    Enter the code below in Telegram to confirm and sign <strong>${poNumber}</strong> ($${po.amount?.toLocaleString()}).
+                  </p>
+                  <div style="background:#f1f5f9;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center;">
+                    <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Confirmation Code</p>
+                    <p style="font-size:36px;font-weight:800;letter-spacing:8px;color:#0f172a;margin:0;">${code}</p>
+                    <p style="color:#94a3b8;font-size:12px;margin:8px 0 0;">This code expires in 10 minutes</p>
+                  </div>
+                  <p style="color:#94a3b8;font-size:12px;margin:0;">If you did not request this, you can safely ignore this email.</p>
+                `) +
+                emailFooter(),
             }),
           });
         }

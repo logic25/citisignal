@@ -334,13 +334,23 @@ Deno.serve(async (req) => {
                   from: fromAddress,
                   to: [tenant.contact_email],
                   subject: `Insurance renewal reminder — ${prop.address}`,
-                  html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#0f172a;">Insurance Renewal Reminder</h2>
-                    <p>Hi ${tenant.company_name || "Tenant"},</p>
-                    <p>Your <strong>${policy.policy_type?.replace(/_/g, " ")}</strong> insurance policy for <strong>${prop.address}</strong> expires in <strong>${daysLeft} days</strong> (${policy.expiration_date}).</p>
-                    <p>Please provide an updated Certificate of Insurance (COI) to your property manager at your earliest convenience.</p>
-                    <p style="color:#64748b;font-size:13px;margin-top:24px;">— CitiSignal Compliance Alerts</p>
-                  </div>`,
+                  html: emailHeader('Insurance Reminder') +
+                    emailBody(`
+                      <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${tenant.company_name || 'there'},</p>
+                      <p style="color:#64748b;font-size:14px;margin:0 0 20px;">
+                        Your <strong>${policy.policy_type?.replace(/_/g, ' ')}</strong> insurance policy
+                        ${policy.carrier_name ? `with <strong>${policy.carrier_name}</strong> ` : ''}
+                        for <strong>${prop.address}</strong> expires in <strong>${daysLeft} day${daysLeft !== 1 ? 's' : ''}</strong> (${policy.expiration_date}).
+                      </p>
+                      <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:20px;">
+                        <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Action Required</p>
+                        <p style="color:#1e293b;font-size:13px;margin:0;line-height:1.5;">
+                          Please provide an updated Certificate of Insurance (COI) to your property manager at your earliest convenience.
+                        </p>
+                      </div>
+                      <p style="color:#94a3b8;font-size:12px;margin:0;">This is an automated reminder from CitiSignal on behalf of your property management.</p>
+                    `) +
+                    emailFooter(),
                 }),
               });
               console.log(`  -> Sent insurance reminder email to ${tenant.contact_email}`);

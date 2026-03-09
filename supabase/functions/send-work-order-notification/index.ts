@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { emailHeader, emailBody, emailFooter } from "../_shared/email-template.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -50,37 +51,23 @@ Deno.serve(async (req) => {
     const fromAddress = Deno.env.get("RESEND_FROM_ADDRESS") || "CitiSignal <notifications@citisignal.com>";
     const appUrl = Deno.env.get("APP_URL") || "https://app.citisignal.com";
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
-    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:12px 12px 0 0;padding:24px;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:#ffffff;">📡 CitiSignal</div>
-      <div style="color:#94a3b8;font-size:13px;margin-top:4px;">New Work Order</div>
-    </div>
-    <div style="background:#ffffff;padding:24px;border:1px solid #e2e8f0;border-top:0;">
-      <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${vendor_name || 'there'},</p>
-      <p style="color:#64748b;font-size:14px;margin:0 0 20px;">You've been assigned a new work order${property_address ? ` for <strong>${property_address}</strong>` : ''}.</p>
-      
-      <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:20px;">
-        <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Scope of Work</p>
-        <p style="color:#1e293b;font-size:14px;margin:0;white-space:pre-line;">${scope_of_work.substring(0, 1000)}</p>
-      </div>
-
-      <div style="text-align:center;">
-        <a href="${appUrl}/dashboard/work-orders" style="display:inline-block;background:#0f172a;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">
-          View Work Order →
-        </a>
-      </div>
-    </div>
-    <div style="padding:16px;text-align:center;background:#ffffff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;">
-      <p style="color:#94a3b8;font-size:11px;margin:0;">© ${new Date().getFullYear()} CitiSignal</p>
-    </div>
-  </div>
-</body>
-</html>`;
+    const html = emailHeader('New Work Order') +
+      emailBody(`
+        <p style="color:#1e293b;font-size:15px;margin:0 0 16px;">Hi ${vendor_name || 'there'},</p>
+        <p style="color:#64748b;font-size:14px;margin:0 0 20px;">
+          You've been assigned a new work order${property_address ? ` for <strong>${property_address}</strong>` : ''}.
+        </p>
+        <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:20px;">
+          <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin:0 0 8px;">Scope of Work</p>
+          <p style="color:#1e293b;font-size:14px;margin:0;white-space:pre-line;">${scope_of_work.substring(0, 1000)}</p>
+        </div>
+        <div style="text-align:center;">
+          <a href="${appUrl}/dashboard/work-orders" style="display:inline-block;background:linear-gradient(135deg,#0f172a,#334155);color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">
+            View Work Order →
+          </a>
+        </div>
+      `) +
+      emailFooter();
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
