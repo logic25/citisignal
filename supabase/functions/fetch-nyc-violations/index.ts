@@ -1748,7 +1748,10 @@ Deno.serve(async (req) => {
       if (newApps.length > 0) {
         const { error: appInsertError } = await supabase
           .from('applications')
-          .insert(newApps);
+          .upsert(newApps, {
+            onConflict: 'property_id,source,application_number',
+            ignoreDuplicates: false,
+          });
 
         if (appInsertError) {
           console.error('Error inserting applications:', appInsertError);
