@@ -98,7 +98,7 @@ const Auth = () => {
           const msg = data?.error || error?.message || 'An unexpected error occurred.';
           toast.error(msg);
         } else {
-          toast.success('Account created! Check your email to confirm your account.');
+          toast.success(data?.message || 'Account created! You can now sign in.');
           setIsSignUp(false);
           setInviteCode('');
         }
