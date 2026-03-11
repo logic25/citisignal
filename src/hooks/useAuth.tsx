@@ -42,6 +42,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!profile) {
               // New OAuth user without prior signup — kick them out
               await supabase.auth.signOut();
+              // Clear any OAuth hash tokens from the URL to prevent re-processing
+              if (window.location.hash) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              }
               if (isMounted) {
                 setSession(null);
                 setUser(null);
