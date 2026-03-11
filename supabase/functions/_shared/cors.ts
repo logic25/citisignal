@@ -20,24 +20,36 @@ export function getCorsHeaders(req: Request): Record<string, string> {
     Vary: "Origin",
   };
 
-  // Always allow Lovable preview and published domains
-  if (
+  const isLovableOrigin =
     origin.endsWith(".lovableproject.com") ||
     origin.endsWith(".lovable.app") ||
-    origin.endsWith("-preview--lovable.app") ||  // preview URLs
-    allowedOrigins.includes(origin)
-  ) {
+    origin.endsWith("-preview--lovable.app");
+
+  const normalizeHost = (url: string) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
+
+  const originHost = normalizeHost(origin);
+  const matchesConfiguredOrigin = allowedOrigins.some((allowed) => {
+    if (allowed === origin) return true;
+    const allowedHost = normalizeHost(allowed);
+    return Boolean(originHost && allowedHost && originHost === allowedHost);
+  });
+
+  if (isLovableOrigin || matchesConfiguredOrigin) {
     headers["Access-Control-Allow-Origin"] = origin;
     return headers;
   }
 
-  // If no ALLOWED_ORIGINS configured, fall back to wildcard (dev mode)
   if (allowedOrigins.length === 0) {
     headers["Access-Control-Allow-Origin"] = "*";
     return headers;
   }
 
-  // Default to first allowed origin
   headers["Access-Control-Allow-Origin"] = allowedOrigins[0];
   return headers;
 }
