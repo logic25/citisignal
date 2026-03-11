@@ -98,9 +98,16 @@ const Auth = () => {
           const msg = data?.error || error?.message || 'An unexpected error occurred.';
           toast.error(msg);
         } else {
-          toast.success(data?.message || 'Account created! You can now sign in.');
-          setIsSignUp(false);
-          setInviteCode('');
+          // Auto sign-in after successful signup
+          const { error: signInError } = await signIn(email, password);
+          if (signInError) {
+            toast.success(data?.message || 'Account created! You can now sign in.');
+            setIsSignUp(false);
+            setInviteCode('');
+          } else {
+            toast.success('Welcome! Your account is ready.');
+            navigate('/dashboard');
+          }
         }
       } else {
         const { error } = await signIn(email, password);
