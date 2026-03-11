@@ -81,26 +81,65 @@ Deno.serve(async (req) => {
       email_confirm: true,
     });
 
-    if (authError) {
-      // Rollback the use_count increment since user creation failed
-      await supabaseAdmin
-        .from('invite_codes')
-        .update({ use_count: updatedCode.use_count - 1 })
-        .eq('id', code.id);
+    let userId: string;
 
+    if (authError) {
+      // Check if user already exists (e.g. from Google OAuth)
       if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+        // Look up the existing user
+        const { data: existingUsers, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(u => u.email === email);
+
+        if (!existingUser || listErr) {
+          // Rollback
+          await supabaseAdmin
+            .from('invite_codes')
+            .update({ use_count: updatedCode.use_count - 1 })
+            .eq('id', code.id);
+          return new Response(
+            JSON.stringify({ error: 'This email is already registered. Please sign in instead.' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if user already has an org (already fully onboarded)
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', existingUser.id)
+          .maybeSingle();
+
+        if (existingProfile?.organization_id) {
+          // Rollback — user is already fully set up
+          await supabaseAdmin
+            .from('invite_codes')
+            .update({ use_count: updatedCode.use_count - 1 })
+            .eq('id', code.id);
+          return new Response(
+            JSON.stringify({ error: 'This email is already registered. Please sign in instead.' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // User exists but has no org — link them to the invite code org
+        userId = existingUser.id;
+
+        // Update password so they can also sign in with email/password
+        await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+      } else {
+        // Rollback for other errors
+        await supabaseAdmin
+          .from('invite_codes')
+          .update({ use_count: updatedCode.use_count - 1 })
+          .eq('id', code.id);
         return new Response(
-          JSON.stringify({ error: 'This email is already registered. Please sign in instead.' }),
+          JSON.stringify({ error: authError.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    } else {
+      userId = authData.user!.id;
     }
-
-    const userId = authData.user!.id;
 
     // === Organization logic ===
     let organizationId: string | null = null;
