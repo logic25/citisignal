@@ -207,10 +207,13 @@ Deno.serve(async (req) => {
         .eq('user_id', userId);
     }
 
+    const isExistingUser = !!authError;
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Account created! Check your email to confirm your account.',
+        message: isExistingUser
+          ? 'Account linked! You can now sign in.'
+          : 'Account created! You can now sign in.',
         organization: organizationName ? { name: organizationName, role: orgRole } : null,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
